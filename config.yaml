@@ -1,0 +1,25 @@
+directories:
+  pdfs: "PDFs" #relative to script directory
+  jsons: "JSONs" #relative to script directory
+
+logger:
+  level: "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  format: "%(asctime)s - %(levelname)s - %(message)s"  # Log message format
+  datefmt: "%Y-%m-%d %H:%M:%S"  # Date format for log messages
+  filename: "pdf_scraper.log"  # Log file name
+
+jurisdictions:
+  "NY":
+    "Suffolk":
+      score_modifier: 1.0
+      notes: "EXAMPLE: High verdicts common, but high litigiation costs. Conservative jury pool."
+      last_updated: "2025-07-15"
+    "Nassau":
+      score_modifier: 1.0
+      notes: "EXAMPLE: High verdicts common, but high litigiation costs. Conservative jury pool."
+      last_updated: "2025-07-15"
+    "":
+      score_modifier: 1.0
+      notes: "EXAMPLE: High verdicts common, but high litigiation costs. Conservative jury pool."
+      last_updated: "2025-07-15"
+    "Westchester":

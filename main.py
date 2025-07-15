@@ -17,7 +17,7 @@
 
 # Use a DB to store all the metadata, while qdrant only stores the ID, we use the ID to get the real metadata in the DB.
 
-from scripts.filemanagement import FileManager, with_pdf, ChunkData, apply_ocr
+from scripts.filemanagement import FileManager, ChunkData, apply_ocr
 from scripts.aiclients import EmbeddingManager, ChatManager
 from scripts.vectordb import QdrantManager
 from pathlib import Path
@@ -91,9 +91,41 @@ def score_test():
     )
     print(final_analysis)
 
-def main():
-    embedding_test()
+def run_ocr_on_folder(folder_path: str):
+    """
+    Applies OCR to all PDF files in a specified folder.
 
+    Args:
+        folder_path (str): The path to the folder containing PDF files.
+    """
+    folder = Path(folder_path)
+    if not folder.is_dir():
+        logger.error(f"Provided path '{folder_path}' is not a valid directory.")
+        return
+
+    pdf_files = list(folder.glob("*.pdf"))
+    if not pdf_files:
+        logger.info(f"No PDF files found in '{folder_path}'.")
+        return
+
+    logger.info(f"Found {len(pdf_files)} PDF files to process.")
+    for pdf_file in pdf_files:
+        try:
+            apply_ocr(str(pdf_file))
+        except Exception as e:
+            logger.error(f"An error occurred while processing {pdf_file.name}: {e}")
+
+def main():
+    # embedding_test()
+    # Specify the folder containing PDFs here
+    pdf_folder_path = r"C:\Users\Justin\Desktop\testdocs2" 
+    run_ocr_on_folder(pdf_folder_path)
+    pdf_folder_path = r"C:\Users\Justin\Desktop\testdocs3" 
+    run_ocr_on_folder(pdf_folder_path)
+    pdf_folder_path = r"C:\Users\Justin\Desktop\testdocs4" 
+    run_ocr_on_folder(pdf_folder_path)
+    pdf_folder_path = r"C:\Users\Justin\Desktop\testdocs5" 
+    run_ocr_on_folder(pdf_folder_path)
 
 if __name__ == "__main__":
     main()

@@ -4,7 +4,6 @@ from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
 from langchain.schema import (
     SystemMessage,
     HumanMessage,
-    AIMessage
 )
 from typing import List
 

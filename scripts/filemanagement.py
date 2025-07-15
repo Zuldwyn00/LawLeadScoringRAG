@@ -84,7 +84,6 @@ def apply_ocr(filepath: str) -> None:
         )
     except Exception as e:
         logger.error(f"Failed to apply OCR to {filepath}: {e}")
-        raise
 
 
 class FileManager:

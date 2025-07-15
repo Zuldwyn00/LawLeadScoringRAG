@@ -50,7 +50,7 @@ This project is an AI-powered lead scoring system that analyzes new leads agains
 3.  **Install dependencies:**
     Install the required Python packages.
     ```sh
-    pip install qdrant-client langchain langchain-openai pypdf2 python-docx tiktoken python-dotenv PyYAML
+    pip install -requirements.txt
     ```
 
 4.  **Configure environment variables:**

@@ -50,6 +50,14 @@ class ChatManager():
         return client
     
     def add_response(self, message: str) -> bool:
+        """Adds a human message to the chat history.
+
+        Args:
+            message (str): The message content to add.
+
+        Returns:
+            bool: True if the message was added successfully, False otherwise.
+        """
         message_obj = HumanMessage(content=message)
         try:
             self.message_history.append(message_obj)
@@ -59,12 +67,21 @@ class ChatManager():
         return False
     
     def get_response(self, messages: list = None) -> str:
+        """Gets a response from the chat model.
+
+        Args:
+            messages (list, optional): A list of messages to send to the model. 
+                                     If not provided, the instance's message history will be used.
+
+        Returns:
+            str: The content of the model's response.
+        """
         messages_to_send = messages if messages else self.message_history
         response = self.client.invoke(messages_to_send).content
         return response
     
     def define_metadata(self, text: str, filepath: str, case_id: str) -> dict:
-        """Extracts metadata from text as a dictionary.
+        """Extracts metadata from text as a dictionary using AI with a structured prompt.
         Args:
             text (str): The text to process.
         Returns:

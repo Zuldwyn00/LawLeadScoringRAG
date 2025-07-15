@@ -37,8 +37,10 @@ venv.bak/
 .DS_Store
 
 # Project specific
-PROJECT_EXPANSION.md
-PROJECT_OVERVIEW.md
+PROJECT_EXPANSION.MD
+PROJECT_OVERVIEW.MD
+information.MD
+
 
 
 # Logs

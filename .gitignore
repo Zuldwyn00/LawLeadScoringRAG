@@ -37,7 +37,9 @@ venv.bak/
 .DS_Store
 
 # Project specific
-clusterkey.txt
+PROJECT_EXPANSION.md
+PROJECT_OVERVIEW.md
+
 
 # Logs
 *.log

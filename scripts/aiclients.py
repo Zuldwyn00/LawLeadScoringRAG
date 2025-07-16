@@ -70,7 +70,7 @@ class ChatManager():
         """Gets a response from the chat model.
 
         Args:
-            messages (list, optional): A list of messages to send to the model. 
+            mes structured promptnal): A list of messages to send to the model. 
                                      If not provided, the instance's message history will be used.
 
         Returns:
@@ -107,8 +107,7 @@ class ChatManager():
                 metadata['case_id'] = case_id
                 return metadata
             else:
-                logger.error("No JSON object found in the response: %s", response)
-                return None
+                raise ValueError("No JSON object found in the response: %s", response)
 
         except json.JSONDecodeError as e:
             logger.error("Failed to decode JSON from model response: %s. Response: %s", e, response)

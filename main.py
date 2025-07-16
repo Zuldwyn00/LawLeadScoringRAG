@@ -33,11 +33,12 @@ def embedding_test():
     embeddingmanager = EmbeddingManager()
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
-    files = find_files(Path(r"C:\Users\Justin\Desktop\testdocs4"))
+    files = find_files(Path(r"C:\Users\Justin\Desktop\testdocs"))
     print(f"Found {len(files)} files")
+    qdrantmanager.create_collection(collection_name="case_files")
 
     processed_files_data = load_from_json()
-    case_id = 3
+    case_id = 1050076
     for file in files:
         filename_str = str(file)
 
@@ -55,7 +56,7 @@ def embedding_test():
             datachunk.set_text(chunk.page_content)
             datachunk.set_metadata(text_metadata)
             datachunk.set_embeddings(embeddingmanager.get_embeddings(chunk.page_content))
-            qdrantmanager.add_embedding(collection_name="test_chunks", embedding=datachunk.get_embeddings(), metadata=datachunk.get_metadata(), vector_name="chunk")
+            qdrantmanager.add_embedding(collection_name="case_files", embedding=datachunk.get_embeddings(), metadata=datachunk.get_metadata(), vector_name="chunk")
             print(f"Added embedding to Qdrant for {file.stem}")
 
         if str(case_id) not in processed_files_data:
@@ -116,17 +117,8 @@ def run_ocr_on_folder(folder_path: str):
             logger.error(f"An error occurred while processing {pdf_file.name}: {e}")
 
 def main():
-    # embedding_test()
-    # Specify the folder containing PDFs here
-    pdf_folder_path = r"C:\Users\Justin\Desktop\testdocs2" 
-    run_ocr_on_folder(pdf_folder_path)
-    pdf_folder_path = r"C:\Users\Justin\Desktop\testdocs3" 
-    run_ocr_on_folder(pdf_folder_path)
-    pdf_folder_path = r"C:\Users\Justin\Desktop\testdocs4" 
-    run_ocr_on_folder(pdf_folder_path)
-    pdf_folder_path = r"C:\Users\Justin\Desktop\testdocs5" 
-    run_ocr_on_folder(pdf_folder_path)
-
+    embedding_test()
+    
 if __name__ == "__main__":
     main()
 

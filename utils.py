@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import List, Dict, Optional, Any
 import logging
+import logging.handlers
 import yaml
 import os
 import json
@@ -97,7 +98,17 @@ def setup_logger(
     log_dir.mkdir(exist_ok=True)
     log_file = log_dir / config["logger"]["filename"]
 
-    file_handler = logging.FileHandler(log_file, mode="a", encoding="utf-8")
+    # Use RotatingFileHandler for log rotation
+    max_bytes = int(config["logger"].get("max_bytes", 1024 * 1024 * 5))  # Default 5 MB
+    backup_count = int(config["logger"].get("backup_count", 3)) # Default 5 backups
+
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file,
+        mode="a",
+        maxBytes=max_bytes,
+        backupCount=backup_count,
+        encoding="utf-8",
+    )
     file_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
 

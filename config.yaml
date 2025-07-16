@@ -3,7 +3,7 @@ directories:
   jsons: "JSONs" #relative to script directory
 
 logger:
-  level: "INFO"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+  level: "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   format: "%(asctime)s - %(levelname)s - %(message)s"  # Log message format
   datefmt: "%Y-%m-%d %H:%M:%S"  # Date format for log messages
   filename: "pdf_scraper.log"  # Log file name

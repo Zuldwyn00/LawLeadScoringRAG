@@ -86,8 +86,8 @@ injury_metadata_extraction:
 
     ### Source & Summary
     - **communication_channel**: How the information was received (e.g., 'email', 'phone_transcript', 'web_form').
-    - **key_phrases**: A list of up to 5 direct quotes that capture the essence of the event, include at minimum 2 direct quotes. Remember to never include identifying information of the client.
-    - **summary**: A brief, neutral, one-paragraph or shorter summary of the core incident. Do not include any identifying information of the client or settlement $ amounts.
+    - **key_phrases**: A list of up to 5 direct quotes that capture the essence of the event, include at minimum 2 direct quotes. You MUST anonymize all names and PII in these quotes by replacing them with placeholders like 'Claimant' or 'Defendant'. Do not include any identifying information of the client or settlement $ amounts.
+    - **summary**: A brief, neutral, one-paragraph or shorter summary of the core incident. You MUST anonymize all names and PII in this summary by replacing them with placeholders like 'Claimant' or 'Defendant'. Do not include any identifying information of the client or settlement $ amounts.
 
     ## Instructions:
     1.  Adhere strictly to the JSON schema provided.
@@ -114,7 +114,7 @@ injury_metadata_extraction:
         "case_outcome": "settled_pre_litigation",
         "settlement_value_score": 35,
         "communication_channel": "web_form",
-        "key_phrases": ["the other driver ran a red light", "my car is totaled"] do NOT include any identifying information of the client or $ amounts.
+        "key_phrases": ["the other driver ran a red light", "my car is totaled"].
         "summary": "The client was involved in a car accident where the other driver allegedly ran a red light, resulting in injury and property damage. The client was not at fault."
     }
     ```

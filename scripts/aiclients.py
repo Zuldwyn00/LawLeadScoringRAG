@@ -1,5 +1,6 @@
 import os
 import json
+import time
 from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
 from langchain.schema import (
     SystemMessage,
@@ -32,8 +33,32 @@ class EmbeddingManager:
         return embedding
     
     def get_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
-        embeddings = self.client.embed_documents(texts)
-        return embeddings
+        """
+        Generates embeddings for a list of texts in batches to avoid rate limiting.
+
+        The method splits the input list of texts into two halves, processes each half
+        separately with a 5-second delay in between, and then combines the results.
+
+        Args:
+            texts (List[str]): A list of strings to be embedded.
+
+        Returns:
+            List[List[float]]: A list of embedding vectors for the input texts.
+        """
+        midpoint = len(texts) // 2
+        first_half = texts[:midpoint]
+        second_half = texts[midpoint:]
+
+        logger.info(f"Processing first batch of {len(first_half)} documents for embeddings.")
+        embeddings1 = self.client.embed_documents(first_half)
+        
+        logger.info("Waiting for 5 seconds before processing the next batch.")
+        time.sleep(5)
+        
+        logger.info(f"Processing second batch of {len(second_half)} documents for embeddings.")
+        embeddings2 = self.client.embed_documents(second_half)
+        
+        return embeddings1 + embeddings2
     
 
 
@@ -97,7 +122,7 @@ class ChatManager():
         messages_to_send = [system_message, user_message]
         
         try:
-            logger.debug(f"Attempting to define metadata, sending messages to client: {messages_to_send}")
+            logger.debug(f"Attempting to define metadata, sending messages to client.")
             response = self.client.invoke(messages_to_send).content
             
             # Find the start and end of the JSON object

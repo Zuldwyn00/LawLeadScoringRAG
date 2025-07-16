@@ -3,6 +3,7 @@ from dotenv import load_dotenv
 from huggingface_hub import load_torch_model
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
+from qdrant_client.http.exceptions import ResponseHandlingException
 from langchain_openai import AzureOpenAIEmbeddings
 from typing import List
 import uuid
@@ -81,6 +82,7 @@ class QdrantManager:
             metadatas (List[dict]): A list of metadata dictionaries.
             vector_name (str): Name of the vector field. Defaults to "chunk".
         """
+        logger.info(f"Uploading batch of {len(embeddings)} chunks to collection '{collection_name}'.")
         points = [
             models.PointStruct(
                 id=str(uuid.uuid4()),
@@ -89,7 +91,17 @@ class QdrantManager:
             )
             for embedding, metadata in zip(embeddings, metadatas) #zip combines the embeddings and metadatas into one iterable list, so for I in embedding and I in metadatas is basically what the loop is
         ]
-        self.client.upsert(collection_name=collection_name, points=points)
+        for attempt in range(2):  # One initial attempt and one retry
+            try:
+                self.client.upsert(collection_name=collection_name, points=points)
+                logger.info(f"Successfully uploaded {len(points)} chunks to collection '{collection_name}'.")
+                return  # If successful, exit the function
+            except ResponseHandlingException as e:
+                if attempt == 0:
+                    logger.warning(f"Error uploading batch to collection '{collection_name}', retrying... Error: {e}")
+                else:
+                    logger.error(f"Failed to upload batch to '{collection_name}' after retry. Halting. Error: {e}")
+                    raise
 
     def search_vectors(self, collection_name: str, query_vector: List[float], vector_name: str = "chunk", limit: int = 5) -> list:
         """

@@ -33,12 +33,12 @@ def embedding_test():
     embeddingmanager = EmbeddingManager()
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
-    files = find_files(Path(r"C:\Users\Justin\Desktop\testdocs2"))
+    files = find_files(Path(r"C:\Users\Justin\Desktop\testdocs"))
     progress = len(files)
     print(f"Found {progress} files")
     qdrantmanager.create_collection(collection_name="case_files")
     processed_files_data = load_from_json()
-    case_id = 2211830
+    case_id = 1050076
     
     for file in files:
         filename_str = str(file)
@@ -53,6 +53,7 @@ def embedding_test():
         text_metadata = chat_manager.define_metadata(file_text['content'], str(file), case_id)
 
         chunk_texts = [chunk.page_content for chunk in file_chunks]
+
         chunk_embeddings = embeddingmanager.get_embeddings_batch(chunk_texts)
         
         datachunks = []

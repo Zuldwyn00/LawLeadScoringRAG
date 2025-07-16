@@ -31,6 +31,10 @@ class EmbeddingManager:
         embedding = self.client.embed_query(text)
         return embedding
     
+    def get_embeddings_batch(self, texts: List[str]) -> List[List[float]]:
+        embeddings = self.client.embed_documents(texts)
+        return embeddings
+    
 
 
 
@@ -93,7 +97,7 @@ class ChatManager():
         messages_to_send = [system_message, user_message]
         
         try:
-            logger.debug(f"Attempting to define metadata,Sending messages to client: {messages_to_send}")
+            logger.debug(f"Attempting to define metadata, sending messages to client: {messages_to_send}")
             response = self.client.invoke(messages_to_send).content
             
             # Find the start and end of the JSON object

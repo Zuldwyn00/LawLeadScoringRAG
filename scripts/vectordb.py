@@ -71,6 +71,26 @@ class QdrantManager:
         )
         self.client.upsert(collection_name=collection_name, points=[point])
 
+    def add_embeddings_batch(self, collection_name: str, embeddings: List[List[float]], metadatas: List[dict], vector_name: str = "chunk"):
+        """
+        Adds a batch of embeddings to the collection.
+
+        Args:
+            collection_name (str): Name of the collection.
+            embeddings (List[List[float]]): A list of embedding vectors to add.
+            metadatas (List[dict]): A list of metadata dictionaries.
+            vector_name (str): Name of the vector field. Defaults to "chunk".
+        """
+        points = [
+            models.PointStruct(
+                id=str(uuid.uuid4()),
+                vector={vector_name: embedding},
+                payload=metadata or {}
+            )
+            for embedding, metadata in zip(embeddings, metadatas) #zip combines the embeddings and metadatas into one iterable list, so for I in embedding and I in metadatas is basically what the loop is
+        ]
+        self.client.upsert(collection_name=collection_name, points=points)
+
     def search_vectors(self, collection_name: str, query_vector: List[float], vector_name: str = "chunk", limit: int = 5) -> list:
         """
         Searches for similar vectors in the collection.

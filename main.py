@@ -33,37 +33,51 @@ def embedding_test():
     embeddingmanager = EmbeddingManager()
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
-    files = find_files(Path(r"C:\Users\Justin\Desktop\testdocs"))
-    print(f"Found {len(files)} files")
+    files = find_files(Path(r"C:\Users\Justin\Desktop\testdocs2"))
+    progress = len(files)
+    print(f"Found {progress} files")
     qdrantmanager.create_collection(collection_name="case_files")
-
     processed_files_data = load_from_json()
-    case_id = 1050076
+    case_id = 2211830
+    
     for file in files:
         filename_str = str(file)
 
         if processed_files_data.get(str(case_id)) and filename_str in processed_files_data[str(case_id)]:
+            progress -= 1
             print(f"Skipping already processed file: {file.name}")
             continue
         print(f"Processing file {file.name}")
         file_text = filemanager.get_text_from_file(str(file))
         file_chunks = filemanager.text_splitter(file_text)
         text_metadata = chat_manager.define_metadata(file_text['content'], str(file), case_id)
-        for chunk in file_chunks:
+
+        chunk_texts = [chunk.page_content for chunk in file_chunks]
+        chunk_embeddings = embeddingmanager.get_embeddings_batch(chunk_texts)
+        
+        datachunks = []
+        for i, chunk in enumerate(file_chunks):
             datachunk = ChunkData()
             datachunk.set_case_id(case_id)
             datachunk.set_source(str(file))
             datachunk.set_text(chunk.page_content)
             datachunk.set_metadata(text_metadata)
-            datachunk.set_embeddings(embeddingmanager.get_embeddings(chunk.page_content))
-            qdrantmanager.add_embedding(collection_name="case_files", embedding=datachunk.get_embeddings(), metadata=datachunk.get_metadata(), vector_name="chunk")
-            print(f"Added embedding to Qdrant for {file.stem}")
+            datachunk.set_embeddings(chunk_embeddings[i])
+            datachunks.append(datachunk)
+
+        embeddings = [chunk.get_embeddings() for chunk in datachunks]
+        metadatas = [chunk.get_metadata() for chunk in datachunks]
+
+        qdrantmanager.add_embeddings_batch(collection_name="case_files", embeddings=embeddings, metadatas=metadatas, vector_name="chunk")
+        print(f"Added {len(datachunks)} embeddings to Qdrant for {file.stem}")
 
         if str(case_id) not in processed_files_data:
             processed_files_data[str(case_id)] = []
         
         processed_files_data[str(case_id)].append(filename_str)
         save_to_json(processed_files_data)
+        progress -= 1
+        print(f"Progress: {len(files) - progress}/{len(files)}")
         print(f"Finished processing and marked {file.name} as complete.")
 
 def score_test():
@@ -118,7 +132,7 @@ def run_ocr_on_folder(folder_path: str):
 
 def main():
     embedding_test()
-    
+
 if __name__ == "__main__":
     main()
 

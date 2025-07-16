@@ -9,7 +9,6 @@ import ocrmypdf
 from ocrmypdf.exceptions import SubprocessOutputError
 import pymupdf
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from tika import parser
 
 # ─── LOCAL IMPORTS ──────────────────────────────────────────────────────────────────
 from utils import load_config, get_config_directories, setup_logger
@@ -91,10 +90,40 @@ class FileManager:
     def __init__(self):
         self.config = config
     
-    def get_text_from_file(self, filepath: str):
-         request_options = {'timeout': 300} # Set timeout to 5 minutes (300 seconds)
-         parsed_pdf = parser.from_file(filepath, requestOptions=request_options)
-         return parsed_pdf
+    def get_text_from_file(self, filepath: str) -> Optional[Dict[str, Any]]:
+        """
+        Extracts text and metadata from a PDF file using PyMuPDF.
+
+        This method is significantly faster for text-based PDFs compared to
+        alternatives like Tika because it uses the highly optimized MuPDF library
+        natively. It extracts all text content and document metadata.
+
+        If the PDF contains no extractable text (e.g., it's a scanned image),
+        the 'content' field will be empty, and a warning will be logged. For such
+        files, OCR should be applied separately using the `apply_ocr` function.
+
+        Args:
+            filepath (str): The path to the PDF file.
+
+        Returns:
+            Optional[Dict[str, Any]]: A dictionary with 'content' and 'metadata'
+            keys, or None if an error occurs.
+        """
+        try:
+            doc = pymupdf.open(filepath)
+            text = "".join(page.get_text() for page in doc)
+            doc.close()
+
+            if not text.strip():
+                logger.warning(
+                    f"No text extracted from {filepath}. It might be a scanned PDF. "
+                    "Consider running OCR on it first."
+                )
+
+            return {"content": text}
+        except Exception as e:
+            logger.error(f"Failed to extract text from {filepath} using PyMuPDF: {e}")
+            return None
 
     # TODO: Could tokenize first and then split using defined token chunks? Saw something like that in the documenatation
     #https://python.langchain.com/api_reference/text_splitters/base/langchain_text_splitters.base.Tokenizer.html

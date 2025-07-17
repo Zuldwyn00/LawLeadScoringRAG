@@ -102,7 +102,7 @@ class FileManager:
 
         Args:
             text (Dict[str, Any]): Parsed document dict from parser.from_file().
-            chunkSize (int): Max tokens per chunk. Defaults to 120000.
+            chunkSize (int): Max tokens per chunk. Defaults to 18000.
             chunkOverlap (int): Tokens to overlap between chunks. Defaults to 200.
 
         Returns:

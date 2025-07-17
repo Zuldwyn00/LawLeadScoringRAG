@@ -198,7 +198,7 @@ def find_files(directory: Path) -> List[Path]:
             non_duplicate_pdf_files.append(file)
     return non_duplicate_pdf_files
 
-def count_tokens(text: str, model_name: str) -> int:
+def count_tokens(text: str) -> int:
     """
     Calculates the number of tokens in a text string using tiktoken.
 
@@ -209,10 +209,9 @@ def count_tokens(text: str, model_name: str) -> int:
     Returns:
         int: The number of tokens in the text.
     """
-    encoding = tiktoken.encoding_for_model(model_name)
+    encoding = tiktoken.get_encoding("o200k_base")
     tokens = encoding.encode(text)
     return len(tokens)
-
 
 def save_to_json(data: Any, filepath: str = None, default_filename: str = 'processed_files.json'):
     """Saves data to a JSON file.

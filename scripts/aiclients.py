@@ -8,6 +8,8 @@ from langchain.schema import (
 )
 from typing import List
 
+from pydantic import NonNegativeInt
+
 from utils import load_prompt, load_config, setup_logger, count_tokens
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
@@ -68,7 +70,6 @@ class ChatManager():
         self.config = config
         self.client = self._initialize_client()
         self.message_history = messages if messages else []
-        self.model_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 
     def _initialize_client(self):
         client = AzureChatOpenAI(
@@ -110,7 +111,7 @@ class ChatManager():
         response = self.client.invoke(messages_to_send).content
         return response
     
-    def define_metadata(self, text: str, filepath: str, case_id: str, retries: int = 3, delay: int = 5) -> dict:
+    def define_metadata(self, text: str, filepath: str, case_id: str, retries: int = 2) -> dict:
         """Extracts metadata from text as a dictionary using AI with a structured prompt.
         Args:
             text (str): The text to process.
@@ -119,7 +120,7 @@ class ChatManager():
         Returns:
             dict: A dictionary of the extracted metadata, or None on failure.
         """
-        
+        logger.debug(f"Token count: {count_tokens(text) + count_tokens(load_prompt('injury_metadata_extraction'))}")
         system_prompt_content = load_prompt('injury_metadata_extraction')
         system_message = SystemMessage(content=system_prompt_content)
         user_message = HumanMessage(content=text)
@@ -143,11 +144,11 @@ class ChatManager():
                     raise ValueError("No JSON object found in the response.")
 
             except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
-                time.sleep(delay)
+                logger.warning(f"Attempt {attempt + 1} failed, retrying...")
+                wait_for_rate_limit()
             except Exception as e:
                 logger.error(f"An unexpected error occurred on attempt {attempt + 1}: {e}")
-                time.sleep(delay)
+                wait_for_rate_limit()
 
         logger.error("Failed to define metadata after %s attempts.", retries)
         raise Exception(f"Failed to extract metadata for {filepath} after {retries} attempts.")
@@ -183,3 +184,11 @@ class ChatManager():
         except Exception as e:
             logger.error("An unexpected error occurred in score_lead: %s", e)
             return None
+
+def wait_for_rate_limit(seconds_to_wait: int = 60) -> None:
+    """
+    Waits for a specified amount of time to avoid rate limiting, defaults to 60 seconds.
+    """
+    logger.debug(f"Waiting for {seconds_to_wait} seconds to avoid rate limiting...")
+    time.sleep(seconds_to_wait)
+    logger.debug("Done waiting.")

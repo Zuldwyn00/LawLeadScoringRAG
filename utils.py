@@ -190,7 +190,11 @@ def find_files(directory: Path) -> List[Path]:
         return []
     
     pdf_files = list(directory.rglob("*.pdf")) + list(directory.rglob("*.docx"))
-    return pdf_files
+    non_duplicate_pdf_files = []
+    for file in pdf_files:
+        if not file.stem.endswith(')'): #avoiding duplicate files that are copies ending with (1).pdf...(2).pdf...etc
+            non_duplicate_pdf_files.append(file)
+    return non_duplicate_pdf_files
 
 def save_to_json(data: Any, filepath: str = None, default_filename: str = 'processed_files.json'):
     """Saves data to a JSON file.

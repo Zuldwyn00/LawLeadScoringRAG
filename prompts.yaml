@@ -87,7 +87,7 @@ injury_metadata_extraction:
     ### Source & Summary
     - **communication_channel**: How the information was received (e.g., 'email', 'phone_transcript', 'web_form').
     - **key_phrases**: A list of up to 5 direct quotes that capture the essence of the event, include at minimum 2 direct quotes. You MUST anonymize all names and PII in these quotes by replacing them with placeholders like 'Claimant' or 'Defendant'. Do not include any identifying information of the client or settlement $ amounts.
-    - **summary**: A brief, neutral, one-paragraph or shorter summary of the core incident. You MUST anonymize all names and PII in this summary by replacing them with placeholders like 'Claimant' or 'Defendant'. Do not include any identifying information of the client or settlement $ amounts.
+    - **summary**: A brief, neutral, one-paragraph summary of the incident/document. You MUST anonymize all names and PII in this summary by replacing them with placeholders like 'Claimant' or 'Defendant'. Do not include any identifying information of the client or settlement $ amounts.
 
     ## Instructions:
     1.  Adhere strictly to the JSON schema provided.
@@ -143,7 +143,7 @@ lead_scoring:
     Provide your response as a single, complete analysis. Do not output any other text. Your response must follow this structure exactly:
 
     ---
-    **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential]
+    **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as eg: "Lead Score: x/100"
 
     **Recommendation:** [Provide a one-sentence summary of your recommendation. e.g., "High-potential case, recommend immediate follow-up.", "Medium-potential case with significant risks requiring further investigation.", or "Low-potential case, recommend declining."]
 
@@ -164,3 +164,5 @@ lead_scoring:
     **4. Geographic & Jurisdictional Analysis:**
     *   [Provide an analysis of the Jurisdiction. Based on your general training data, comment on whether this jurisdiction is favorable or unfavorable to plaintiffs and provide a number range for the average $ amount value of these kinds of cases in this jurisdiction.]
     
+    **5. IDs of the historical cases that are most relevant to the new lead:**
+    *   [List the `Case ID` of the historical cases that are most relevant to the new lead. Example: "ID:1050076, ID:3444110"] this is based on the metadata of the historical cases in the 'Case ID' field.

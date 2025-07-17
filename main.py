@@ -4,18 +4,18 @@
 
 # get rid of or streamline DataChunk, it's pointless. Or we could use a pydantic model for it to give it some use for data validation.
 
-# Batch process the chunks instead of one by one, go back to using embed_documents instead of embed_query but then we need to fix the metadata logic again. 
-# We could also use the batch_size parameter in the embed_documents function to batch the chunks.
-
 # Overall we need a better way to handle the metadata. We could temporalily remove a lot of the metadata fields and just use the case_id to link the chunks to the case and maybe 
-# the source file and other mandatory fields. I also changed it right now after writing this to use the same metadata for all chunks, which is better because now we arent doing 100x api calls for every chunk. This might fix
-# most of the metadata issues I just described, but I didnt look at the code yet.
-
-# Add way to avoid processing the same file multiple times if processing is interrupted and we need to restart. Perhaps we just store them, then upload all vectors at once so if it fails we never uploaded anything anyways.
-# Or we could use a flag to check if the file has already been processed in a json file, perhaps we can even use the qdrant database for this if it allows us to do so easily. Otherwise the JSON can also serve the double purpose
-# of storing the case_id, source file, and other mandatory fields to make linking the chunks to the case and source file easier.
+# the source file and other mandatory fields.
 
 # Use a DB to store all the metadata, while qdrant only stores the ID, we use the ID to get the real metadata in the DB.
+
+# Add a check for files that are too laege to process. Split them into chunks and process them then combine the final output though this may arise rate limit issues. Perhaps we process them completely seperately
+# Maybe we can change the return type to a list of strings instead of a single string so it can handle multiple strings at once as a return.
+
+#TODO: AI PROMPT CHANGE: Add steps for the scoring agent to perhaps score each section and then combine the scores to get a final score rather an one main arbitrary score. This might be better for the scoring agent.
+# give the AI a more consistent output by following more well-defined scoring rules.
+
+#CHECK IF SCORE IS ACTUALLY RECIEVING CASE DATA, IT SEEMS LIKE IT IS NOT. I ADDED A LINE TO THE PROMPT ASKING IT TO GET THE CASE IDS, BUT IT IS NOT DOING IT.
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr
 from scripts.aiclients import EmbeddingManager, ChatManager
@@ -27,18 +27,18 @@ from utils import ensure_directories, load_config, setup_logger, find_files, loa
 config = load_config()
 logger = setup_logger(__name__, config)
 
-def embedding_test():
+def embedding_test(filepath: str, case_id: int):
     ensure_directories()
     chat_manager = ChatManager()
     embeddingmanager = EmbeddingManager()
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
-    files = find_files(Path(r"C:\Users\Justin\Desktop\testdocs"))
+    files = find_files(Path(filepath))
     progress = len(files)
     print(f"Found {progress} files")
     qdrantmanager.create_collection(collection_name="case_files")
     processed_files_data = load_from_json()
-    case_id = 1050076
+    case_id = case_id
     
     for file in files:
         filename_str = str(file)
@@ -132,7 +132,11 @@ def run_ocr_on_folder(folder_path: str):
             logger.error(f"An error occurred while processing {pdf_file.name}: {e}")
 
 def main():
-    embedding_test()
+    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs", case_id=1050076)
+    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs2", case_id=2211830)
+    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs3", case_id=1637313)
+    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs4", case_id=1660355)
+    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs5", case_id=1508908)
 
 if __name__ == "__main__":
     main()

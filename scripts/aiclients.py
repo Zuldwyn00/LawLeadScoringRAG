@@ -109,10 +109,12 @@ class ChatManager():
         response = self.client.invoke(messages_to_send).content
         return response
     
-    def define_metadata(self, text: str, filepath: str, case_id: str) -> dict:
+    def define_metadata(self, text: str, filepath: str, case_id: str, retries: int = 3, delay: int = 5) -> dict:
         """Extracts metadata from text as a dictionary using AI with a structured prompt.
         Args:
             text (str): The text to process.
+            retries (int): The number of times to retry on failure.
+            delay (int): The delay in seconds between retries.
         Returns:
             dict: A dictionary of the extracted metadata, or None on failure.
         """
@@ -121,29 +123,32 @@ class ChatManager():
         user_message = HumanMessage(content=text)
         messages_to_send = [system_message, user_message]
         
-        try:
-            logger.debug(f"Attempting to define metadata, sending messages to client.")
-            response = self.client.invoke(messages_to_send).content
-            
-            # Find the start and end of the JSON object
-            start_index = response.find('{')
-            end_index = response.rfind('}') + 1
-            
-            if start_index != -1 and end_index != 0:
-                json_string = response[start_index:end_index]
-                metadata = json.loads(json_string)
-                metadata['source'] = filepath
-                metadata['case_id'] = case_id
-                return metadata
-            else:
-                raise ValueError("No JSON object found in the response: %s", response)
+        for attempt in range(retries):
+            try:
+                logger.debug(f"Attempting to define metadata (Attempt {attempt + 1}/{retries})...")
+                response = self.client.invoke(messages_to_send).content
+                
+                start_index = response.find('{')
+                end_index = response.rfind('}') + 1
+                
+                if start_index != -1 and end_index != 0:
+                    json_string = response[start_index:end_index]
+                    metadata = json.loads(json_string)
+                    metadata['source'] = filepath
+                    metadata['case_id'] = case_id
+                    return metadata
+                else:
+                    raise ValueError("No JSON object found in the response.")
 
-        except json.JSONDecodeError as e:
-            logger.error("Failed to decode JSON from model response: %s. Response: %s", e, response)
-            return None
-        except Exception as e:
-            logger.error("An unexpected error occurred in define_metadata: %s", e)
-            return None
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.warning(f"Attempt {attempt + 1} failed: {e}. Retrying in {delay} seconds...")
+                time.sleep(delay)
+            except Exception as e:
+                logger.error(f"An unexpected error occurred on attempt {attempt + 1}: {e}")
+                time.sleep(delay)
+
+        logger.error("Failed to define metadata after %s attempts.", retries)
+        raise Exception(f"Failed to extract metadata for {filepath} after {retries} attempts.")
         
     def score_lead(self, new_lead_description: str, historical_context: str) -> str:
         """

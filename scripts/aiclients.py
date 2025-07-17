@@ -26,7 +26,10 @@ class EmbeddingManager:
             azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
             openai_api_version=os.getenv("OPENAI_API_EMBEDDING_VERSION"),
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            api_key=os.getenv("AZURE_OPENAI_API_KEY")
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            max_retries=5,
+            retry_min_seconds=5,
+            retry_max_seconds=60
         )
         return client
 
@@ -76,7 +79,10 @@ class ChatManager():
             azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
             openai_api_version=os.getenv("OPENAI_API_VERSION"),
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
-            api_key=os.getenv("AZURE_OPENAI_API_KEY")
+            api_key=os.getenv("AZURE_OPENAI_API_KEY"),
+            max_retries=5,
+            retry_min_seconds=60,
+            retry_max_seconds=300
         )
         return client
     
@@ -111,48 +117,42 @@ class ChatManager():
         response = self.client.invoke(messages_to_send).content
         return response
     
-    def define_metadata(self, text: str, filepath: str, case_id: str, retries: int = 2) -> dict:
+    def define_metadata(self, text: str, filepath: str, case_id: str) -> dict:
         """Extracts metadata from text as a dictionary using AI with a structured prompt.
         Args:
             text (str): The text to process.
-            retries (int): The number of times to retry on failure.
-            delay (int): The delay in seconds between retries.
+            filepath (str): The path to the file being processed.
+            case_id (str): The case ID for the document.
         Returns:
-            dict: A dictionary of the extracted metadata, or None on failure.
+            dict: A dictionary of the extracted metadata, or raises an exception on failure.
         """
         logger.debug(f"Token count: {count_tokens(text) + count_tokens(load_prompt('injury_metadata_extraction'))}")
+
         system_prompt_content = load_prompt('injury_metadata_extraction')
         system_message = SystemMessage(content=system_prompt_content)
         user_message = HumanMessage(content=text)
         messages_to_send = [system_message, user_message]
         
-        for attempt in range(retries):
-            try:
-                logger.debug(f"Attempting to define metadata (Attempt {attempt + 1}/{retries})...")
-                response = self.client.invoke(messages_to_send).content
-                
-                start_index = response.find('{')
-                end_index = response.rfind('}') + 1
-                
-                if start_index != -1 and end_index != 0:
-                    json_string = response[start_index:end_index]
-                    metadata = json.loads(json_string)
-                    metadata['source'] = filepath
-                    metadata['case_id'] = case_id
-                    return metadata
-                else:
-                    raise ValueError("No JSON object found in the response.")
+        try:
+            logger.debug("Attempting to define metadata...")
+            response = self.client.invoke(messages_to_send).content
+            
+            start_index = response.find('{')
+            end_index = response.rfind('}') + 1
+            
+            if start_index != -1 and end_index != 0:
+                json_string = response[start_index:end_index]
+                metadata = json.loads(json_string)
+                metadata['source'] = filepath
+                metadata['case_id'] = case_id
+                return metadata
+            else:
+                raise ValueError("No JSON object found in the response.")
 
-            except (json.JSONDecodeError, ValueError) as e:
-                logger.warning(f"Attempt {attempt + 1} failed, retrying...")
-                wait_for_rate_limit()
-            except Exception as e:
-                logger.error(f"An unexpected error occurred on attempt {attempt + 1}: {e}")
-                wait_for_rate_limit()
+        except Exception as e:
+            logger.error(f"Failed to define metadata for {filepath} after multiple retries: {e}")
+            raise Exception(f"Failed to extract metadata for {filepath} after multiple retries.") from e
 
-        logger.error("Failed to define metadata after %s attempts.", retries)
-        raise Exception(f"Failed to extract metadata for {filepath} after {retries} attempts.")
-        
     def score_lead(self, new_lead_description: str, historical_context: str) -> str:
         """
         Scores a new lead by comparing it against historical data using a structured prompt.
@@ -184,11 +184,3 @@ class ChatManager():
         except Exception as e:
             logger.error("An unexpected error occurred in score_lead: %s", e)
             return None
-
-def wait_for_rate_limit(seconds_to_wait: int = 60) -> None:
-    """
-    Waits for a specified amount of time to avoid rate limiting, defaults to 60 seconds.
-    """
-    logger.debug(f"Waiting for {seconds_to_wait} seconds to avoid rate limiting...")
-    time.sleep(seconds_to_wait)
-    logger.debug("Done waiting.")

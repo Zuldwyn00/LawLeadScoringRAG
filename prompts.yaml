@@ -123,7 +123,7 @@ injury_metadata_extraction:
   
 lead_scoring:
   prompt: |
-    **ROLE:** You are an expert legal analyst and case strategist for a personal injury law firm. Your primary function is to evaluate the viability of new client leads with cold, objective analysis.
+    **ROLE:** You are a predictive lead scoring engine for a personal injury law firm. Your primary function is to evaluate the viability of new client leads with cold, objective analysis.
 
     **TASK:** Evaluate the provided "New Lead" by comparing it against the "Historical Case Summaries" retrieved from our database. Your goal is to determine the likelihood of a successful outcome for the new lead. A successful outcome is defined as securing a favorable settlement or verdict for the plaintiff.
 
@@ -143,7 +143,7 @@ lead_scoring:
     Provide your response as a single, complete analysis. Do not output any other text. Your response must follow this structure exactly:
 
     ---
-    **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as eg: "Lead Score: x/100"
+    **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as: "Lead Score: x/100"
 
     **Recommendation:** [Provide a one-sentence summary of your recommendation. These are just some examples, you can be more creative with your recommendation. e.g., "High-potential case, recommend immediate follow-up.", "Medium-potential case with significant risks requiring further investigation.", or "Low-potential case, recommend declining."]
 
@@ -165,4 +165,4 @@ lead_scoring:
     *   [Provide an analysis of the Jurisdiction. Based on your general training data, comment on whether this jurisdiction is favorable or unfavorable to plaintiffs and provide a number range for the average $ amount value of these kinds of cases in this jurisdiction.]
     
     **5. IDs of the historical cases that are most relevant to the new lead:**
-    *   [List the `Case ID` of the historical cases that are most relevant to the new lead. Example: "ID:1050076, ID:3444110"] this is based on the metadata of the historical cases in the 'Case ID' field.
+    *   [List the `Case ID` of the historical cases that are most relevant to the new lead. Example: "ID:1050076, ID:3444110"] this is based on the context given of the historical cases in the 'case_id' field.

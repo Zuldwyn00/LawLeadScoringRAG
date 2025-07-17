@@ -63,7 +63,6 @@ def with_pdf(func):
                 managed_doc.close()
     return wrapper
 
-
 def apply_ocr(filepath: str) -> None:
     """
     Applies OCR to a PDF file using ocrmypdf and overwrites the original file.
@@ -85,16 +84,15 @@ def apply_ocr(filepath: str) -> None:
     except Exception as e:
         logger.error(f"Failed to apply OCR to {filepath}: {e}")
 
+def get_text_from_file(filepath: str):
+    request_options = {'timeout': 300} # Set timeout to 5 minutes (300 seconds)
+    parsed_pdf = parser.from_file(filepath, requestOptions=request_options)
+    return parsed_pdf
 
 class FileManager:
 
     def __init__(self):
         self.config = config
-    
-    def get_text_from_file(self, filepath: str):
-         request_options = {'timeout': 300} # Set timeout to 5 minutes (300 seconds)
-         parsed_pdf = parser.from_file(filepath, requestOptions=request_options)
-         return parsed_pdf
 
     def text_splitter(self, text: Dict[str, Any], chunkSize: int = 15000, chunkOverlap: int = 200) -> List[Any]:
         """

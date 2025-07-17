@@ -22,7 +22,8 @@ class QdrantManager:
         self.client = self._initialize_client()
         self.vector_config = {
             "chunk": models.VectorParams(size=1536, distance=models.Distance.COSINE),
-            "summar": models.VectorParams(size=1536, distance=models.Distance.COSINE)
+            "summar": models.VectorParams(size=1536, distance=models.Distance.COSINE) #temporary vector, can use in a Hyrbrid Search in the future if we want.
+            #TODO: add a vector for images as well for a hybrid search in the future.
         }
 
     def _initialize_client(self):
@@ -125,8 +126,7 @@ class QdrantManager:
             )
             return search_result
         except Exception as e:
-            logger.error(f"Error searching vectors: {e}")
-            return []
+            raise Exception(f"Error searching vectors: {e}")
         
     def get_context(self, search_results: list) -> str:
         """

@@ -267,3 +267,4 @@ def get_jurisdiction_data(state: str, jurisdiction_name: str) -> Dict[str, Any]:
     except Exception as e:
         print(f"Error retrieving jurisdiction data for '{jurisdiction_name}, {state}': {e}")
         return {}
+

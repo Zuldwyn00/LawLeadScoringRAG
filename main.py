@@ -17,11 +17,11 @@
 
 #CHECK IF SCORE IS ACTUALLY RECIEVING CASE DATA, IT SEEMS LIKE IT IS NOT. I ADDED A LINE TO THE PROMPT ASKING IT TO GET THE CASE IDS, BUT IT IS NOT DOING IT.
 
-from scripts.filemanagement import FileManager, ChunkData, apply_ocr
+from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.aiclients import EmbeddingManager, ChatManager
 from scripts.vectordb import QdrantManager
 from pathlib import Path
-from utils import ensure_directories, load_config, setup_logger, find_files, load_from_json, save_to_json, count_tokens
+from utils import ensure_directories, load_config, setup_logger, find_files, load_from_json, save_to_json
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -48,7 +48,7 @@ def embedding_test(filepath: str, case_id: int):
             print(f"Skipping already processed file: {file.name}")
             continue
         print(f"Processing file {file.name}")
-        file_text = filemanager.get_text_from_file(str(file))
+        file_text = get_text_from_file(str(file)) 
         file_chunks = filemanager.text_splitter(file_text)
 
         datachunks = []
@@ -87,17 +87,16 @@ def score_test():
     embeddingmanager = EmbeddingManager()
 
     new_lead_description = (
-        "A potential client from Nassau County is reporting a slip and fall that occurred four months ago inside a local shopping mall. "
-        "The client claims they were walking near the food court on a weekday afternoon when they slipped on a recently mopped, wet floor that had no warning signs posted. "
-        "They did not fall completely but their leg went out from under them, causing them to twist their knee before catching themselves on a nearby table. "
-        "The client states they did not see the wet floor because the lighting in that area was dim and reflected off the polished surface, making it difficult to spot the water. "
-        "No one witnessed the incident, and they did not report it to mall security or any of the storefronts at the time. "
-        "The client has a pre-existing diagnosis of osteoarthritis in both knees. They first sought medical attention three weeks after the incident with their primary care physician. "
-        "After the pain did not subside, they recently saw a specialist who diagnosed a medial meniscus tear, complicating their pre-existing arthritis. "
-        "They are now facing recommendations for physical therapy and potentially arthroscopic surgery."
+        "The client was struck by a commercial delivery truck while crossing in a marked crosswalk in Manhattan two weeks ago. "
+        "Multiple witnesses confirmed the client had the walk signal and the truck driver ran a red light while checking his phone. "
+        "The client sustained a compound fracture of the left femur, requiring emergency surgery with metal rod insertion, and a traumatic brain injury resulting in a brief loss of consciousness. "
+        "They are currently in rehabilitation and doctors estimate 6-12 months of recovery with potential permanent mobility limitations. "
+        "The truck driver was cited for distracted driving and the trucking company has significant insurance coverage. "
+        "the client admits they had been drinking at a business lunch and their blood alcohol level was measured at 0.12 at the hospital, well above the legal limit. "
+        "Security camera footage clearly shows the entire incident and the client's injuries are extensively documented."
     )
     question_vector = embeddingmanager.get_embeddings(new_lead_description)
-    search_results = qdrantmanager.search_vectors(collection_name="test_chunks", query_vector=question_vector, vector_name="chunk", limit=5)
+    search_results = qdrantmanager.search_vectors(collection_name="case_files", query_vector=question_vector, vector_name="chunk", limit=10)
     
     historical_context = qdrantmanager.get_context(search_results)
 
@@ -132,12 +131,8 @@ def run_ocr_on_folder(folder_path: str):
             logger.error(f"An error occurred while processing {pdf_file.name}: {e}")
 
 def main():
-    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs", case_id=1050076)
-    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs2", case_id=2211830)
-    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs3", case_id=1637313)
-    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs4", case_id=1660355)
-    embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs5", case_id=1508908)
-    
+    score_test()
+
 if __name__ == "__main__":
     main()
 

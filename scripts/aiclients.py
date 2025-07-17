@@ -9,9 +9,9 @@ from langchain.schema import (
 )
 from typing import List
 
-from pydantic import NonNegativeInt
 
 from utils import load_prompt, load_config, setup_logger, count_tokens
+from scripts.filemanagement import get_text_from_file
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -132,9 +132,9 @@ class ChatManager():
             wait_for_rate_limit()
             self.rate_limit_flag = False
 
-        logger.debug(f"Token count: {count_tokens(text) + count_tokens(load_prompt('injury_metadata_extraction'))}")
 
         system_prompt_content = load_prompt('injury_metadata_extraction')
+        logger.debug(f"Token count: {count_tokens(text) + count_tokens(system_prompt_content)}")
         system_message = SystemMessage(content=system_prompt_content)
         user_message = HumanMessage(content=text)
         messages_to_send = [system_message, user_message]
@@ -177,6 +177,7 @@ class ChatManager():
             str: The formatted analysis and score from the language model.
         """
         system_prompt_content = load_prompt('lead_scoring')
+        logger.debug(f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}")
         system_message = SystemMessage(content=system_prompt_content)
         
         user_message_content = f"""
@@ -196,6 +197,35 @@ class ChatManager():
         except Exception as e:
             logger.error("An unexpected error occurred in score_lead: %s", e)
             return None
+
+    def get_more_context(self, filepath: List[str]) -> str: #TODO: Add a way to call tools like this, this is just a placeholder unusued method
+        """
+        Gets the context of a list of files by extracting their text content.
+
+        Args:
+            filepath (List[str]): List of file paths to extract text from.
+
+        Returns:
+            str: Combined text content from all files.
+        """
+        combined_text = ""
+        
+        for file in filepath:
+            try:
+                logger.info(f"Extracting text from: {file}")
+                parsed_content = get_text_from_file(file)
+                if parsed_content and 'content' in parsed_content:
+                    file_text = parsed_content['content'] or ""
+                    combined_text += f"\n\n--- Content from {file} ---\n"
+                    combined_text += file_text
+                else:
+                    logger.warning(f"No content found in file: {file}")
+            except Exception as e:
+                logger.error(f"Error extracting text from {file}: {e}")
+                combined_text += f"\n\n--- Error extracting content from {file}: {e} ---\n"
+        
+        return combined_text.strip()
+            
 
 def wait_for_rate_limit(seconds_to_wait: int = 120) -> None:
     """

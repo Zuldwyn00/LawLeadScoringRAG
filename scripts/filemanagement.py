@@ -96,7 +96,7 @@ class FileManager:
          parsed_pdf = parser.from_file(filepath, requestOptions=request_options)
          return parsed_pdf
 
-    def text_splitter(self, text: Dict[str, Any], chunkSize: int = 17000, chunkOverlap: int = 200) -> List[Any]:
+    def text_splitter(self, text: Dict[str, Any], chunkSize: int = 15000, chunkOverlap: int = 200) -> List[Any]:
         """
         Splits parsed PDF text into smaller chunks using TokenTextSplitter.
 

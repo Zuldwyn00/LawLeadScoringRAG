@@ -7,6 +7,7 @@ from qdrant_client.http.exceptions import ResponseHandlingException
 from langchain_openai import AzureOpenAIEmbeddings
 from typing import List
 import uuid
+import json
 
 from utils import load_config, setup_logger
 
@@ -129,45 +130,39 @@ class QdrantManager:
         
     def get_context(self, search_results: list) -> str:
         """
-        Constructs a well-structured context string from search results.
+        Constructs a JSON-like context string from search results.
 
         Args:
             search_results (list): A list of search results from the vector database.
 
         Returns:
-            str: A formatted string containing the context from the search results.
+            str: A formatted string containing the context from the search results as a list of dictionaries.
         """
-        context = "Relevant information:\n"
+        contexts = []
         for result in search_results:
-            
-            # Construct a well-structured string with all metadata for the LLM
             payload = result.payload
-            case_details = f"""- Source: {payload.get('source', 'N/A')}
-            Case ID: {payload.get('case_id', 'N/A')}
-            Case Type: {payload.get('case_type', 'N/A')}
-            Outcome: {payload.get('case_outcome', 'N/A')}
-            Settlement Value Score: {payload.get('settlement_value_score', 'N/A')}
-
-            Summary: {payload.get('summary', 'N/A')}
-
-            Incident Details:
-                - Jurisdiction: {payload.get('jurisdiction', 'N/A')}
-                - Date: {payload.get('incident_date', 'N/A')}
-                - Location: {payload.get('incident_location', 'N/A')}
-                - Injuries: {payload.get('injuries_described', 'N/A')}
-                - Treatment: {payload.get('medical_treatment_mentioned', 'N/A')}
-                - Employment Impact: {payload.get('employment_impact_mentioned', 'N/A')}
-                - Property Damage: {payload.get('property_damage_mentioned', 'N/A')}
-
-            Key Mentions:
-                - Entities: {payload.get('entities_mentioned', 'N/A')}
-                - Other Locations: {payload.get('mentioned_locations', 'N/A')}
-                - Witnesses: {payload.get('witnesses_mentioned', 'N/A')}
-                - Insurance: {payload.get('insurance_mentioned', 'N/A')}
-                - Prior Representation: {payload.get('prior_legal_representation_mentioned', 'N/A')}
-
-            Key Phrases from Document: {payload.get('key_phrases', 'N/A')}
-            """
-            context += case_details + "\n\n"
-        return context
+            
+            context_dict = {
+                "case_id": payload.get("case_id"),
+                "jurisdiction": payload.get("jurisdiction"),
+                "case_type": payload.get("case_type"),
+                "incident_date": payload.get("incident_date"),
+                "incident_location": payload.get("incident_location"),
+                "mentioned_locations": payload.get("mentioned_locations", []),
+                "injuries_described": payload.get("injuries_described", []),
+                "medical_treatment_mentioned": payload.get("medical_treatment_mentioned", []),
+                "employment_impact_mentioned": payload.get("employment_impact_mentioned", []),
+                "property_damage_mentioned": payload.get("property_damage_mentioned", []),
+                "entities_mentioned": payload.get("entities_mentioned", []),
+                "insurance_mentioned": payload.get("insurance_mentioned"),
+                "witnesses_mentioned": payload.get("witnesses_mentioned"),
+                "prior_legal_representation_mentioned": payload.get("prior_legal_representation_mentioned"),
+                "case_outcome": payload.get("case_outcome"),
+                "settlement_value_score": payload.get("settlement_value_score"),
+                "communication_channel": payload.get("source"),
+                "key_phrases": payload.get("key_phrases", []),
+                "summary": payload.get("summary")
+            }
+            contexts.append(context_dict)
+        return json.dumps(contexts, indent=4)
 

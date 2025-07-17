@@ -6,8 +6,10 @@ from typing import List, Dict, Any
 import ocrmypdf
 from ocrmypdf.exceptions import SubprocessOutputError
 import pymupdf
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_text_splitters import TokenTextSplitter
 from tika import parser
+import tiktoken
+import os
 
 # ─── LOCAL IMPORTS ──────────────────────────────────────────────────────────────────
 from utils import load_config, setup_logger
@@ -94,27 +96,25 @@ class FileManager:
          parsed_pdf = parser.from_file(filepath, requestOptions=request_options)
          return parsed_pdf
 
-    # TODO: Could tokenize first and then split using defined token chunks? Saw something like that in the documenatation
-    #https://python.langchain.com/api_reference/text_splitters/base/langchain_text_splitters.base.Tokenizer.html
-    def text_splitter(self, text: Dict[str, Any], chunkSize: int = 1000, chunkOverlap: int = 200) -> List[Any]:
+    def text_splitter(self, text: Dict[str, Any], chunkSize: int = 18000, chunkOverlap: int = 200) -> List[Any]:
         """
-        Splits parsed PDF text into smaller chunks using RecursiveCharacterTextSplitter.
+        Splits parsed PDF text into smaller chunks using TokenTextSplitter.
 
         Args:
             text (Dict[str, Any]): Parsed document dict from parser.from_file().
-            chunkSize (int): Max characters per chunk. Defaults to 1000.
-            chunkOverlap (int): Characters to overlap between chunks. Defaults to 200.
+            chunkSize (int): Max tokens per chunk. Defaults to 120000.
+            chunkOverlap (int): Tokens to overlap between chunks. Defaults to 200.
 
         Returns:
             List[Document]: LangChain Document objects with text chunks.
         """
-        splitter = RecursiveCharacterTextSplitter(
+        splitter = TokenTextSplitter(
+            encoding_name = "o200k_base",
             chunk_size=chunkSize,
             chunk_overlap=chunkOverlap,
-            length_function=len,
-            is_separator_regex=False,
         )
         chunks = splitter.create_documents([text['content']])
+        logger.debug(f"Split into {len(chunks)} chunks.")
         return chunks
 
 

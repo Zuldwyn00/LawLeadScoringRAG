@@ -8,7 +8,7 @@ from langchain.schema import (
 )
 from typing import List
 
-from utils import load_prompt, load_config, setup_logger
+from utils import load_prompt, load_config, setup_logger, count_tokens
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -68,6 +68,7 @@ class ChatManager():
         self.config = config
         self.client = self._initialize_client()
         self.message_history = messages if messages else []
+        self.model_name = os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME")
 
     def _initialize_client(self):
         client = AzureChatOpenAI(
@@ -118,6 +119,7 @@ class ChatManager():
         Returns:
             dict: A dictionary of the extracted metadata, or None on failure.
         """
+        
         system_prompt_content = load_prompt('injury_metadata_extraction')
         system_message = SystemMessage(content=system_prompt_content)
         user_message = HumanMessage(content=text)

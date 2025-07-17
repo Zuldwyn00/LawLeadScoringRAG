@@ -21,7 +21,7 @@ from scripts.filemanagement import FileManager, ChunkData, apply_ocr
 from scripts.aiclients import EmbeddingManager, ChatManager
 from scripts.vectordb import QdrantManager
 from pathlib import Path
-from utils import ensure_directories, load_config, setup_logger, find_files, load_from_json, save_to_json
+from utils import ensure_directories, load_config, setup_logger, find_files, load_from_json, save_to_json, count_tokens
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -50,20 +50,20 @@ def embedding_test(filepath: str, case_id: int):
         print(f"Processing file {file.name}")
         file_text = filemanager.get_text_from_file(str(file))
         file_chunks = filemanager.text_splitter(file_text)
-        text_metadata = chat_manager.define_metadata(file_text['content'], str(file), case_id)
 
-        chunk_texts = [chunk.page_content for chunk in file_chunks]
-
-        chunk_embeddings = embeddingmanager.get_embeddings_batch(chunk_texts)
-        
         datachunks = []
         for i, chunk in enumerate(file_chunks):
+            chunk_embedding = embeddingmanager.get_embeddings(chunk.page_content)
+            
             datachunk = ChunkData()
             datachunk.set_case_id(case_id)
             datachunk.set_source(str(file))
             datachunk.set_text(chunk.page_content)
-            datachunk.set_metadata(text_metadata)
-            datachunk.set_embeddings(chunk_embeddings[i])
+            
+            chunk_metadata = chat_manager.define_metadata(chunk.page_content, str(file), case_id)
+            datachunk.set_metadata(chunk_metadata)
+            
+            datachunk.set_embeddings(chunk_embedding)
             datachunks.append(datachunk)
 
         embeddings = [chunk.get_embeddings() for chunk in datachunks]
@@ -137,7 +137,7 @@ def main():
     embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs3", case_id=1637313)
     embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs4", case_id=1660355)
     embedding_test(filepath=r"C:\Users\Justin\Desktop\testdocs5", case_id=1508908)
-
+    
 if __name__ == "__main__":
     main()
 

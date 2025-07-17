@@ -5,6 +5,8 @@ import logging.handlers
 import yaml
 import os
 import json
+import sys
+import tiktoken
 
 
 def ensure_directories(directories: List[Path] = None) -> None:
@@ -195,6 +197,22 @@ def find_files(directory: Path) -> List[Path]:
         if not file.stem.endswith(')'): #avoiding duplicate files that are copies ending with (1).pdf...(2).pdf...etc
             non_duplicate_pdf_files.append(file)
     return non_duplicate_pdf_files
+
+def count_tokens(text: str, model_name: str) -> int:
+    """
+    Calculates the number of tokens in a text string using tiktoken.
+
+    Args:
+        text (str): The text to process.
+        model_name (str): The name of the model to use. This is used to determine the encoding to use.
+
+    Returns:
+        int: The number of tokens in the text.
+    """
+    encoding = tiktoken.encoding_for_model(model_name)
+    tokens = encoding.encode(text)
+    return len(tokens)
+
 
 def save_to_json(data: Any, filepath: str = None, default_filename: str = 'processed_files.json'):
     """Saves data to a JSON file.

@@ -145,7 +145,7 @@ lead_scoring:
     ---
     **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as eg: "Lead Score: x/100"
 
-    **Recommendation:** [Provide a one-sentence summary of your recommendation. e.g., "High-potential case, recommend immediate follow-up.", "Medium-potential case with significant risks requiring further investigation.", or "Low-potential case, recommend declining."]
+    **Recommendation:** [Provide a one-sentence summary of your recommendation. These are just some examples, you can be more creative with your recommendation. e.g., "High-potential case, recommend immediate follow-up.", "Medium-potential case with significant risks requiring further investigation.", or "Low-potential case, recommend declining."]
 
     **Executive Summary:**
     [Provide a brief, one-paragraph summary of your overall analysis and the primary reasons for your recommendation.]

@@ -1,14 +1,12 @@
+from langchain_core.tools import tool
 import os
 import json
 import time
 from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
 from langchain_core.rate_limiters import InMemoryRateLimiter
-from langchain.schema import (
-    SystemMessage,
-    HumanMessage,
-)
-from typing import List
-
+from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage, AIMessage
+from typing import List, Callable
+from functools import wraps
 
 from utils import load_prompt, load_config, setup_logger, count_tokens
 from scripts.filemanagement import get_text_from_file
@@ -63,12 +61,10 @@ class EmbeddingManager:
         
         return embeddings1 + embeddings2
     
-
-
-
 class ChatManager():
     def __init__(self, messages: list = []):
         self.config = config
+        self.tool_manager = ToolManager(tools=[get_file_content])
         self.client = self._initialize_client()
         self.message_history = messages if messages else []
         self.rate_limit_flag = False # Flag to check if the client is rate limited, changes to true if the client is rate limited or we already ran a metadata extraction once.
@@ -85,7 +81,7 @@ class ChatManager():
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
             rate_limiter=rate_limiter
-        )
+        ).bind_tools(self.tool_manager.tools)
         return client
     
     def add_response(self, message: str) -> bool:
@@ -105,19 +101,44 @@ class ChatManager():
             logger.error("Issue adding message to message history: %s", e)
         return False
     
-    def get_response(self, messages: list = None) -> str:
-        """Gets a response from the chat model.
+    def get_response_with_tools(self, messages: list = None) -> str:
+        """
+        Gets a response from the chat model, handling tool calls automatically.
 
         Args:
-            mes structured promptnal): A list of messages to send to the model. 
-                                     If not provided, the instance's message history will be used.
+            messages (list, optional): A list of messages to send to the model. 
+                 If not provided, the instance's message history will be used.
 
         Returns:
             str: The content of the model's response.
         """
-        messages_to_send = messages if messages else self.message_history
-        response = self.client.invoke(messages_to_send).content
-        return response
+        logger.debug(f"Getting response with tool access...")
+        messages_to_send = messages if messages is not None else self.message_history
+
+        while True:
+            response = self.client.invoke(messages_to_send)
+            
+            if messages is None:
+                self.message_history.append(response) #if no messages are provided, add the response to the message history
+            else:
+                messages_to_send.append(response) #if messages are provided, add the response to the messages to send
+
+            if not response.tool_calls:
+                logger.debug(f"No tool calls made, returning response content...")
+                return response.content #if there are no tool calls, return the response content
+            
+            logger.info(f"Model made {len(response.tool_calls)} tool calls.")
+            
+            for tool_call in response.tool_calls:
+                tool_output = self.tool_manager.call_tool(tool_call)
+                tool_message = ToolMessage(
+                    content=str(tool_output),
+                    tool_call_id=tool_call['id']
+                )
+                if messages is None:
+                    self.message_history.append(tool_message)
+                else:
+                    messages_to_send.append(tool_message)
     
     def define_metadata(self, text: str, filepath: str, case_id: str, retries: int = 2) -> dict:
         """Extracts metadata from text as a dictionary using AI with a structured prompt.
@@ -174,7 +195,7 @@ class ChatManager():
             historical_context (str): A formatted string containing search results of similar historical cases.
 
         Returns:
-            str: The formatted analysis and score from the language model.
+            AIMessage: The response from the language model.
         """
         system_prompt_content = load_prompt('lead_scoring')
         logger.debug(f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}")
@@ -191,41 +212,12 @@ class ChatManager():
         messages_to_send = [system_message, user_message]
         
         try:
-            logger.debug(f"Attempting to score lead, sending messages to client...")
-            response = self.client.invoke(messages_to_send).content
+            logger.debug("Attempting to score lead, sending messages to client...")
+            response = self.get_response_with_tools(messages_to_send)
             return response
         except Exception as e:
             logger.error("An unexpected error occurred in score_lead: %s", e)
-            return None
-
-    def get_more_context(self, filepath: List[str]) -> str: #TODO: Add a way to call tools like this, this is just a placeholder unusued method
-        """
-        Gets the context of a list of files by extracting their text content.
-
-        Args:
-            filepath (List[str]): List of file paths to extract text from.
-
-        Returns:
-            str: Combined text content from all files.
-        """
-        combined_text = ""
-        
-        for file in filepath:
-            try:
-                logger.info(f"Extracting text from: {file}")
-                parsed_content = get_text_from_file(file)
-                if parsed_content and 'content' in parsed_content:
-                    file_text = parsed_content['content'] or ""
-                    combined_text += f"\n\n--- Content from {file} ---\n"
-                    combined_text += file_text
-                else:
-                    logger.warning(f"No content found in file: {file}")
-            except Exception as e:
-                logger.error(f"Error extracting text from {file}: {e}")
-                combined_text += f"\n\n--- Error extracting content from {file}: {e} ---\n"
-        
-        return combined_text.strip()
-            
+            return f"An error occurred while scoring the lead: {e}"
 
 def wait_for_rate_limit(seconds_to_wait: int = 120) -> None:
     """
@@ -234,3 +226,81 @@ def wait_for_rate_limit(seconds_to_wait: int = 120) -> None:
     logger.debug(f"Waiting for {seconds_to_wait} seconds to avoid rate limiting...")
     time.sleep(seconds_to_wait)
     logger.debug("Done waiting.")
+
+def summarize_text_with_llm(text: str) -> str:
+    """
+    Summarizes the given text using the language model.
+    """
+    if count_tokens(text) > 13000:
+        logger.warning("The text is too long to summarize.")
+        return "The text is too long to summarize."
+    
+    logger.info("Summarizing text with LLM...")
+    chat_manager = ChatManager()
+    system_prompt = load_prompt('summarize_text')
+    messages = [
+        SystemMessage(content=system_prompt),
+        HumanMessage(content=text)
+    ]
+    summary = chat_manager.get_response_with_tools(messages)
+    logger.debug(f"Summary: {summary}")
+    return summary
+
+#TODO: How to make this call an LLM to summarize the file text?
+@tool
+def get_file_content(filepath: str) -> str:
+    """
+    Gets the text content from a single file. If the content is too long,
+    it will be summarized.
+
+    Args:
+        filepath (str): The path to the file to read.
+
+    Returns:
+        str: The text content of the file, or an error message if reading fails.
+    """
+    try:
+        logger.info(f"Tool 'get_file_content' called for: {filepath}")
+        parsed_content = get_text_from_file(filepath)
+
+        if parsed_content and 'content' in parsed_content:
+            content = parsed_content['content']
+            if count_tokens(content) > 2000: # Check if token count is over 2000
+                content = summarize_text_with_llm(content)
+            return content
+        else:
+            logger.warning(f"No content found in file: {filepath}")
+            return f"Warning: No content found in file: {filepath}"
+        
+    except Exception as e:
+        logger.error(f"Error reading file {filepath}: {e}")
+        return f"Error: Failed to read file {filepath}. Reason: {e}"
+
+class ToolManager:
+    def __init__(self, tools: List[Callable]):
+        self.config = config
+        self.tools = tools
+        self.tool_map = {tool.name: tool for tool in self.tools} #makes it easier to ensure tool names are valid rather than looping through the tools list
+        
+    def call_tool(self, tool_call:dict) -> str:
+        """
+        Calls a tool with the given arguments.
+        """
+        tool_name = tool_call.get("name")
+        tool_args = tool_call.get("args", {})
+        
+        if not tool_name:
+            return "Error: Tool call must have a 'name'."
+
+        tool_to_call = self.tool_map.get(tool_name)
+        if not tool_to_call:
+            return f"Error: Tool '{tool_name}' not found."
+        
+        try:
+            logger.debug(f"Calling tool '{tool_name}' with args: {tool_args}")
+            output = tool_to_call.invoke(tool_args)
+            return str(output)
+        except Exception as e:
+            logger.error(f"Error calling tool '{tool_name}': {e}")
+            return f"Error executing tool '{tool_name}': {e}"
+        

@@ -87,13 +87,12 @@ def score_test():
     embeddingmanager = EmbeddingManager()
 
     new_lead_description = (
-        "The client was struck by a commercial delivery truck while crossing in a marked crosswalk in Manhattan two weeks ago. "
-        "Multiple witnesses confirmed the client had the walk signal and the truck driver ran a red light while checking his phone. "
-        "The client sustained a compound fracture of the left femur, requiring emergency surgery with metal rod insertion, and a traumatic brain injury resulting in a brief loss of consciousness. "
-        "They are currently in rehabilitation and doctors estimate 6-12 months of recovery with potential permanent mobility limitations. "
-        "The truck driver was cited for distracted driving and the trucking company has significant insurance coverage. "
-        "the client admits they had been drinking at a business lunch and their blood alcohol level was measured at 0.12 at the hospital, well above the legal limit. "
-        "Security camera footage clearly shows the entire incident and the client's injuries are extensively documented."
+        "The client, a resident of Suffolk County, tripped on a significantly cracked and uneven public sidewalk in a town park at dusk about a month ago. "
+        "They were walking with a friend who was distracted and did not witness the fall itself but helped them immediately after. "
+        "The client claims they suffered a torn meniscus, though their doctor's diagnosis is based on a physical exam and they have not yet had an MRI to confirm. "
+        "They did not report the incident to the town or any authority until the following week. "
+        "The client also has a documented history of knee injuries from college sports, which might complicate the claim. "
+        "They are unsure how long the sidewalk had been in that condition."
     )
     question_vector = embeddingmanager.get_embeddings(new_lead_description)
     search_results = qdrantmanager.search_vectors(collection_name="case_files", query_vector=question_vector, vector_name="chunk", limit=10)
@@ -132,6 +131,7 @@ def run_ocr_on_folder(folder_path: str):
 
 def main():
     score_test()
+
 
 if __name__ == "__main__":
     main()

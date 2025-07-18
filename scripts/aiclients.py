@@ -62,9 +62,10 @@ class EmbeddingManager:
         return embeddings1 + embeddings2
     
 class ChatManager():
-    def __init__(self, messages: list = []):
+    def __init__(self, messages: list = [], temperature: float = 0.0): #default temperature is 0.0 to be deterministic, implement logic later to make it able to be changed more easily.
         self.config = config
         self.tool_manager = ToolManager(tools=[get_file_content])
+        self.temperature = temperature
         self.client = self._initialize_client()
         self.message_history = messages if messages else []
         self.rate_limit_flag = False # Flag to check if the client is rate limited, changes to true if the client is rate limited or we already ran a metadata extraction once.
@@ -80,7 +81,7 @@ class ChatManager():
             openai_api_version=os.getenv("OPENAI_API_VERSION"),
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
-            rate_limiter=rate_limiter
+            rate_limiter=rate_limiter,
         ).bind_tools(self.tool_manager.tools)
         return client
     

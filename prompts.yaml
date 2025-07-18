@@ -144,15 +144,17 @@ lead_scoring:
     4.  **Evaluate Evidence Strength:** Assess the apparent strength of the evidence mentioned in the new lead compared to what was critical in past cases (e.g., `critical_evidence`, `witnesses_mentioned`).
     5.  **Assess Geographic Influence:** Consider the jurisdiction of the new lead. Using the historical case summaries and your general knowledge of the United States jurisdiction injury case settlement values on average, assess the average $ value of cases in this jurisdiction for this type of case. If no jurisdiction is mentioned, use the average $ value of cases in the state of New York, Long Island.
 
+    **TOOL CALL RULES:**
+      * You may make up to three tool calls but no more than three.
+
     **REQUIRED OUTPUT FORMAT:**
     Provide your response as a single, complete analysis. Do not output any other text. Your response must follow this structure exactly:
 
     ---
     **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as: "Lead Score: 0/100"
     **Confidence Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low confidence and 100 is extremely high confidence in your lead score] format it as: "Confidence Score: 0/100"
-      * If your confidence score is under 60, you must use the 'get_file_content' tool to get the summarized content of at least one of the historical cases given in the context or more if deemed necessary but do not exceed your defined tool call limit.
-      * You must provide both your confidence score and lead score prior to using the 'get_file_content' tool and after using the 'get_file_content' tool. for example: "Prior Confidence Score: 50/100 - Updated Confidence Score: 70/100".
-      * TOOL CALL LIMIT: You may make up to three tool calls but no more than three.
+      * you must use the 'get_file_content' tool to get the summarized content of at least one of the historical cases given in the context or more if deemed necessary but do not exceed your defined tool call limit.
+      * Do not artificially inflate your confidence and lead scores, if you still are not confident leave your score as such or lower it if the context made it more confusing.
     **Recommendation:** [Provide a one-sentence summary of your recommendation. These are just some examples, you can be more creative with your recommendation. e.g., "High-potential case, recommend immediate follow-up.", "Medium-potential case with significant risks requiring further investigation.", or "Low-potential case, recommend declining."]
 
     **Executive Summary:**
@@ -174,6 +176,9 @@ lead_scoring:
     
     **5. Case ID of cases given in the context:**
     *   [List the `Case ID` of the historical cases that were provided in the given context provided in the 'case_id' field. Example: "ID:1050076, ID:3444110"]
+
+    **6. Tool Calls:**
+    *   [List the tool calls you made, and why, and how they affected your lead score and confidence score either negatively or positively.]
 
 summarize_text: 
   prompt: |

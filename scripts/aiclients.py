@@ -124,7 +124,6 @@ class ChatManager():
                 messages_to_send.append(response) #if messages are provided, add the response to the messages to send
 
             if not response.tool_calls:
-                logger.debug(f"No tool calls made, returning response content...")
                 return response.content #if there are no tool calls, return the response content
             
             logger.info(f"Model made {len(response.tool_calls)} tool calls.")
@@ -265,7 +264,7 @@ def get_file_content(filepath: str) -> str:
 
         if parsed_content and 'content' in parsed_content:
             content = parsed_content['content']
-            if count_tokens(content) > 2000: # Check if token count is over 2000
+            if count_tokens(content) > 1000: # Check if token count is over 2000, might need to remove this entirely and always summarize the text.
                 content = summarize_text_with_llm(content)
             return content
         else:

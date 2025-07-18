@@ -87,12 +87,12 @@ def score_test():
     embeddingmanager = EmbeddingManager()
 
     new_lead_description = (
-        "The client, a resident of Suffolk County, tripped on a significantly cracked and uneven public sidewalk in a town park at dusk about a month ago. "
-        "They were walking with a friend who was distracted and did not witness the fall itself but helped them immediately after. "
-        "The client claims they suffered a torn meniscus, though their doctor's diagnosis is based on a physical exam and they have not yet had an MRI to confirm. "
-        "They did not report the incident to the town or any authority until the following week. "
-        "The client also has a documented history of knee injuries from college sports, which might complicate the claim. "
-        "They are unsure how long the sidewalk had been in that condition."
+        "The client, a resident of Suffolk County, was attending a backyard barbecue at their neighbor's house last weekend. "
+        "They claim they slipped and fell on wet grass near a children's sprinkler that had been running for several hours, resulting in a dislocated shoulder. "
+        "The client admits to having consumed a couple of beers over the course of the afternoon. "
+        "The neighbor, a close friend, is hesitant to involve their homeowner's insurance and has not provided any details. "
+        "The client received initial treatment at an urgent care clinic but has not yet seen an orthopedic specialist. "
+        "It is unclear if any of the other party guests directly witnessed the fall."
     )
     question_vector = embeddingmanager.get_embeddings(new_lead_description)
     search_results = qdrantmanager.search_vectors(collection_name="case_files", query_vector=question_vector, vector_name="chunk", limit=10)

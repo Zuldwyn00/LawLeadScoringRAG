@@ -150,8 +150,9 @@ lead_scoring:
     ---
     **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as: "Lead Score: 0/100"
     **Confidence Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low confidence and 100 is extremely high confidence in your lead score] format it as: "Confidence Score: 0/100"
-      * If your confidence score is under 60, you must use the 'get_file_content' tool to get the summarized content of at least one of the historical cases given in the context. You must use the 'get_file_content' tool to get the summarized content of historical cases given in the context.
-      * You must provide both your confidence score and lead score prior to using the 'get_file_content' tool and after using the 'get_file_content' tool. for example: "Prior Lead Score: 0/100 - Updated Lead Score: 0/100"
+      * If your confidence score is under 60, you must use the 'get_file_content' tool to get the summarized content of at least one of the historical cases given in the context or more if deemed necessary but do not exceed your defined tool call limit.
+      * You must provide both your confidence score and lead score prior to using the 'get_file_content' tool and after using the 'get_file_content' tool. for example: "Prior Confidence Score: 50/100 - Updated Confidence Score: 70/100".
+      * TOOL CALL LIMIT: You may make up to three tool calls but no more than three.
     **Recommendation:** [Provide a one-sentence summary of your recommendation. These are just some examples, you can be more creative with your recommendation. e.g., "High-potential case, recommend immediate follow-up.", "Medium-potential case with significant risks requiring further investigation.", or "Low-potential case, recommend declining."]
 
     **Executive Summary:**

@@ -12,6 +12,8 @@
 # Add a check for files that are too laege to process. Split them into chunks and process them then combine the final output though this may arise rate limit issues. Perhaps we process them completely seperately
 # Maybe we can change the return type to a list of strings instead of a single string so it can handle multiple strings at once as a return.
 
+# Make rate limiting logic more robust, perhaps gradually increasing the timer after each failed request.
+
 #TODO: AI PROMPT CHANGE: Add steps for the scoring agent to perhaps score each section and then combine the scores to get a final score rather an one main arbitrary score. This might be better for the scoring agent.
 # give the AI a more consistent output by following more well-defined scoring rules.
 

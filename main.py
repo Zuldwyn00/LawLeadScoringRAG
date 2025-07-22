@@ -9,25 +9,25 @@
 
 # Use a DB to store all the metadata, while qdrant only stores the ID, we use the ID to get the real metadata in the DB.
 
-# Add a check for files that are too laege to process. Split them into chunks and process them then combine the final output though this may arise rate limit issues. Perhaps we process them completely seperately
-# Maybe we can change the return type to a list of strings instead of a single string so it can handle multiple strings at once as a return.
-
 # Make rate limiting logic more robust, perhaps gradually increasing the timer after each failed request.
 
 #TODO: AI PROMPT CHANGE: Add steps for the scoring agent to perhaps score each section and then combine the scores to get a final score rather an one main arbitrary score. This might be better for the scoring agent.
 # give the AI a more consistent output by following more well-defined scoring rules.
 
-#CHECK IF SCORE IS ACTUALLY RECIEVING CASE DATA, IT SEEMS LIKE IT IS NOT. I ADDED A LINE TO THE PROMPT ASKING IT TO GET THE CASE IDS, BUT IT IS NOT DOING IT.
 
+from numpy import False_
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.aiclients import EmbeddingManager, ChatManager
 from scripts.vectordb import QdrantManager
+from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
 from utils import ensure_directories, load_config, setup_logger, find_files, load_from_json, save_to_json
+from qdrant_client.http import models
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
 logger = setup_logger(__name__, config)
+
 
 def embedding_test(filepath: str, case_id: int):
     ensure_directories()
@@ -38,7 +38,6 @@ def embedding_test(filepath: str, case_id: int):
     files = find_files(Path(filepath))
     progress = len(files)
     print(f"Found {progress} files")
-    qdrantmanager.create_collection(collection_name="case_files")
     processed_files_data = load_from_json()
     case_id = case_id
     
@@ -131,9 +130,154 @@ def run_ocr_on_folder(folder_path: str):
         except Exception as e:
             logger.error(f"An error occurred while processing {pdf_file.name}: {e}")
 
-def main():
-    score_test()
+def cleanup_settlement_score_data(dry_run=True):
+    """
+    Removes all data related to files that have settlement_value chunks.
+    
+    This function will:
+    1. Find all chunks with settlement_value field
+    2. Collect unique source files from those chunks
+    3. Remove those source files from processed_files.json
+    4. Delete ALL chunks from the database that have those source files
+    
+    Args:
+        dry_run (bool): If True, shows what would be deleted without making changes
+    """
+    mode = "DRY RUN" if dry_run else "LIVE"
+    print(f"Starting settlement score data cleanup ({mode})...")
+    
+    try:
+        qdrant_manager = QdrantManager()
+        
+        # Get all chunks and find ones with settlement_value
+        all_chunks = []
+        offset = None
+        
+        print("Fetching all chunks from case_files collection...")
+        while True:
+            result = qdrant_manager.client.scroll(
+                collection_name="case_files",
+                limit=1000,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False
+            )
+            
+            points, next_offset = result
+            all_chunks.extend(points)
+            
+            if next_offset is None:
+                break
+            offset = next_offset
+        
+        print(f"Fetched {len(all_chunks)} total chunks")
+        
+        # Find chunks with settlement_value and collect their source files
+        source_files_to_remove = set()
+        settlement_score_chunks = []
+        
+        for point in all_chunks:
+            settlement_score = point.payload.get('settlement_value')
+            if settlement_score is not None and settlement_score != 'null' and settlement_score != '':
+                settlement_score_chunks.append(point)
+                source = point.payload.get('source')
+                if source:
+                    source_files_to_remove.add(source)
+        
+        print(f"Found {len(settlement_score_chunks)} chunks with settlement_value")
+        print(f"Found {len(source_files_to_remove)} unique source files to remove")
+        
+        if len(source_files_to_remove) == 0:
+            print("No source files to remove.")
+            return
+        
+        # Show which files will be removed
+        print("\nSource files to be removed:")
+        for source_file in sorted(source_files_to_remove):
+            print(f"  - {source_file}")
+        
+        # Find ALL chunks that have any of these source files
+        all_chunks_to_delete = []
+        for point in all_chunks:
+            source = point.payload.get('source')
+            if source in source_files_to_remove:
+                all_chunks_to_delete.append(point)
+        
+        print(f"\nTotal chunks to delete from database: {len(all_chunks_to_delete)}")
+        
+        if not dry_run:
+            # Remove source files from processed_files.json
+            processed_files_data = load_from_json()
+            files_removed_count = 0
+            
+            print("\nRemoving files from processed_files.json...")
+            for case_id, file_list in processed_files_data.items():
+                files_to_keep = []
+                for file_path in file_list:
+                    if file_path not in source_files_to_remove:
+                        files_to_keep.append(file_path)
+                    else:
+                        print(f"  Removing {file_path} from case {case_id}")
+                        files_removed_count += 1
+                
+                processed_files_data[case_id] = files_to_keep
+            
+            # Remove empty case entries
+            processed_files_data = {k: v for k, v in processed_files_data.items() if v}
+            
+            # Save updated processed_files.json
+            save_to_json(processed_files_data)
+            print(f"Removed {files_removed_count} files from processed_files.json")
+            
+            # Delete chunks from Qdrant database
+            print(f"\nDeleting {len(all_chunks_to_delete)} chunks from database...")
+            chunk_ids = [point.id for point in all_chunks_to_delete]
+            
+            # Delete in batches to avoid overwhelming the API
+            batch_size = 100
+            deleted_count = 0
+            
+            for i in range(0, len(chunk_ids), batch_size):
+                batch_ids = chunk_ids[i:i + batch_size]
+                try:
+                    qdrant_manager.client.delete(
+                        collection_name="case_files",
+                        points_selector=models.PointIdsList(points=batch_ids)
+                    )
+                    deleted_count += len(batch_ids)
+                    print(f"  Deleted batch {i//batch_size + 1}: {len(batch_ids)} chunks")
+                except Exception as e:
+                    print(f"  Error deleting batch {i//batch_size + 1}: {e}")
+            
+            print(f"Successfully deleted {deleted_count} chunks from database")
+        
+        else:
+            # Dry run - show what would be removed from processed_files.json
+            processed_files_data = load_from_json()
+            files_to_remove_count = 0
+            
+            print("\nFiles that would be removed from processed_files.json:")
+            for case_id, file_list in processed_files_data.items():
+                for file_path in file_list:
+                    if file_path in source_files_to_remove:
+                        print(f"  Case {case_id}: {file_path}")
+                        files_to_remove_count += 1
+            
+            print(f"\nWould remove {files_to_remove_count} files from processed_files.json")
+            print(f"Would delete {len(all_chunks_to_delete)} chunks from database")
+        
+        print(f"\nCleanup complete!")
+        
+    except Exception as e:
+        print(f"Error during cleanup: {e}")
+        logger.error(f"Settlement score cleanup failed: {e}")
 
+def main():
+    embedding_test(r'C:\Users\Justin\Desktop\testdocs', 1050076)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocs2', 2211830)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocs3', 1637313)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocs4', 1660355)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocs5', 1508908)
 
 if __name__ == "__main__":
     main()

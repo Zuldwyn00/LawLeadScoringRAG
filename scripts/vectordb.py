@@ -5,7 +5,7 @@ from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import ResponseHandlingException
 from langchain_openai import AzureOpenAIEmbeddings
-from typing import List
+from typing import List, Dict, Any
 import uuid
 import json
 
@@ -127,6 +127,137 @@ class QdrantManager:
             return search_result
         except Exception as e:
             raise Exception(f"Error searching vectors: {e}")
+
+    def get_case_settlements(self, jurisdiction_cases: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+        """
+        Extract case IDs and their associated settlement values with corresponding sources from jurisdiction case data.
+        
+        Args:
+            jurisdiction_cases (List[Dict[str, Any]]): List of case metadata dicts from get_cases_by_jurisdiction()
+            
+        Returns:
+            Dict[str, Dict[str, Any]]: Dictionary where keys are case_ids and values are dicts containing:
+                                      - 'settlement_data': List of dicts with 'value' and 'source' for each settlement
+                                      - 'case_count': Number of chunks for this case
+        """
+        case_data = {}
+        processed_count = 0
+        skipped_count = 0
+        
+        for case_metadata in jurisdiction_cases:
+            case_id = case_metadata.get('case_id')
+            settlement_value = case_metadata.get('settlement_value')
+            source = case_metadata.get('source') or case_metadata.get('communication_channel')
+            
+            # Skip cases without case_id
+            if not case_id:
+                skipped_count += 1
+                continue
+            
+            # Initialize case entry if it doesn't exist
+            if case_id not in case_data:
+                case_data[case_id] = {
+                    'settlement_data': [],
+                    'case_count': 0
+                }
+            
+            # Increment case count (number of chunks/entries for this case)
+            case_data[case_id]['case_count'] += 1
+            
+            # Handle settlement_value with its source
+            if settlement_value is not None and settlement_value > 0:
+                settlement_entry = {
+                    'value': settlement_value,
+                    'source': source or 'unknown'
+                }
+                
+                # Add settlement entry if this exact combination doesn't already exist
+                if settlement_entry not in case_data[case_id]['settlement_data']:
+                    case_data[case_id]['settlement_data'].append(settlement_entry)
+                    processed_count += 1
+        
+        logger.info(f"Processed {processed_count} settlement entries, skipped {skipped_count} cases without case_id")
+        logger.info(f"Found {len(case_data)} unique case IDs")
+        
+        return case_data
+
+    def create_index(self, collection_name: str, field_name: str):
+        """
+        Create a payload index for a specified field to enable filtering.
+        This works on existing data - no need to reupload anything.
+        
+        Args:
+            collection_name (str): Name of the collection to create index for.
+            field_name (str): Name of the field to create index on (e.g., "jurisdiction", "case_type").
+        """
+        try:
+            self.client.create_payload_index(
+                collection_name=collection_name,
+                field_name=field_name,
+                field_schema=models.PayloadSchemaType.KEYWORD
+            )
+            logger.info(f"✅ Created '{field_name}' index for collection '{collection_name}'")
+            return True
+        except Exception as e:
+            if "already exists" in str(e).lower():
+                logger.info(f"✅ Index '{field_name}' already exists for collection '{collection_name}'")
+                return True
+            else:
+                logger.error(f"❌ Failed to create '{field_name}' index: {e}")
+                return False
+
+    def get_cases_by_jurisdiction(self, collection_name: str, jurisdiction: str) -> List[Dict[str, Any]]:
+        """
+        Retrieve all cases for a specific jurisdiction with their complete metadata.
+        
+        Args:
+            collection_name (str): Name of the collection to search.
+            jurisdiction (str): Jurisdiction to filter by (e.g., "Suffolk County").
+            
+        Returns:
+            List[Dict[str, Any]]: List of case metadata dictionaries for the jurisdiction.
+        """
+        try:
+            # Use Qdrant's filter functionality to get cases by jurisdiction
+            search_filter = models.Filter(
+                must=[
+                    models.FieldCondition(
+                        key="jurisdiction",
+                        match=models.MatchValue(value=jurisdiction)
+                    )
+                ]
+            )
+            
+            # Scroll through filtered results
+            all_cases = []
+            offset = None
+            
+            while True:
+                result = self.client.scroll(
+                    collection_name=collection_name,
+                    scroll_filter=search_filter,
+                    limit=10000,
+                    offset=offset,
+                    with_payload=True,
+                    with_vectors=False
+                )
+                
+                points, next_offset = result
+                
+                # Extract metadata from each point
+                for point in points:
+                    all_cases.append(point.payload)
+                
+                if next_offset is None:
+                    break
+                offset = next_offset
+            
+            logger.info(f"Found {len(all_cases)} cases for jurisdiction '{jurisdiction}'")
+            return all_cases
+            
+        except Exception as e:
+            logger.error(f"Error retrieving cases for jurisdiction '{jurisdiction}': {e}")
+            raise Exception(f"Error retrieving cases by jurisdiction: {e}")
         
     def get_context(self, search_results: list) -> str:
         """
@@ -158,7 +289,7 @@ class QdrantManager:
                 "witnesses_mentioned": payload.get("witnesses_mentioned"),
                 "prior_legal_representation_mentioned": payload.get("prior_legal_representation_mentioned"),
                 "case_outcome": payload.get("case_outcome"),
-                "settlement_value_score": payload.get("settlement_value_score"),
+                "settlement_value": payload.get("settlement_value"),
                 "communication_channel": payload.get("source"),
                 "key_phrases": payload.get("key_phrases", []),
                 "summary": payload.get("summary")

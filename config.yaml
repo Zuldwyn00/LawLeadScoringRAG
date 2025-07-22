@@ -10,18 +10,26 @@ logger:
   max_bytes: 5242880 # 5MB
   backup_count: 5
 
-jurisdictions:
-  "NY":
-    "Suffolk":
-      score_modifier: 1.0
-      notes: "EXAMPLE: High verdicts common, but high litigiation costs. Conservative jury pool."
-      last_updated: "2025-07-15"
-    "Nassau":
-      score_modifier: 1.0
-      notes: "EXAMPLE: High verdicts common, but high litigiation costs. Conservative jury pool."
-      last_updated: "2025-07-15"
-    "":
-      score_modifier: 1.0
-      notes: "EXAMPLE: High verdicts common, but high litigiation costs. Conservative jury pool."
-      last_updated: "2025-07-15"
-    "Westchester":
+
+jurisdiction_scoring:
+  field_weights: { # the importance value of if a field is present in the data for a case, 0 means we place no value on this field being present
+    case_id: 0.0,
+    jurisdiction: 0.0,
+    case_type: 2.0,
+    incident_date: 1.5,
+    incident_location: 1.2,
+    mentioned_locations: 0.0,
+    injuries_described: 2.0,
+    medical_treatment_mentioned: 1.5,
+    employment_impact_mentioned: 1.0,
+    property_damage_mentioned: 0.8,
+    entities_mentioned: 0.2,
+    insurance_mentioned: 0.6,
+    witnesses_mentioned: 0.5,
+    prior_legal_representation_mentioned: 0.2,
+    case_outcome: 2.5,
+    settlement_value: 3.0,
+    communication_channel: 0.0,
+    key_phrases: 0.0,
+    summary: 0.0,
+  }

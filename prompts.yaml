@@ -77,12 +77,9 @@ injury_metadata_extraction:
     - **prior_legal_representation_mentioned**: Boolean indicating if another attorney was involved (`true`, `false`).
 
     ### Case Outcome & Value
-    - **case_outcome**: The final resolution of the case (e.g., 'settled_pre_litigation', 'settled_post_litigation', 'verdict_for_plaintiff', 'verdict_for_defendant', 'case_dismissed', 'ongoing', 'undefined'). Do not use 'ongoing' if unknown, use 'undefined'.
-    - **settlement_value_score**: A score from 1-100 indicating the approximate gross settlement or verdict value. This score is a general estimate based on typical New York personal injury case values.
-      - **1-20**: Minor (e.g., soft tissue), ~$5,000 - $75,000
-      - **21-50**: Moderate (e.g., fractures, requires surgery), ~$75,000 - $200,000
-      - **51-80**: Severe (e.g., serious permanent injury), ~$200,000 - $1,000,000
-      - **81-100**: Catastrophic (e.g., permanent disability, major life impact), ~$1,000,000+
+    - **case_outcome**: The final resolution of the case (e.g., 'settled_pre_litigation', 'settled_post_litigation', 'verdict_for_plaintiff', 'verdict_for_defendant', 'case_dismissed', 'ongoing', 'null'). Do not use 'ongoing' if unknown, use 'null'.
+    - **settlement_value**: The $ value of the reached settlement outcome if mentioned. (e.g. '45,678.34', 'null')
+
 
     ### Source & Summary
     - **communication_channel**: How the information was received (e.g., 'email', 'phone_transcript', 'web_form').
@@ -112,7 +109,7 @@ injury_metadata_extraction:
         "witnesses_mentioned": false,
         "prior_legal_representation_mentioned": false,
         "case_outcome": "settled_pre_litigation",
-        "settlement_value_score": 35,
+        "settlement_value": "45,678.34",
         "communication_channel": "web_form",
         "key_phrases": ["the other driver ran a red light", "my car is totaled"].
         "summary": "The client was involved in a car accident where the other driver allegedly ran a red light, resulting in injury and property damage. The client was not at fault."
@@ -130,7 +127,7 @@ lead_scoring:
     **CONTEXT:**
     1.  **New Lead:** A description of a potential new case.
     2.  **Historical Case Summaries:** A list of structured JSON objects in a dict format representing past cases from our firm that have semantic similarities to the new lead. These summaries include both wins and losses, providing a balanced perspective on precedent.
-        *The settlement_value_score is a score from 1-100 indicating the approximate gross settlement or verdict value. This score is a general estimate based on an extremely rough estimate of the average settlement values as a whole for New York State.
+        *The settlement_value is a score from 1-100 indicating the approximate gross settlement or verdict value. This score is a general estimate based on an extremely rough estimate of the average settlement values as a whole for New York State.
         - **1-20**: Minor (e.g., soft tissue), ~$5,000 - $75,000
         - **21-50**: Moderate (e.g., fractures, requires surgery), ~$75,000 - $200,000
         - **51-80**: Severe (e.g., serious permanent injury), ~$200,000 - $1,000,000

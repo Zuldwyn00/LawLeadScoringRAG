@@ -132,7 +132,6 @@ class ChunkData:
         Returns:
             str: The text content.
         """
-        logger.debug("Getting text.")
         return self.text
 
     def set_text(self, value: str) -> None:
@@ -142,7 +141,6 @@ class ChunkData:
         Args:
             value (str): The text to set.
         """
-        logger.debug(f"Setting text to: {value[:70]}...")
         self.text = value
 
     def get_source(self) -> str:
@@ -152,7 +150,6 @@ class ChunkData:
         Returns:
             str: The source.
         """
-        logger.debug(f"Getting source.")
         return self.source
 
     def set_source(self, value: str) -> None:
@@ -162,7 +159,6 @@ class ChunkData:
         Args:
             value (str): The source to set.
         """
-        logger.debug(f"Setting source to: {value}")
         self.source = value
 
     def get_metadata(self) -> dict:
@@ -172,7 +168,6 @@ class ChunkData:
         Returns:
             dict: The metadata dictionary.
         """
-        logger.debug(f"Getting metadata.")
         return self.metadata
 
     def set_metadata(self, value: dict) -> None:
@@ -182,7 +177,6 @@ class ChunkData:
         Args:
             value (dict): The metadata dictionary to set.
         """
-        logger.debug(f"Setting metadata to: {value}")
         self.metadata = value
 
     def get_embeddings(self) -> list:
@@ -192,7 +186,6 @@ class ChunkData:
         Returns:
             list: The embeddings list.
         """
-        logger.debug("Getting embeddings.")
         return self.embeddings
 
     def set_embeddings(self, value: list) -> None:
@@ -202,7 +195,6 @@ class ChunkData:
         Args:
             value (list): The embeddings list to set.
         """
-        logger.debug(f"Setting embeddings, count: {len(value)}")
         self.embeddings = value
 
     def get_case_id(self) -> str:
@@ -212,7 +204,6 @@ class ChunkData:
         Returns:
             str: The case ID.d
         """
-        logger.debug("Getting case ID.")
         return self.case_id
     
     def set_case_id(self, value: str) -> None:
@@ -222,5 +213,4 @@ class ChunkData:
         Args:
             value (str): The case ID to set.
         """
-        logger.debug(f"Setting case ID to: {value}")
         self.case_id = value

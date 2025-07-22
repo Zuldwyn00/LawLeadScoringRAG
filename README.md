@@ -58,7 +58,35 @@ This project is an AI-powered lead scoring system that analyzes new leads agains
 
 ## Usage
 
-The primary functionalities are executed through `main.py`.
+### Web Interface (Recommended)
+
+The easiest way to use the lead scoring system is through the web interface:
+
+1.  **Launch the UI:**
+    ```sh
+    python run_ui.py
+    ```
+    This will start a Streamlit web interface that automatically opens in your browser at `http://localhost:8501`.
+
+2.  **Score Leads:**
+    - Enter a detailed lead description in the text area
+    - Click "Score Lead" to analyze the lead
+    - View results with color-coded score blocks:
+      - 🟢 **75-100**: High potential (Green)
+      - 🟡 **50-75**: Medium potential (Yellow)  
+      - 🟠 **25-50**: Low potential (Orange)
+      - 🔴 **0-25**: Very low potential (Red)
+    - Click on any scored lead to see the full detailed analysis
+
+3.  **Features:**
+    - Persistent session storage of scored leads
+    - Color-coded visual scoring system
+    - Expandable detailed analysis for each lead
+    - Statistics sidebar showing total leads and average scores
+
+### Command Line Interface
+
+For advanced users, the primary functionalities can also be executed through `main.py`:
 
 1.  **Process Documents:**
     Place your source documents into a directory. You will need to update the path inside the `embedding_test` function in `main.py` to point to your document directory. Then, run the function to process and store them in the vector database.

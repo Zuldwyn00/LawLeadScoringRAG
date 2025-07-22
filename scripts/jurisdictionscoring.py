@@ -17,8 +17,64 @@ class JurisdictionScoreManager:
         self.field_weights = self.config.get('jurisdiction_scoring', {}).get('field_weights', {})
         self.recency_weights = self.config.get('jurisdiction_scoring', {}).get('recency_weights', {})
 
-    def score_jurisdiction(self, case_weight: float, settlement_value: int):
-        jurisdiction_score = 0
+    def score_jurisdiction(self, jurisdiction_cases: list):
+
+        case_weight_sum = 0.0
+        weighted_settlement_sum = 0.0
+        valid_cases = 0
+        cases_processed = []
+
+        for case_data in jurisdiction_cases:
+            self.logger.debug("calculating case_weight for case '%s', source: '%s'.", case_data.get('source'), case_data.get('case_id'))
+
+            settlement_value = float(case_data.get('settlement_value'))
+            if not settlement_value: #skip this one if there is no settlement value
+                continue
+            
+            # Calculate case weight (recency x quality)
+            recency_mult = self.calculate_recency_multiplier(case_data)
+            quality_mult = self.calculate_quality_multiplier(case_data)
+            case_weight = recency_mult * quality_mult # can define case_weight in a seperate method if we decide to make the logic for it more complicated, currently unnecessary.
+
+            weighted_settlement_sum += settlement_value * case_weight
+            case_weight_sum += case_weight
+
+            valid_cases += 1
+            
+            cases_processed.append({
+                'case_id': case_data.get('case_id'),
+                'settlement_value': settlement_value,
+                'recency_multiplier': recency_mult,
+                'quality_multiplier': quality_mult,
+                'case_weight': case_weight,
+                'weighted_contribution': settlement_value * case_weight
+            })
+
+        if case_weight_sum == 0:
+            raise Exception(f"case_weight_sum is '{case_weight_sum}' - invalid.")
+        else:
+            jurisdiction_score = weighted_settlement_sum / case_weight_sum   
+        
+        confidence = min(1.0, valid_cases / 30)
+
+        # Create result dictionary
+        result = {
+            'jurisdiction_score': jurisdiction_score,
+            'confidence': confidence,
+            'case_count': valid_cases,
+            'total_case_weight': case_weight_sum,
+            'cases_processed': cases_processed
+        }
+        
+        # Log the completed scoring results
+        self.logger.info(f"Jurisdiction scoring completed:")
+        self.logger.info(f"  - Valid cases processed: {result['case_count']}")
+        self.logger.info(f"  - Weighted settlement sum: ${weighted_settlement_sum}")
+        self.logger.info(f"  - Total case weight: {result['total_case_weight']}")
+        self.logger.info(f"  - Jurisdiction score: ${result['jurisdiction_score']}")
+        self.logger.info(f"  - Confidence level: {result['confidence']}")
+
+        return result
 
     def calculate_data_completeness(self, case_data: dict) -> float:
         """
@@ -30,14 +86,37 @@ class JurisdictionScoreManager:
         Returns:
             float: Data completeness score between 0.0 and 1.0
         """
+        def _is_field_present(self, case_data: dict, field_name: str) -> int:
+            """
+            Check if a field is present and has meaningful data, need method for this because different values are stored different when empty.
+            
+            Args:
+                case_data (dict): Case metadata dictionary
+                field_name (str): Name of field to check
+                
+            Returns:
+                int: 1 if field is present and meaningful, 0 if missing/empty
+            """
+            value = case_data.get(field_name)
 
+            if value is None:
+                return 0
+            elif isinstance(value, str) and value.strip() == "":
+                return 0
+            elif isinstance(value, list) and len(value) == 0:
+                return 0
+            elif isinstance(value, (int, float)) and value == 0:
+                return 0
+            else:
+                return 1
+        
         total_weighted_present = 0.0
         total_possible_weight = 0.0
         for field_name, weight in self.field_weights.items():
             if weight == 0.0:
                 continue
 
-            field_present = self._is_field_present(case_data, field_name)
+            field_present = _is_field_present(case_data, field_name)
             total_weighted_present += weight * field_present
             total_possible_weight += weight
             
@@ -48,30 +127,6 @@ class JurisdictionScoreManager:
         data_completeness_score = total_weighted_present / total_possible_weight
         return data_completeness_score
     
-    def _is_field_present(self, case_data: dict, field_name: str) -> int:
-        """
-        Check if a field is present and has meaningful data, need method for this because different values are stored different when empty.
-        
-        Args:
-            case_data (dict): Case metadata dictionary
-            field_name (str): Name of field to check
-            
-        Returns:
-            int: 1 if field is present and meaningful, 0 if missing/empty
-        """
-        value = case_data.get(field_name)
-
-        if value is None:
-            return 0
-        elif isinstance(value, str) and value.strip() == "":
-            return 0
-        elif isinstance(value, list) and len(value) == 0:
-            return 0
-        elif isinstance(value, (int, float)) and value == 0:
-            return 0
-        else:
-            return 1
-
     def calculate_quality_multiplier(self, case_data: dict) -> float:
         """
         Calculate a quality multiplier based on the data completeness score.
@@ -108,23 +163,6 @@ class JurisdictionScoreManager:
         
         recency_multiplier = numpy.piecewise(x, conditionlist, functionlist)
         return recency_multiplier
-        
-    def score_case_weight(self, recency_mult: float, quality_mult: float) -> float:
-        """
-        Calculate the weighted score for a case using recency and quality multipliers.
-        Defined as (settlement_value * recency_mult * quality_mult)
-        Cases that are more recent and contain more complete data hold more weight.
-
-        Args:
-            recency_mult (float): The multiplier based on the recency of the case.
-            quality_mult (float): The multiplier based on the quality/completeness of the case data.
-
-        Returns:
-            float: The weighted score for the case.
-        """
-
-        case_weight = (recency_mult * quality_mult)
-        return case_weight
 
     def _calculate_case_age_years(self, case_data: dict) -> float:
         """

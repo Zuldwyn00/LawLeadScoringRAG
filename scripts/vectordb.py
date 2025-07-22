@@ -165,16 +165,22 @@ class QdrantManager:
             case_data[case_id]['case_count'] += 1
             
             # Handle settlement_value with its source
-            if settlement_value is not None and settlement_value > 0:
-                settlement_entry = {
-                    'value': settlement_value,
-                    'source': source or 'unknown'
-                }
-                
-                # Add settlement entry if this exact combination doesn't already exist
-                if settlement_entry not in case_data[case_id]['settlement_data']:
-                    case_data[case_id]['settlement_data'].append(settlement_entry)
-                    processed_count += 1
+            if settlement_value is not None and settlement_value != 'null' and settlement_value != '':
+                try:
+                    settlement_numeric = float(settlement_value)
+                    if settlement_numeric > 0:
+                        settlement_entry = {
+                            'value': settlement_value,
+                            'source': source or 'unknown'
+                        }
+                        
+                        # Add settlement entry if this exact combination doesn't already exist
+                        if settlement_entry not in case_data[case_id]['settlement_data']:
+                            case_data[case_id]['settlement_data'].append(settlement_entry)
+                            processed_count += 1
+                except (ValueError, TypeError):
+                    # Skip invalid settlement values that can't be converted to numbers
+                    pass
         
         logger.info(f"Processed {processed_count} settlement entries, skipped {skipped_count} cases without case_id")
         logger.info(f"Found {len(case_data)} unique case IDs")

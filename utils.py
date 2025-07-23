@@ -63,7 +63,7 @@ def load_config(config_path: Path = None) -> dict:
     return {}
                 
 def setup_logger(
-    name: str, config: Dict[str, Any], level: Optional[str] = None
+    name: str, config: Dict[str, Any], level: Optional[str] = None, filename: Optional[str] = None
     ) -> logging.Logger:
     """
     Configure and return a logger that works with tqdm progress bars.
@@ -75,6 +75,7 @@ def setup_logger(
         name (str): Name of the logger (typically __name__).
         config (Dict[str, Any]): Configuration dictionary containing logger settings.
         level (Optional[str]): Optional log level override.
+        filename (Optional[str]): Optional custom filename. If None, uses config["logger"]["filename"].
 
     Returns:
         logging.Logger: Configured logger instance.
@@ -82,6 +83,8 @@ def setup_logger(
     Example:
         >>> logger = setup_logger(__name__, config)
         >>> logger.info("Processing started")
+        >>> # Custom filename for specific class
+        >>> logger = setup_logger(__name__, config, filename="custom_class.log")
     """
     logger = logging.getLogger(name)
     log_level = level or config["logger"]["level"]
@@ -96,9 +99,10 @@ def setup_logger(
     )
 
     # Create file handler
-    log_dir = Path(__file__).resolve().parent / "logs"
+    log_dir = Path(__file__).resolve().parent / config["directories"]["logs"]
     log_dir.mkdir(exist_ok=True)
-    log_file = log_dir / config["logger"]["filename"]
+    log_filename = filename or config["logger"]["filename"]
+    log_file = log_dir / log_filename
 
     # Use RotatingFileHandler for log rotation
     max_bytes = int(config["logger"].get("max_bytes", 1024 * 1024 * 5))  # Default 5 MB

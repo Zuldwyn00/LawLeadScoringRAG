@@ -2,7 +2,8 @@ directories:
   pdfs: "PDFs" #relative to script directory
   data: "scripts/data" #relative to script directory
   jsons: "scripts/data/jsons" #relative to script directory
-  
+  logs: "logs"
+
 logger:
   level: "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   format: "%(asctime)s - %(levelname)s - %(message)s"  # Log message format

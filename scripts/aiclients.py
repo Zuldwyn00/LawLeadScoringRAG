@@ -69,6 +69,7 @@ class EmbeddingManager:
 class ChatManager():
     def __init__(self, messages: list = [], temperature: float = 0.0): #default temperature is 0.0 to be deterministic, implement logic later to make it able to be changed more easily.
         self.config = config
+        self.logger = setup_logger(__name__, config, filename='chatmanager.log')
         self.tool_manager = ToolManager(tools=[get_file_content])
         self.temperature = temperature
         self.client = self._initialize_client()
@@ -104,7 +105,7 @@ class ChatManager():
             self.message_history.append(message_obj)
             return True
         except Exception as e:
-            logger.error("Issue adding message to message history: %s", e)
+            self.logger.error("Issue adding message to message history: %s", e)
         return False
     
     def get_response_with_tools(self, messages: list = None) -> str:
@@ -118,7 +119,7 @@ class ChatManager():
         Returns:
             str: The content of the model's response.
         """
-        logger.debug(f"Getting response with tool access...")
+        self.logger.debug(f"Getting response with tool access...")
         messages_to_send = messages if messages is not None else self.message_history
 
         while True:
@@ -132,7 +133,7 @@ class ChatManager():
             if not response.tool_calls:
                 return response.content #if there are no tool calls, return the response content
             
-            logger.info(f"Model made {len(response.tool_calls)} tool calls.")
+            self.logger.info(f"Model made {len(response.tool_calls)} tool calls.")
             
             for tool_call in response.tool_calls:
                 tool_output = self.tool_manager.call_tool(tool_call)
@@ -160,14 +161,14 @@ class ChatManager():
 
 
         system_prompt_content = load_prompt('injury_metadata_extraction')
-        logger.debug(f"Token count: {count_tokens(text) + count_tokens(system_prompt_content)}")
+        self.logger.debug(f"Token count: {count_tokens(text) + count_tokens(system_prompt_content)}")
         system_message = SystemMessage(content=system_prompt_content)
         user_message = HumanMessage(content=text)
         messages_to_send = [system_message, user_message]
         
         for attempt in range(retries):
             try:
-                logger.debug(f"Attempting to define metadata (Attempt {attempt + 1}/{retries})...")
+                self.logger.debug(f"Attempting to define metadata (Attempt {attempt + 1}/{retries})...")
                 response = self.client.invoke(messages_to_send).content
                 
                 start_index = response.find('{')
@@ -185,10 +186,10 @@ class ChatManager():
                     raise ValueError("No JSON object found in the response.")
 
             except Exception as e:
-                logger.error(f"An unexpected error occurred on attempt {attempt + 1}: {e}")
+                self.logger.error(f"An unexpected error occurred on attempt {attempt + 1}: {e}")
                 self.rate_limit_flag = True
 
-        logger.error("Failed to define metadata after %s attempts.", retries)
+        self.logger.error("Failed to define metadata after %s attempts.", retries)
         raise Exception(f"Failed to extract metadata for {filepath} after {retries} attempts.")
     
     def score_lead(self, new_lead_description: str, historical_context: str) -> str:
@@ -203,7 +204,7 @@ class ChatManager():
             str: The response from the language model with jurisdiction-modified score.
         """
         system_prompt_content = load_prompt('lead_scoring')
-        logger.debug(f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}")
+        self.logger.debug(f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}")
         system_message = SystemMessage(content=system_prompt_content)
         
         user_message_content = f"""
@@ -217,16 +218,16 @@ class ChatManager():
         messages_to_send = [system_message, user_message]
         
         try:
-            logger.debug("Attempting to score lead, sending messages to client...")
+            self.logger.debug("Attempting to score lead, sending messages to client...")
             response = self.get_response_with_tools(messages_to_send)
             
             # Extract the original score from the response
             original_score = extract_score_from_response(response)
-            logger.debug(f"Extracted original score: {original_score}")
+            self.logger.debug(f"Extracted original score: {original_score}")
             
             # Extract jurisdiction from the response
             jurisdiction = extract_jurisdiction_from_response(response)
-            logger.debug(f"Extracted jurisdiction: {jurisdiction}")
+            self.logger.debug(f"Extracted jurisdiction: {jurisdiction}")
             
             # Apply jurisdiction modifier if jurisdiction was found
             if len(jurisdiction) > 0 and original_score > 0:
@@ -235,14 +236,14 @@ class ChatManager():
                 
                 # Get jurisdiction modifier
                 modifier = jurisdiction_manager.get_jurisdiction_modifier(jurisdiction)
-                logger.debug(f"Jurisdiction modifier for {jurisdiction}: {modifier}")
+                self.logger.debug(f"Jurisdiction modifier for {jurisdiction}: {modifier}")
                 
                 # Apply modifier to the score
                 modified_score = int(round(original_score * modifier))
                 
                 # Ensure the score stays within bounds (1-100)
                 modified_score = max(1, min(100, modified_score))
-                logger.info(f"Score modified from {original_score} to {modified_score} using jurisdiction modifier {modifier}")
+                self.logger.info(f"Score modified from {original_score} to {modified_score} using jurisdiction modifier {modifier}")
                 
                 # Replace the original score in the response with the modified score
                 response = re.sub(
@@ -255,7 +256,7 @@ class ChatManager():
             return response
             
         except Exception as e:
-            logger.error("An unexpected error occurred in score_lead: %s", e)
+            self.logger.error("An unexpected error occurred in score_lead: %s", e)
             return f"An error occurred while scoring the lead: {e}"
 
 def extract_score_from_response(response: str) -> int:

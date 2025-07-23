@@ -137,7 +137,36 @@ lead_scoring:
     5.  **Assess Geographic Influence:** Consider the jurisdiction of the new lead. Using the historical case summaries and your general knowledge of the United States jurisdiction injury case settlement values on average, assess the average $ value of cases in this jurisdiction for this type of case. If no jurisdiction is mentioned, use the average $ value of cases in the state of New York, Long Island.
 
     **TOOL CALL RULES:**
-      * You may make up to (5) tool calls but no more.
+    **STRATEGIC TOOL USAGE - Use tools to strengthen your analysis required as defined by the guidelines**
+    
+    **ANALYSIS APPROACH:**
+    * **Start by evaluating** the provided historical context for completeness and detail
+    * **Consider using tools** if you spot opportunities to gather more specific or relevant information
+    * **Your confidence should reflect evidence quality** - tools can help gather better evidence but aren't required for high confidence
+    * **Aim for thoroughness** - if tool usage would meaningfully improve your analysis, use them
+    
+    **GOOD OPPORTUNITIES FOR TOOL USAGE:**
+    * **Enhance understanding**: Get full case details when summaries mention relevant but incomplete information
+    * **Verify precedents**: Access complete case files to confirm settlement patterns or outcomes
+    * **Clarify contradictions**: Resolve conflicting information between different historical cases
+    * **Jurisdiction insights**: Gather more detailed precedent from cases in the same jurisdiction
+    * **Strengthen evidence**: Access full case details when the summary suggests strong relevance to your lead
+    * **Risk assessment**: Review contrasting cases (wins vs losses) to better understand risk factors
+    
+    **CONFIDENCE SCORING BASED ON EVIDENCE QUALITY:**
+    * **20-40**: Insufficient or contradictory evidence, major information gaps **MUST continue using tools**
+    * **41-69**: Adequate evidence with some gaps or uncertainties - **MUST continue using tools**
+    * **70-80**: Strong evidence with clear precedents and minimal gaps - tool usage becomes optional
+    * **81-100**: Comprehensive evidence with multiple strong precedents and clear outcomes
+    
+    **TOOL CALL GUIDELINES:**
+    * **Up to 5 tool calls available** - use them when they would strengthen your analysis
+    * **Must continue using tools until reaching 70% confidence or hitting the 5-call limit**
+    * Target specific case files mentioned in the historical context using the exact "source" field path  
+    * **Explain your reasoning** for each tool call - what information are you seeking?
+    * Document what each tool call reveals and how it influences your conclusions
+    * **Be thorough** - if multiple cases look promising for deeper analysis, investigate them
+
 
     **REQUIRED OUTPUT FORMAT:**
     Provide your response as a single, complete analysis. Do not output any other text. Your response must follow this structure exactly:
@@ -146,8 +175,6 @@ lead_scoring:
     **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as: "Lead Score: 0/100"
     **Confidence Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low confidence and 100 is extremely high confidence in your lead score] format it as: "Confidence Score: 0/100"
     **Jurisdiction:** [Provide the jurisdiction/county for this case] format it as: "Jurisdiction: [County Name]"
-      * you must use the 'get_file_content' tool to get the summarized content of at least one of the historical cases given in the context or more if deemed necessary but do not exceed your defined tool call limit.
-      * Do not artificially inflate your confidence and lead scores just because you used a tool, if you still are not confident leave your score as such or lower it if the context made it more confusing.
     **Recommendation:** [Provide a one-sentence summary of your recommendation. These are just some examples, you can be more creative with your recommendation. e.g., "High-potential case, recommend immediate follow-up.", "Medium-potential case with significant risks requiring further investigation.", or "Low-potential case, recommend declining."]
 
     **Executive Summary:**
@@ -170,8 +197,12 @@ lead_scoring:
     **5. Case ID of cases given in the context:**
     *   [List the `Case ID` of the historical cases that were provided in the given context provided in the 'case_id' field. Example: "ID:1050076, ID:3444110"]
 
-    **6. Tool Calls:**
-    *   [List the tool calls you made, and why, and how they affected your lead score and confidence score either negatively or positively.]
+    **6. Analysis Depth & Tool Usage:**
+    *   **Historical Context Assessment:** [Rate the provided summaries: Comprehensive/Good/Limited/Insufficient]
+    *   **Tool Calls Made:** [List any tools used: "Call 1: get_file_content(case_file_x.pdf) - Seeking: detailed settlement breakdown for similar premises case"]
+    *   **Additional Insights Gained:** [Summarize what tool calls revealed or confirm if summaries were sufficient]
+    *   **Confidence Impact:** [Explain how each tool call increased/decreased your confidence and why]
+    *   **Overall Evidence Strength:** [Rate your confidence in the evidence base: Low/Moderate/High/Very High]
 
 summarize_text: 
   prompt: |

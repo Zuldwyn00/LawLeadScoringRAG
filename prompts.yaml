@@ -12,7 +12,7 @@ injury_metadata_extraction:
     ## Metadata Schema:
 
     ### Case & Incident Facts
-    - **jurisdiction**: The jurisdiction of the case. Use your general knowledge of the United States to determine the jurisdiction. The jurisdiction is the county the town or city is in where the incident occurred (e.g. 'Suffolk County', 'Nassau County', 'Queens County', 'Bronx County', 'Kings County', 'Richmond County').
+    - **jurisdiction**: The jurisdiction of the case. Use your general knowledge of the United States to determine the jurisdiction. The jurisdiction is the county the town or city is in where the incident occurred and will be one of the following, use your general knowledge to ascertain what county the referenced towns/cities are located. (e.g. 'Suffolk County', 'Nassau County', 'Queens County', 'Bronx County', 'Kings County', 'Richmond County').
     - **case_type**: The type of incident described in the case. You may use only the following types, do not use other types not defined here:
       # Auto Accidents
       - 'Auto Accident'
@@ -137,7 +137,7 @@ lead_scoring:
     5.  **Assess Geographic Influence:** Consider the jurisdiction of the new lead. Using the historical case summaries and your general knowledge of the United States jurisdiction injury case settlement values on average, assess the average $ value of cases in this jurisdiction for this type of case. If no jurisdiction is mentioned, use the average $ value of cases in the state of New York, Long Island.
 
     **TOOL CALL RULES:**
-      * You may make up to three tool calls but no more than three.
+      * You may make up to (5) tool calls but no more.
 
     **REQUIRED OUTPUT FORMAT:**
     Provide your response as a single, complete analysis. Do not output any other text. Your response must follow this structure exactly:
@@ -145,6 +145,7 @@ lead_scoring:
     ---
     **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as: "Lead Score: 0/100"
     **Confidence Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low confidence and 100 is extremely high confidence in your lead score] format it as: "Confidence Score: 0/100"
+    **Jurisdiction:** [Provide the jurisdiction/county for this case] format it as: "Jurisdiction: [County Name]"
       * you must use the 'get_file_content' tool to get the summarized content of at least one of the historical cases given in the context or more if deemed necessary but do not exceed your defined tool call limit.
       * Do not artificially inflate your confidence and lead scores just because you used a tool, if you still are not confident leave your score as such or lower it if the context made it more confusing.
     **Recommendation:** [Provide a one-sentence summary of your recommendation. These are just some examples, you can be more creative with your recommendation. e.g., "High-potential case, recommend immediate follow-up.", "Medium-potential case with significant risks requiring further investigation.", or "Low-potential case, recommend declining."]

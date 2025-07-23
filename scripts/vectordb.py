@@ -187,31 +187,6 @@ class QdrantManager:
         
         return case_data
 
-    def create_index(self, collection_name: str, field_name: str):
-        """
-        Create a payload index for a specified field to enable filtering.
-        This works on existing data - no need to reupload anything.
-        
-        Args:
-            collection_name (str): Name of the collection to create index for.
-            field_name (str): Name of the field to create index on (e.g., "jurisdiction", "case_type").
-        """
-        try:
-            self.client.create_payload_index(
-                collection_name=collection_name,
-                field_name=field_name,
-                field_schema=models.PayloadSchemaType.KEYWORD
-            )
-            logger.info(f"✅ Created '{field_name}' index for collection '{collection_name}'")
-            return True
-        except Exception as e:
-            if "already exists" in str(e).lower():
-                logger.info(f"✅ Index '{field_name}' already exists for collection '{collection_name}'")
-                return True
-            else:
-                logger.error(f"❌ Failed to create '{field_name}' index: {e}")
-                return False
-
     def get_cases_by_jurisdiction(self, collection_name: str, jurisdiction: str) -> List[Dict[str, Any]]:
         """
         Retrieve all cases for a specific jurisdiction with their complete metadata.
@@ -224,6 +199,11 @@ class QdrantManager:
             List[Dict[str, Any]]: List of case metadata dictionaries for the jurisdiction.
         """
         try:
+            self.client.create_payload_index(
+                        collection_name=collection_name,
+                        field_name='jurisdiction',
+                        field_schema=models.PayloadSchemaType.KEYWORD
+                        )
             # Use Qdrant's filter functionality to get cases by jurisdiction
             search_filter = models.Filter(
                 must=[

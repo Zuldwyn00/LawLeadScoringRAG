@@ -151,7 +151,7 @@ def load_prompt(prompt_name: str, prompts_path: Optional[Path] = None) -> str:
 def load_from_json(filepath: str = None, default_filename: str = 'processed_files.json') -> dict:
     """Loads data from a JSON file.
 
-    If no filepath is provided, it defaults to a file in the 'JSONs' directory.
+    If no filepath is provided, it defaults to a file in the 'jsons' directory.
 
     Args:
         filepath (str, optional): The path to the input JSON file. Defaults to None.
@@ -162,11 +162,18 @@ def load_from_json(filepath: str = None, default_filename: str = 'processed_file
     """
     if filepath is None:
         try:
-            json_dir = next(p for p in get_config_directories() if p.name == 'JSONs')
+            config = load_config()
+            json_dir_path = config.get('directories', {}).get('jsons')
+            if not json_dir_path:
+                print("Error: 'jsons' directory not found in configuration. Cannot determine default path.")
+                return {}
+            
+            script_dir = Path(__file__).parent
+            json_dir = script_dir / Path(json_dir_path)
             os.makedirs(json_dir, exist_ok=True)
             filepath = os.path.join(json_dir, default_filename)
-        except (StopIteration, TypeError):
-            print("Error: 'JSONs' directory not found in configuration. Cannot determine default path.")
+        except Exception as e:
+            print(f"Error: Could not determine JSON directory path: {e}")
             return {}
 
     try:
@@ -217,7 +224,7 @@ def save_to_json(data: Any, filepath: str = None, default_filename: str = 'proce
     """Saves data to a JSON file.
 
     For testing purposes, if no filepath is provided, it defaults to
-    a file in the project's 'JSONs' directory.
+    a file in the project's 'jsons' directory.
 
     Args:
         data (Any): The data to save (must be JSON-serializable).
@@ -226,12 +233,18 @@ def save_to_json(data: Any, filepath: str = None, default_filename: str = 'proce
     """
     if filepath is None:
         try:
-            # Find the 'JSONs' directory from config
-            json_dir = next(p for p in get_config_directories() if p.name == 'JSONs')
+            config = load_config()
+            json_dir_path = config.get('directories', {}).get('jsons')
+            if not json_dir_path:
+                print("Error: 'jsons' directory not found in configuration. Please check config.yaml.")
+                return
+            
+            script_dir = Path(__file__).parent
+            json_dir = script_dir / Path(json_dir_path)
             os.makedirs(json_dir, exist_ok=True)
             filepath = os.path.join(json_dir, default_filename)
-        except (StopIteration, TypeError):
-            print("Error: 'JSONs' directory not found in configuration. Please check config.yaml.")
+        except Exception as e:
+            print(f"Error: Could not determine JSON directory path: {e}")
             return
 
 

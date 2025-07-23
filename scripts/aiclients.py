@@ -1,5 +1,6 @@
 from langchain_core.tools import tool
 import os
+import re
 import json
 import time
 from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
@@ -10,6 +11,10 @@ from functools import wraps
 
 from utils import load_prompt, load_config, setup_logger, count_tokens
 from scripts.filemanagement import get_text_from_file
+
+# Import JurisdictionScoreManager and QdrantManager for jurisdiction scoring
+from scripts.vectordb import QdrantManager
+from scripts.jurisdictionscoring import JurisdictionScoreManager
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -195,7 +200,7 @@ class ChatManager():
             historical_context (str): A formatted string containing search results of similar historical cases.
 
         Returns:
-            AIMessage: The response from the language model.
+            str: The response from the language model with jurisdiction-modified score.
         """
         system_prompt_content = load_prompt('lead_scoring')
         logger.debug(f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}")
@@ -214,10 +219,96 @@ class ChatManager():
         try:
             logger.debug("Attempting to score lead, sending messages to client...")
             response = self.get_response_with_tools(messages_to_send)
+            
+            # Extract the original score from the response
+            original_score = extract_score_from_response(response)
+            logger.debug(f"Extracted original score: {original_score}")
+            
+            # Extract jurisdiction from the response
+            jurisdiction = extract_jurisdiction_from_response(response)
+            logger.debug(f"Extracted jurisdiction: {jurisdiction}")
+            
+            # Apply jurisdiction modifier if jurisdiction was found
+            if len(jurisdiction) > 0 and original_score > 0:
+                # Initialize jurisdiction scoring manager
+                jurisdiction_manager = JurisdictionScoreManager()
+                
+                # Get jurisdiction modifier
+                modifier = jurisdiction_manager.get_jurisdiction_modifier(jurisdiction)
+                logger.debug(f"Jurisdiction modifier for {jurisdiction}: {modifier}")
+                
+                # Apply modifier to the score
+                modified_score = int(round(original_score * modifier))
+                
+                # Ensure the score stays within bounds (1-100)
+                modified_score = max(1, min(100, modified_score))
+                logger.info(f"Score modified from {original_score} to {modified_score} using jurisdiction modifier {modifier}")
+                
+                # Replace the original score in the response with the modified score
+                response = re.sub(
+                    r"Lead Score:\s*\d+/100",
+                    f"Lead Score: {modified_score}/100",
+                    response,
+                    flags=re.IGNORECASE
+                )
+            
             return response
+            
         except Exception as e:
             logger.error("An unexpected error occurred in score_lead: %s", e)
             return f"An error occurred while scoring the lead: {e}"
+
+def extract_score_from_response(response: str) -> int:
+    """
+    Extract the numerical lead score from the AI response.
+    
+    Args:
+        response (str): The AI response containing the lead score
+        
+    Returns:
+        int: The extracted score (1-100), or 0 if not found
+    """
+    # Look for "Lead Score: X/100" pattern
+    pattern = r"Lead Score:\s*(\d+)/100"
+    match = re.search(pattern, response, re.IGNORECASE)
+    
+    if match:
+        return int(match.group(1))
+    
+    # Fallback: look for any number followed by /100
+    pattern = r"(\d+)/100"
+    match = re.search(pattern, response)
+    
+    if match:
+        return int(match.group(1))
+    
+    return 0
+
+def extract_jurisdiction_from_response(response: str) -> str:
+    """
+    Extract the jurisdiction from the AI response using the structured format.
+    
+    Args:
+        response (str): The AI response containing jurisdiction information
+        
+    Returns:
+        str: The extracted jurisdiction name, or empty string if not found
+    """
+    # Look for "Jurisdiction: [County Name]" pattern
+    pattern = r"Jurisdiction:\s*([A-Z][a-zA-Z\s]+County)"
+    match = re.search(pattern, response, re.IGNORECASE)
+    
+    if match:
+        return match.group(1).strip()
+    
+    # Fallback: look for general county patterns in case format wasn't followed exactly
+    pattern = r"([A-Z][a-zA-Z\s]+County)"
+    match = re.search(pattern, response)
+    
+    if match:
+        return match.group(1).strip()
+    
+    return ""
 
 def wait_for_rate_limit(seconds_to_wait: int = 120) -> None:
     """
@@ -275,6 +366,7 @@ def get_file_content(filepath: str) -> str:
     except Exception as e:
         logger.error(f"Error reading file {filepath}: {e}")
         return f"Error: Failed to read file {filepath}. Reason: {e}"
+    
 
 class ToolManager:
     def __init__(self, tools: List[Callable]):

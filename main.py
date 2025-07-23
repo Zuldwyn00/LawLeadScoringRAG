@@ -15,14 +15,12 @@
 # give the AI a more consistent output by following more well-defined scoring rules.
 
 
-from numpy import False_
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
-from scripts.aiclients import EmbeddingManager, ChatManager
+from scripts.aiclients import EmbeddingManager, ChatManager, extract_score_from_response
 from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
 from utils import ensure_directories, load_config, setup_logger, find_files, load_from_json, save_to_json
-from qdrant_client.http import models
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -106,6 +104,25 @@ def score_test():
     )
     print(final_analysis)
 
+def jurisdiction_score_test():
+    qdrant_manager = QdrantManager()
+    jurisdiction_manager = JurisdictionScoreManager()
+
+    jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction('case_files', 'Suffolk County')
+
+    scores = {}
+    score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
+    scores['Suffolk County'] = score.get('jurisdiction_score')
+
+    jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction('case_files', 'Nassau County')
+    score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
+    scores['Nassau County'] = score.get('jurisdiction_score')
+    
+    jurisdiction_manager.save_to_json(data=scores)
+
+    mod = jurisdiction_manager.get_jurisdiction_modifier('Suffolk County')
+    print(mod)
+
 def run_ocr_on_folder(folder_path: str):
     """
     Applies OCR to all PDF files in a specified folder.
@@ -133,13 +150,11 @@ def run_ocr_on_folder(folder_path: str):
 
 
 def main():
-    qdrant = QdrantManager()
-    qdrant.create_collection('case_files')
-    embedding_test(r'C:\Users\Justin\Desktop\testdocs', 1050076)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocs2', 2211830)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocs3', 1637313)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocs4', 1660355)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocs5', 1508908)
+    loop = 6
+    while loop < 12:  
+        run_ocr_on_folder(rf'C:\Users\Justin\Desktop\New folder (2)\testdocs{loop}')
+        loop += 1
+
 
 if __name__ == "__main__":
     main()

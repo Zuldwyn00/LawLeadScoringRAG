@@ -1,6 +1,6 @@
+from email.policy import default
 from utils import *
 import math
-from scripts.vectordb import QdrantManager
 import numpy
 
 
@@ -10,8 +10,11 @@ config = load_config()
 
 # add algorithm for scoring based on types of injuries sustained. Can do same thing as our data_completeness score but with a dict of all injuries in our database with their average settlement values per jurisdiction.
 
+# implement incremental updates for jurisdiction scoring rather than having to recalculate everything every time
+
+
 class JurisdictionScoreManager:
-    def __init__(self, qdrant_manager: QdrantManager):
+    def __init__(self):
         self.config = config
         self.logger = setup_logger(__name__, config)
         self.field_weights = self.config.get('jurisdiction_scoring', {}).get('field_weights', {})
@@ -27,8 +30,15 @@ class JurisdictionScoreManager:
         for case_data in jurisdiction_cases:
             self.logger.debug("calculating case_weight for case '%s', source: '%s'.", case_data.get('source'), case_data.get('case_id'))
 
-            settlement_value = float(case_data.get('settlement_value'))
-            if not settlement_value: #skip this one if there is no settlement value
+            
+            try: #get the settlement value, ensure its valid, and convert it to a useable float if it has extra data attached to it.
+                settlement_raw = case_data.get('settlement_value')
+                if not settlement_raw or settlement_raw == 'null':
+                    continue
+                settlement_value = float(str(settlement_raw).replace('$', '').replace(',', ''))
+                if settlement_value <= 0:
+                    continue
+            except (ValueError, TypeError):
                 continue
             
             # Calculate case weight (recency x quality)
@@ -55,7 +65,7 @@ class JurisdictionScoreManager:
         else:
             jurisdiction_score = weighted_settlement_sum / case_weight_sum   
         
-        confidence = min(1.0, valid_cases / 30)
+        confidence = min(1.0, valid_cases / 10) #TODO: use the config to handle what our accepted amount of cases is for confidence currently is 10
 
         # Create result dictionary
         result = {
@@ -71,10 +81,59 @@ class JurisdictionScoreManager:
         self.logger.info(f"  - Valid cases processed: {result['case_count']}")
         self.logger.info(f"  - Weighted settlement sum: ${weighted_settlement_sum}")
         self.logger.info(f"  - Total case weight: {result['total_case_weight']}")
-        self.logger.info(f"  - Jurisdiction score: ${result['jurisdiction_score']}")
+        self.logger.info(f"  - Jurisdiction score: {result['jurisdiction_score']}")
         self.logger.info(f"  - Confidence level: {result['confidence']}")
 
         return result
+
+    def calculate_modifier_jurisdiction(self) -> dict:
+        """
+        Calculate and return jurisdiction modifiers based on average scores.
+
+        This method loads jurisdiction scores from a JSON file, computes the average score,
+        and then calculates a modifier for each jurisdiction as the ratio of its score to the average.
+
+        Must already have data for the jurisdictions in the json from using score_jurisdiction.
+
+        Args:
+            save_to_json (bool): Whether to save the calculated modifiers to a JSON file.
+
+        Returns:
+            dict: A dictionary mapping jurisdiction names to their modifier values.
+        """
+
+        all_scores = load_from_json(default_filename='jurisdiction_scores.json')
+
+        if not all_scores:
+            self.logger.warning("No scores found in '%s'.", 'jurisdiction_scores.json')
+            return {}
+        
+        scores_list = list(all_scores.values())
+        average_score = sum(scores_list) / len(scores_list)
+        self.logger.info("Calculated reference average: $%.2f from %s jurisdictions.", average_score, len(all_scores))
+
+        modifiers = {}
+        for jurisdiction, score in all_scores.items():
+            modifier = score / average_score
+            modifier = max(0.8, min(1.15, modifier))  
+            modifiers[jurisdiction] = modifier  
+
+            self.logger.debug("%s: $%.2f -> %.3fx", jurisdiction, score, modifier)
+        
+        return modifiers
+
+    def get_jurisdiction_modifier(self, jurisdiction_name: str) -> float:
+        """
+        Get the modifier for a specific jurisdiction.
+        
+        Args:
+            jurisdiction_name (str): Name of the jurisdiction
+            
+        Returns:
+            float: Modifier value (default 1.0 if jurisdiction not found)
+        """
+        modifiers = self.calculate_modifier_jurisdiction()
+        return modifiers.get(jurisdiction_name, 1.0)
 
     def calculate_data_completeness(self, case_data: dict) -> float:
         """
@@ -86,29 +145,6 @@ class JurisdictionScoreManager:
         Returns:
             float: Data completeness score between 0.0 and 1.0
         """
-        def _is_field_present(self, case_data: dict, field_name: str) -> int:
-            """
-            Check if a field is present and has meaningful data, need method for this because different values are stored different when empty.
-            
-            Args:
-                case_data (dict): Case metadata dictionary
-                field_name (str): Name of field to check
-                
-            Returns:
-                int: 1 if field is present and meaningful, 0 if missing/empty
-            """
-            value = case_data.get(field_name)
-
-            if value is None:
-                return 0
-            elif isinstance(value, str) and value.strip() == "":
-                return 0
-            elif isinstance(value, list) and len(value) == 0:
-                return 0
-            elif isinstance(value, (int, float)) and value == 0:
-                return 0
-            else:
-                return 1
         
         total_weighted_present = 0.0
         total_possible_weight = 0.0
@@ -116,7 +152,7 @@ class JurisdictionScoreManager:
             if weight == 0.0:
                 continue
 
-            field_present = _is_field_present(case_data, field_name)
+            field_present = self._is_field_present(case_data, field_name)
             total_weighted_present += weight * field_present
             total_possible_weight += weight
             
@@ -127,6 +163,30 @@ class JurisdictionScoreManager:
         data_completeness_score = total_weighted_present / total_possible_weight
         return data_completeness_score
     
+    def _is_field_present(self, case_data: dict, field_name: str) -> int:
+        """
+        Check if a field is present and has meaningful data, need method for this because different values are stored different when empty.
+        
+        Args:
+            case_data (dict): Case metadata dictionary
+            field_name (str): Name of field to check
+            
+        Returns:
+            int: 1 if field is present and meaningful, 0 if missing/empty
+        """
+        value = case_data.get(field_name)
+
+        if value is None:
+            return 0
+        elif isinstance(value, str) and value.strip() == "":
+            return 0
+        elif isinstance(value, list) and len(value) == 0:
+            return 0
+        elif isinstance(value, (int, float)) and value == 0:
+            return 0
+        else:
+            return 1
+
     def calculate_quality_multiplier(self, case_data: dict) -> float:
         """
         Calculate a quality multiplier based on the data completeness score.
@@ -192,14 +252,15 @@ class JurisdictionScoreManager:
         except:
             return 5.0  # Default if date parsing fails
 
-    def save_to_json(self, jurisdiction_data: dict, filename: str = 'jurisdiction_scores.json'):
+    def save_to_json(self, data: dict, filename: str = 'jurisdiction_scores.json'):
         """
         Saves jurisdiction scoring data to JSON file.
         
         Args:
             jurisdiction_data (dict): The jurisdiction data to save.
-            filename (str): The filename to save to. Defaults to 'jurisdiction_scores.json'.
+            filename (str): The filename to save to. Defaults to jsons path in config named 'jurisdiction_scores.json'.
         """
         # Use the utils save_to_json function with jurisdiction-specific defaults
-        save_to_json(jurisdiction_data, default_filename=filename)
-        self.logger.info(f"Saved jurisdiction data to {filename}")
+        data_path = self.config.get('directories').get('jsons')
+        save_to_json(data, default_filename=filename)
+        self.logger.info(f"Saved jurisdiction data to {data_path}: {filename}")

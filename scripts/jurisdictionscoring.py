@@ -20,6 +20,7 @@ config = load_config()
 # perhaps we can use this in an opposite way where jurisdictions with less cases hold a higher weight, or we can figure out some other algorithm for normalizing
 # juridictions with low case counts.
 
+#TODO: MAGIC NUMBERS - Get ride of the magic numbers like 0.6, 0.4, etc and use the config or something else.
 
 class JurisdictionScoreManager:
     def __init__(self):

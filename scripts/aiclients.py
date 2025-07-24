@@ -18,12 +18,19 @@ from scripts.jurisdictionscoring import JurisdictionScoreManager
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
-logger = setup_logger(__name__, config)
+
+
+#TODO: This file is doing too much, seperate concerns and the classes. We are handling too much here. Tools should be managed seperately, not by the AIChat it should have
+# a tool class as part of its init perhaps.
+
+# ChatManager can be seperated into AIClient (we can define the client to use for each tool, very nice), RateLimiter for handling all ratelimiting logic, and ToolOrchestrator
+# This way we can reuse a lot of these for different tools and AI agents.
 
 class EmbeddingManager:
     def __init__(self):
         self.config = config
         self.client = self._initialize_client()
+        self.logger = setup_logger(__name__, config)
 
     def _initialize_client(self):
         client = AzureOpenAIEmbeddings(
@@ -55,13 +62,13 @@ class EmbeddingManager:
         first_half = texts[:midpoint]
         second_half = texts[midpoint:]
 
-        logger.info(f"Processing first batch of {len(first_half)} documents for embeddings.")
+        self.logger.info(f"Processing first batch of {len(first_half)} documents for embeddings.")
         embeddings1 = self.client.embed_documents(first_half)
         
-        logger.info("Waiting for 5 seconds before processing the next batch.")
+        self.logger.info("Waiting for 5 seconds before processing the next batch.")
         time.sleep(5)
         
-        logger.info(f"Processing second batch of {len(second_half)} documents for embeddings.")
+        self.logger.info(f"Processing second batch of {len(second_half)} documents for embeddings.")
         embeddings2 = self.client.embed_documents(second_half)
         
         return embeddings1 + embeddings2

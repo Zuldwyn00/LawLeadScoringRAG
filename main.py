@@ -14,9 +14,14 @@
 #TODO: AI PROMPT CHANGE: Add steps for the scoring agent to perhaps score each section and then combine the scores to get a final score rather an one main arbitrary score. This might be better for the scoring agent.
 # give the AI a more consistent output by following more well-defined scoring rules.
 
+#TODO: Unit tests
+
+#TODO: Rest api integration for a function system.
+
+#TODO: fix the mess that is our requirements file, currently it has all requirements listed for every import we use including the imports itself.I
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
-from scripts.aiclients import EmbeddingManager, ChatManager, extract_score_from_response
+from scripts.aiclients import EmbeddingManager, ChatManager
 from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
@@ -37,7 +42,6 @@ def embedding_test(filepath: str, case_id: int):
     progress = len(files)
     print(f"Found {progress} files")
     processed_files_data = load_from_json()
-    case_id = case_id
     
     for file in files:
         filename_str = str(file)

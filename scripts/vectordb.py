@@ -276,7 +276,8 @@ class QdrantManager:
                 "prior_legal_representation_mentioned": payload.get("prior_legal_representation_mentioned"),
                 "case_outcome": payload.get("case_outcome"),
                 "settlement_value": payload.get("settlement_value"),
-                "communication_channel": payload.get("source"),
+                'communication_channel': payload.get('communication_channel'),
+                "source": payload.get("source"),
                 "key_phrases": payload.get("key_phrases", []),
                 "summary": payload.get("summary")
             }

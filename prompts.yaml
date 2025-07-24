@@ -12,7 +12,7 @@ injury_metadata_extraction:
     ## Metadata Schema:
 
     ### Case & Incident Facts
-    - **jurisdiction**: The jurisdiction of the case. Use your general knowledge of the United States to determine the jurisdiction. The jurisdiction is the county the town or city is in where the incident occurred and will be one of the following, use your general knowledge to ascertain what county the referenced towns/cities are located. (e.g. 'Suffolk County', 'Nassau County', 'Queens County', 'Bronx County', 'Kings County', 'Richmond County').
+    - **jurisdiction**: The jurisdiction of the case. Use your general knowledge of the United States to determine the jurisdiction. The jurisdiction is the county the town or city is in where the incident occurred and will be one of the following, use your general knowledge to ascertain what county the referenced towns/cities are located and must be one of the following. ('Suffolk County', 'Nassau County', 'Queens County', 'Bronx County', 'Kings County', 'Richmond County').
     - **case_type**: The type of incident described in the case. You may use only the following types, do not use other types not defined here:
       # Auto Accidents
       - 'Auto Accident'
@@ -136,36 +136,43 @@ lead_scoring:
     4.  **Evaluate Evidence Strength:** Assess the apparent strength of the evidence mentioned in the new lead compared to what was critical in past cases (e.g., `critical_evidence`, `witnesses_mentioned`).
     5.  **Assess Geographic Influence:** Consider the jurisdiction of the new lead. Using the historical case summaries and your general knowledge of the United States jurisdiction injury case settlement values on average, assess the average $ value of cases in this jurisdiction for this type of case. If no jurisdiction is mentioned, use the average $ value of cases in the state of New York, Long Island.
 
-    **TOOL CALL RULES:**
-    **STRATEGIC TOOL USAGE - Use tools to strengthen your analysis required as defined by the guidelines**
+    **MANDATORY ITERATIVE TOOL USAGE PROCESS:**
     
-    **ANALYSIS APPROACH:**
-    * **Start by evaluating** the provided historical context for completeness and detail
-    * **Consider using tools** if you spot opportunities to gather more specific or relevant information
-    * **Your confidence should reflect evidence quality** - tools can help gather better evidence but aren't required for high confidence
-    * **Aim for thoroughness** - if tool usage would meaningfully improve your analysis, use them
+    **YOU MUST FOLLOW THIS EXACT WORKFLOW:**
     
-    **GOOD OPPORTUNITIES FOR TOOL USAGE:**
-    * **Enhance understanding**: Get full case details when summaries mention relevant but incomplete information
-    * **Verify precedents**: Access complete case files to confirm settlement patterns or outcomes
-    * **Clarify contradictions**: Resolve conflicting information between different historical cases
-    * **Jurisdiction insights**: Gather more detailed precedent from cases in the same jurisdiction
-    * **Strengthen evidence**: Access full case details when the summary suggests strong relevance to your lead
-    * **Risk assessment**: Review contrasting cases (wins vs losses) to better understand risk factors
+    1. **Initial Assessment**: Evaluate the provided historical context and estimate your initial confidence level (1-100)
     
-    **CONFIDENCE SCORING BASED ON EVIDENCE QUALITY:**
-    * **20-40**: Insufficient or contradictory evidence, major information gaps **MUST continue using tools**
-    * **41-69**: Adequate evidence with some gaps or uncertainties - **MUST continue using tools**
-    * **70-80**: Strong evidence with clear precedents and minimal gaps - tool usage becomes optional
-    * **81-100**: Comprehensive evidence with multiple strong precedents and clear outcomes
+    2. **Tool Usage Decision**: 
+       - If confidence is 20-69: YOU MUST USE TOOLS - proceed to step 3
+       - If confidence is 70+: Tool usage is optional - you may skip to final analysis
     
-    **TOOL CALL GUIDELINES:**
-    * **Up to 5 tool calls available** - use them when they would strengthen your analysis
-    * **Must continue using tools until reaching 70% confidence or hitting the 5-call limit**
-    * Target specific case files mentioned in the historical context using the exact "source" field path  
-    * **Explain your reasoning** for each tool call - what information are you seeking?
-    * Document what each tool call reveals and how it influences your conclusions
-    * **Be thorough** - if multiple cases look promising for deeper analysis, investigate them
+    3. **Tool Call Execution**: 
+       - Make tool calls to gather additional information from case files
+       - Target specific case files using the exact "source" field paths from historical context
+    
+    4. **Post-Tool Assessment**: 
+       - After each tool call, re-evaluate your confidence level
+       - Document what the tool call revealed and how it affects your analysis
+    
+    5. **Continuation Decision**:
+       - If confidence is still below 70% AND you haven't made 5 tool calls yet: RETURN TO STEP 3
+       - If confidence reaches 70+ OR you've made 5 tool calls: Proceed to final analysis
+    
+    **CONFIDENCE SCORING REFERENCE:**
+    * **20-40**: Insufficient evidence, major gaps - **MANDATORY tool usage**
+    * **41-69**: Adequate but incomplete evidence - **MANDATORY tool usage** 
+    * **70-80**: Strong evidence with minor gaps - **OPTIONAL tool usage**
+    * **81-100**: Comprehensive evidence - **OPTIONAL tool usage**
+    
+    **BEFORE PROVIDING YOUR FINAL ANALYSIS**: Confirm you have either:
+    - Reached 70%+ confidence, OR
+    - Made 5 tool calls (maximum limit)
+    
+    **GOOD TOOL CALL TARGETS:**
+    * Case files with relevant outcomes (wins/losses) similar to your lead
+    * Cases from the same jurisdiction with settlement data
+    * Cases with similar injury types or liability scenarios
+    * Files that contain contradictory information needing clarification
 
 
     **REQUIRED OUTPUT FORMAT:**
@@ -198,9 +205,7 @@ lead_scoring:
     *   [List the `Case ID` of the historical cases that were provided in the given context provided in the 'case_id' field. Example: "ID:1050076, ID:3444110"]
 
     **6. Analysis Depth & Tool Usage:**
-    *   **Historical Context Assessment:** [Rate the provided summaries: Comprehensive/Good/Limited/Insufficient]
     *   **Tool Calls Made:** [List any tools used: "Call 1: get_file_content(case_file_x.pdf) - Seeking: detailed settlement breakdown for similar premises case"]
-    *   **Additional Insights Gained:** [Summarize what tool calls revealed or confirm if summaries were sufficient]
     *   **Confidence Impact:** [Explain how each tool call increased/decreased your confidence and why]
     *   **Overall Evidence Strength:** [Rate your confidence in the evidence base: Low/Moderate/High/Very High]
 
@@ -209,3 +214,4 @@ summarize_text:
     Please summarize the following legal document. Focus on the key facts, legal arguments, injuries, damages, and the outcome. The summary should be suitable for a lawyer to quickly understand the essence of the document.
 
     **Important**: You MUST anonymize all names and Personally Identifiable Information (PII) in the summary. Replace names of individuals with placeholders like 'Claimant', 'Defendant', 'Plaintiff', or 'Witness'. Do not include specific addresses, phone numbers, email addresses, or any other data that could identify a person.
+    *   **Do not list what the prior information before it was redacted was.

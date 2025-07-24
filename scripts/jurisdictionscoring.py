@@ -12,6 +12,14 @@ config = load_config()
 
 # implement incremental updates for jurisdiction scoring rather than having to recalculate everything every time
 
+#TODO: Implement system for AI to be able to pull specific data it can use. For example the AI might see that our current case is a slip and fall case, so we allow it
+# to search for all slip and fall cases and perhaps their average settlement values, and specify the county, etc. We need to allow the AI a suite of well-defined tools that
+# don't give too much garbage data, but allow for a better scoring system.
+
+#TODO: Make the Jurisdiction Scoring more robust so that we account for jurisdictions with less amounts of cases, we currently have a "confidence" multiplier we dont use,
+# perhaps we can use this in an opposite way where jurisdictions with less cases hold a higher weight, or we can figure out some other algorithm for normalizing
+# juridictions with low case counts.
+
 
 class JurisdictionScoreManager:
     def __init__(self):
@@ -21,6 +29,25 @@ class JurisdictionScoreManager:
         self.recency_weights = self.config.get('jurisdiction_scoring', {}).get('recency_weights', {})
 
     def score_jurisdiction(self, jurisdiction_cases: list):
+        """
+        Calculate jurisdiction score based on historical settlement data.
+
+        Processes cases from a specific jurisdiction to generate a weighted average
+        settlement value. Only cases with valid settlement values are considered.
+        Each case is weighted by recency and data quality factors.
+
+        Args:
+            jurisdiction_cases (list): List of case dictionaries containing settlement
+                and metadata information from get_cases_by_jurisdiction.
+
+        Returns:
+            dict: Contains jurisdiction_score (weighted average settlement),
+                confidence (0.0-1.0 based on case count), case_count,
+                total_case_weight, and cases_processed details.
+
+        Raises:
+            Exception: If no valid cases found or case_weight_sum is zero.
+        """
 
         case_weight_sum = 0.0
         weighted_settlement_sum = 0.0
@@ -29,9 +56,7 @@ class JurisdictionScoreManager:
 
         for case_data in jurisdiction_cases:
             self.logger.debug("calculating case_weight for case '%s', source: '%s'.", case_data.get('source'), case_data.get('case_id'))
-
-            
-            try: #get the settlement value, ensure its valid, and convert it to a useable float if it has extra data attached to it.
+            try: #get the settlement value, ensure its valid, and convert it to a useable float if it has extra data attached to it like a $ or is a string.
                 settlement_raw = case_data.get('settlement_value')
                 if not settlement_raw or settlement_raw == 'null':
                     continue
@@ -44,6 +69,7 @@ class JurisdictionScoreManager:
             # Calculate case weight (recency x quality)
             recency_mult = self.calculate_recency_multiplier(case_data)
             quality_mult = self.calculate_quality_multiplier(case_data)
+            
             case_weight = recency_mult * quality_mult # can define case_weight in a seperate method if we decide to make the logic for it more complicated, currently unnecessary.
 
             weighted_settlement_sum += settlement_value * case_weight

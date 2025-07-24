@@ -121,6 +121,13 @@ class ChatManager():
         """
         self.logger.debug(f"Getting response with tool access...")
         messages_to_send = messages if messages is not None else self.message_history
+        
+        # Calculate total token count for all messages
+        total_tokens = 0
+        for message in messages_to_send:
+            if hasattr(message, 'content') and message.content:
+                total_tokens += count_tokens(str(message.content))
+        self.logger.debug(f"Total token count: {total_tokens}")
 
         while True:
             response = self.client.invoke(messages_to_send)

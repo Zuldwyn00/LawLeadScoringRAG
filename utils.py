@@ -53,7 +53,7 @@ def load_config(config_path: Path = None) -> dict:
         config_path = Path(__file__).parent / 'config.yaml'
 
     try:
-        with config_path.open('r') as f:
+        with config_path.open('r', encoding='utf-8') as f:
             config = yaml.safe_load(f)
             return config or {}
     except FileNotFoundError:
@@ -136,7 +136,7 @@ def load_prompt(prompt_name: str, prompts_path: Optional[Path] = None) -> str:
         prompts_path = Path(__file__).parent / 'prompts.yaml'
 
     try:
-        with prompts_path.open('r') as f:
+        with prompts_path.open('r', encoding='utf-8') as f:
             prompts_data = yaml.safe_load(f)
         
         prompt_text = prompts_data[prompt_name]['prompt']

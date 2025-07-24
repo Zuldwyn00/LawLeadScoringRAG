@@ -86,15 +86,19 @@ def score_test():
     embeddingmanager = EmbeddingManager()
 
     new_lead_description = (
-        "The client, a resident of Suffolk County, was attending a backyard barbecue at their neighbor's house last weekend. "
-        "They claim they slipped and fell on wet grass near a children's sprinkler that had been running for several hours, resulting in a dislocated shoulder. "
-        "The client admits to having consumed a couple of beers over the course of the afternoon. "
-        "The neighbor, a close friend, is hesitant to involve their homeowner's insurance and has not provided any details. "
-        "The client received initial treatment at an urgent care clinic but has not yet seen an orthopedic specialist. "
-        "It is unclear if any of the other party guests directly witnessed the fall."
+        "The client, a 45-year-old construction worker from Hempstead, Nassau County, slipped and fell while exiting a Whole Foods in Garden City last month during a winter storm. "
+        "He claims the automatic sliding doors created a 'wind tunnel effect' that blew snow and ice into the vestibule area, making it extremely slippery. "
+        "The client sustained what appears to be a torn meniscus requiring arthroscopic surgery, but he admits he was wearing work boots with worn treads and was carrying heavy groceries in both hands while talking on his phone. "
+        "Store security footage shows the incident, but also reveals the client walked past two 'Caution: Wet Floor' signs and a store employee was actively salting the area just 10 minutes before the fall. "
+        "The client has a documented history of three prior workers' compensation claims for knee injuries over the past eight years, including one surgery on the same knee two years ago. "
+        "Two witnesses saw the fall - one is the client's adult daughter who was shopping with him, and the other is an elderly customer who has since been diagnosed with early-stage dementia. "
+        "The client waited four days to seek medical treatment, initially going to a chiropractor before seeing an orthopedic surgeon. "
+        "Whole Foods' insurance carrier has already retained counsel and is claiming the client was intoxicated, though no sobriety testing was performed and the client denies drinking. "
+        "The store manager claims they have a written snow removal protocol that was followed, but admits the specific area where the client fell had been problematic all winter due to the door design. "
+        "The client's medical bills are currently at $35,000 and climbing, he's been out of work for six weeks, but he's also scheduled to retire with full pension benefits in eight months."
     )
     question_vector = embeddingmanager.get_embeddings(new_lead_description)
-    search_results = qdrantmanager.search_vectors(collection_name="case_files", query_vector=question_vector, vector_name="chunk", limit=10)
+    search_results = qdrantmanager.search_vectors(collection_name="case_files", query_vector=question_vector, vector_name="chunk", limit=20)
     
     historical_context = qdrantmanager.get_context(search_results)
 
@@ -107,10 +111,9 @@ def score_test():
 def jurisdiction_score_test():
     qdrant_manager = QdrantManager()
     jurisdiction_manager = JurisdictionScoreManager()
+    scores = {}
 
     jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction('case_files', 'Suffolk County')
-
-    scores = {}
     score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
     scores['Suffolk County'] = score.get('jurisdiction_score')
 
@@ -118,6 +121,15 @@ def jurisdiction_score_test():
     score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
     scores['Nassau County'] = score.get('jurisdiction_score')
     
+    jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction('case_files', 'Queens County')
+    score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
+    scores['Queens County'] = score.get('jurisdiction_score')
+
+    #jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction('case_files', 'Kings County')
+    #score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
+    #scores['Kings County'] = score.get('jurisdiction_score')
+
+
     jurisdiction_manager.save_to_json(data=scores)
 
     mod = jurisdiction_manager.get_jurisdiction_modifier('Suffolk County')
@@ -150,10 +162,9 @@ def run_ocr_on_folder(folder_path: str):
 
 
 def main():
-    loop = 6
-    while loop < 12:  
-        run_ocr_on_folder(rf'C:\Users\Justin\Desktop\New folder (2)\testdocs{loop}')
-        loop += 1
+
+    jurisdiction_score_test()
+    
 
 
 if __name__ == "__main__":

@@ -12,6 +12,8 @@ logger:
   max_bytes: 5242880 # 5MB
   backup_count: 5
 
+aiconfig:
+  default_encoding: "o200k_base"
 
 jurisdiction_scoring:
   field_weights: { # the importance value of if a field is present in the data for a case, 0 means we place no value on this field being present

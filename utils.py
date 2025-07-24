@@ -209,20 +209,27 @@ def find_files(directory: Path) -> List[Path]:
             non_duplicate_pdf_files.append(file)
     return non_duplicate_pdf_files
 
-def count_tokens(text: str) -> int:
+def count_tokens(text: str, encodingbase: str = None) -> int:
     """
     Calculates the number of tokens in a text string using tiktoken.
 
     Args:
         text (str): The text to process.
-        model_name (str): The name of the model to use. This is used to determine the encoding to use.
+        encodingbase (str): The encoding of the model to use, defaults to the value in aiconfig['default_encoding']
 
     Returns:
         int: The number of tokens in the text.
     """
-    encoding = tiktoken.get_encoding("o200k_base")
-    tokens = encoding.encode(text)
-    return len(tokens)
+    if not encodingbase:
+        config = load_config()
+        encodingbase = config.get('aiconfig', {}).get('default_encoding', 'o200k_base')
+    
+    try:
+        encoding = tiktoken.get_encoding(encodingbase)
+        tokens = encoding.encode(text)
+        return len(tokens)
+    except ValueError as e:
+        raise ValueError(f"Failed to load encoding '{encodingbase}': {e}") from e
 
 def save_to_json(data: Any, filepath: str = None, default_filename: str = 'processed_files.json'):
     """Saves data to a JSON file.

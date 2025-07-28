@@ -1,11 +1,13 @@
+# ─── IMPORTS AND CONFIGURATION ──────────────────────────────────────────────────────────
 from email.policy import default
 from utils import *
 import math
 import numpy
-
+from typing import override
 
 config = load_config()
 
+# ─── TODO COMMENTS ───────────────────────────────────────────────────────────────────────
 #TODO, refactor  recency_multiplier to use a scalable system where the values are stored in the config
 
 # add algorithm for scoring based on types of injuries sustained. Can do same thing as our data_completeness score but with a dict of all injuries in our database with their average settlement values per jurisdiction.
@@ -22,6 +24,7 @@ config = load_config()
 
 #TODO: MAGIC NUMBERS - Get ride of the magic numbers like 0.6, 0.4, etc and use the config or something else.
 
+# ─── JURISDICTION SCORE MANAGER CLASS ────────────────────────────────────────────────────
 class JurisdictionScoreManager:
     def __init__(self):
         self.config = config
@@ -29,6 +32,7 @@ class JurisdictionScoreManager:
         self.field_weights = self.config.get('jurisdiction_scoring', {}).get('field_weights', {})
         self.recency_weights = self.config.get('jurisdiction_scoring', {}).get('recency_weights', {})
 
+    # ─── CORE SCORING METHODS ────────────────────────────────────────────────────────────
     def score_jurisdiction(self, jurisdiction_cases: list):
         """
         Calculate jurisdiction score based on historical settlement data.
@@ -113,6 +117,7 @@ class JurisdictionScoreManager:
 
         return result
 
+    # ─── JURISDICTION MODIFIER METHODS ───────────────────────────────────────────────────
     def calculate_modifier_jurisdiction(self) -> dict:
         """
         Calculate and return jurisdiction modifiers based on average scores.
@@ -162,6 +167,7 @@ class JurisdictionScoreManager:
         modifiers = self.calculate_modifier_jurisdiction()
         return modifiers.get(jurisdiction_name, 1.0)
 
+    # ─── DATA QUALITY ASSESSMENT METHODS ─────────────────────────────────────────────────
     def calculate_data_completeness(self, case_data: dict) -> float:
         """
         Calculate weighted data completeness score for a case.
@@ -232,6 +238,7 @@ class JurisdictionScoreManager:
         quality_multiplier = 0.6 * (0.4 * math.sqrt(data_completeness_score))
         return quality_multiplier
 
+    # ─── RECENCY CALCULATION METHODS ─────────────────────────────────────────────────────
     def calculate_recency_multiplier(self, case_data: dict) -> float:
         """
         Calculate a recency multiplier based on the age of the case.
@@ -279,13 +286,14 @@ class JurisdictionScoreManager:
         except:
             return 5.0  # Default if date parsing fails
 
+    # ─── FILE I/O METHODS ────────────────────────────────────────────────────────────────
     def save_to_json(self, data: dict, filename: str = 'jurisdiction_scores.json'):
         """
-        Saves jurisdiction scoring data to JSON file.
+        Wrapper for utils.save_to_json() with jurisdiction-specific defaults and logging.
         
         Args:
-            jurisdiction_data (dict): The jurisdiction data to save.
-            filename (str): The filename to save to. Defaults to jsons path in config named 'jurisdiction_scores.json'.
+            data (dict): The jurisdiction data to save.
+            filename (str): The filename to save to. Defaults to 'jurisdiction_scores.json'.
         """
         # Use the utils save_to_json function with jurisdiction-specific defaults
         data_path = self.config.get('directories').get('jsons')

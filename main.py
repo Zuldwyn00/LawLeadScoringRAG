@@ -27,6 +27,8 @@ from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
 from utils import ensure_directories, load_config, setup_logger, find_files, load_from_json, save_to_json
 
+from scripts.clients import SummarizationClient, AzureClient
+
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
 logger = setup_logger(__name__, config)
@@ -166,10 +168,20 @@ def run_ocr_on_folder(folder_path: str):
 
 
 def main():
-
-    jurisdiction_score_test()
+    azure_client = AzureClient(client_type="gpt-o4-mini")
+    client = SummarizationClient(client=azure_client)
     
-
+    text = client.summarize_text(" The client, a 45-year-old construction worker from Hempstead, Nassau County, slipped and fell while exiting a Whole Foods in Garden City last month during a winter storm. "
+        "He claims the automatic sliding doors created a 'wind tunnel effect' that blew snow and ice into the vestibule area, making it extremely slippery. "
+        "The client sustained what appears to be a torn meniscus requiring arthroscopic surgery, but he admits he was wearing work boots with worn treads and was carrying heavy groceries in both hands while talking on his phone. "
+        "Store security footage shows the incident, but also reveals the client walked past two 'Caution: Wet Floor' signs and a store employee was actively salting the area just 10 minutes before the fall. "
+        "The client has a documented history of three prior workers' compensation claims for knee injuries over the past eight years, including one surgery on the same knee two years ago. "
+        "Two witnesses saw the fall - one is the client's adult daughter who was shopping with him, and the other is an elderly customer who has since been diagnosed with early-stage dementia. "
+        "The client waited four days to seek medical treatment, initially going to a chiropractor before seeing an orthopedic surgeon. "
+        "Whole Foods' insurance carrier has already retained counsel and is claiming the client was intoxicated, though no sobriety testing was performed and the client denies drinking. "
+        "The store manager claims they have a written snow removal protocol that was followed, but admits the specific area where the client fell had been problematic all winter due to the door design. "
+        "The client's medical bills are currently at $35,000 and climbing, he's been out of work for six weeks, but he's also scheduled to retire with full pension benefits in eight months.")
+    print(text)
 
 if __name__ == "__main__":
     main()

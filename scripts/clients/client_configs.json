@@ -1,0 +1,17 @@
+{
+  "azure_clients": {
+    "gpt-o4-mini": {
+      "deployment_name": "o4-mini",
+      "api_version": "2025-01-01-preview",
+      "description": "gpt-o4-mini standard deployment for general tasks"
+    }
+  },
+  
+  "embedding_clients": {
+    "text_embedding_3_small": {
+      "deployment_name": "text-embedding-3-small",
+      "api_version": "2023-05-15", 
+      "description": "Smaller embedding model for efficiency"
+         }
+   }
+}

@@ -12,12 +12,11 @@ from functools import wraps
 from utils import load_prompt, load_config, setup_logger, count_tokens
 from scripts.filemanagement import get_text_from_file
 
-# Import JurisdictionScoreManager and QdrantManager for jurisdiction scoring
-from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
+logger = setup_logger(__name__, config)
 
 
 #TODO: This file is doing too much, seperate concerns and the classes. We are handling too much here. Tools should be managed seperately, not by the AIChat it should have
@@ -30,7 +29,7 @@ class EmbeddingManager:
     def __init__(self):
         self.config = config
         self.client = self._initialize_client()
-        self.logger = setup_logger(__name__, config)
+        self.logger = setup_logger('EmbeddingManager', config)
 
     def _initialize_client(self):
         client = AzureOpenAIEmbeddings(
@@ -73,10 +72,51 @@ class EmbeddingManager:
         
         return embeddings1 + embeddings2
     
+class RateLimiter():
+    def __init__(self):
+        self.config = config
+        self.logger = setup_logger("RateLimiter", self.config)
+
+    def wait_for_rate_limit(self, seconds_to_wait: int = 120) -> None:
+        """
+        Waits for a specified amount of time to avoid rate limiting, defaults to 120 seconds.
+        """
+        self.logger.debug(f"Waiting for {seconds_to_wait} seconds to avoid rate limiting...")
+        time.sleep(seconds_to_wait)
+        self.logger.debug("Done waiting.")
+
+class AIChat():
+    def __init__(self,
+                 client_type: str = "azure_openai",
+                 deployment_name: str = None,
+                 api_version: str = None,
+                 endpoint: str = None,
+                 api_key: str = None,
+                 rate_limiter: RateLimiter = None):
+        
+        self.config = config
+        self.logger = setup_logger('AIChat', self.config)
+        self.client = self._initialize_client()
+
+    def _prepare_client_config(self, deployment_name, api_version, endpoint, api_key):
+        if self.client_Type == "azure_openai":
+            return {
+                'azure_deployment': deployment_name or os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
+                'openai_api_version': api_version or os.getenv("AZURE_OPENAI_API_VERSION"),
+                'azure_endpoint': endpoint or os.getenv("AZURE_OPENAI_ENDPOINT"),
+                'api_key': api_key or os.getenv("AZURE_OPENAI_API_KEY"),
+            }
+        else:
+            raise ValueError(f"Unsupported client type: {self.client_type}.")
+
+    def _initialize_client(self):
+        pass
+
+
 class ChatManager():
     def __init__(self, messages: list = [], temperature: float = 0.0): #default temperature is 0.0 to be deterministic, implement logic later to make it able to be changed more easily.
         self.config = config
-        self.logger = setup_logger(__name__, config, filename='chatmanager.log')
+        self.logger = setup_logger("ChatManager", self.config, filename='chatmanager.log')
         self.tool_manager = ToolManager(tools=[get_file_content])
         self.temperature = temperature
         self.client = self._initialize_client()
@@ -91,7 +131,7 @@ class ChatManager():
         )
         client = AzureChatOpenAI(
             azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-            openai_api_version=os.getenv("OPENAI_API_VERSION"),
+            openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
             rate_limiter=rate_limiter,
@@ -387,7 +427,7 @@ class ToolManager:
     def __init__(self, tools: List[Callable]):
         self.config = config
         self.tools = tools
-        self.tool_map = {tool.name: tool for tool in self.tools} #makes it easier to ensure tool names are valid rather than looping through the tools list
+        self.tool_map = {tool.name: tool for tool in self.tools}
         
     def call_tool(self, tool_call:dict) -> str:
         """

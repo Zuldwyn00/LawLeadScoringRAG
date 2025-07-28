@@ -15,11 +15,11 @@ Usage:
 # ── CORE ARCHITECTURE ─────────────────────────────────────────────────────
 # Import core classes (BaseClient, AzureClient, ChatClient)
 from .base import BaseClient
-from .azure import AzureClient  
+from .azure import AzureClient
 
 # ── DOMAIN AGENTS ─────────────────────────────────────────────────────────
 # Import specialized client agents for specific business tasks
-#from .agents.metadata import MetadataExtractionClient
+# from .agents.metadata import MetadataExtractionClient
 from .agents.scoring import LeadScoringClient
 from .agents.summarization import SummarizationClient
 
@@ -27,11 +27,10 @@ from .agents.summarization import SummarizationClient
 # Define what gets imported with "from scripts.clients import *"
 __all__ = [
     # Core classes (for extending architecture)
-    'BaseClient',
-    'AzureClient',
-    
+    "BaseClient",
+    "AzureClient",
     # Domain agents (for actual usage)
-    'MetadataExtractionClient',
-    'LeadScoringClient', 
-    'SummarizationClient',
+    "MetadataExtractionClient",
+    "LeadScoringClient",
+    "SummarizationClient",
 ]

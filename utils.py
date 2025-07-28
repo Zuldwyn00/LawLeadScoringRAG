@@ -14,13 +14,14 @@ def ensure_directories(directories: List[Path] = None) -> None:
     Ensures that a list of directories exists, creating them if necessary.
 
     Args:
-        directories (List[Path], optional): A list of Path objects. 
+        directories (List[Path], optional): A list of Path objects.
             If None, directories are loaded from config. Defaults to None.
     """
     if not directories:
         directories = get_config_directories()
     for directory in directories:
         directory.mkdir(parents=True, exist_ok=True)
+
 
 def get_config_directories() -> List[Path]:
     """
@@ -31,29 +32,33 @@ def get_config_directories() -> List[Path]:
     """
     try:
         config_data = load_config()
-        if config_data and 'directories' in config_data:
+        if config_data and "directories" in config_data:
             script_dir = Path(__file__).parent
-            return [script_dir / Path(value) for value in config_data.get('directories', {}).values()]
+            return [
+                script_dir / Path(value)
+                for value in config_data.get("directories", {}).values()
+            ]
     except Exception as e:
         print(f"Error reading or parsing config file: {e}")
     return []
+
 
 def load_config(config_path: Path = None) -> dict:
     """
     Loads the YAML configuration file.
 
     Args:
-        config_path (Path, optional): The path to the config file. 
+        config_path (Path, optional): The path to the config file.
             Defaults to 'config.yaml' in the same directory as this script.
 
     Returns:
         dict: The loaded configuration data.
     """
     if config_path is None:
-        config_path = Path(__file__).parent / 'config.yaml'
+        config_path = Path(__file__).parent / "config.yaml"
 
     try:
-        with config_path.open('r', encoding='utf-8') as f:
+        with config_path.open("r", encoding="utf-8") as f:
             config = yaml.safe_load(f)
             return config or {}
     except FileNotFoundError:
@@ -61,10 +66,14 @@ def load_config(config_path: Path = None) -> dict:
     except yaml.YAMLError as e:
         print(f"Error parsing YAML file: {e}")
     return {}
-                
+
+
 def setup_logger(
-    name: str, config: Dict[str, Any], level: Optional[str] = None, filename: Optional[str] = None
-    ) -> logging.Logger:
+    name: str,
+    config: Dict[str, Any],
+    level: Optional[str] = None,
+    filename: Optional[str] = None,
+) -> logging.Logger:
     """
     Configure and return a logger that works with tqdm progress bars.
 
@@ -106,7 +115,7 @@ def setup_logger(
 
     # Use RotatingFileHandler for log rotation
     max_bytes = int(config["logger"].get("max_bytes", 1024 * 1024 * 5))  # Default 5 MB
-    backup_count = int(config["logger"].get("backup_count", 3)) # Default 5 backups
+    backup_count = int(config["logger"].get("backup_count", 3))  # Default 5 backups
 
     file_handler = logging.handlers.RotatingFileHandler(
         log_file,
@@ -119,6 +128,7 @@ def setup_logger(
     logger.addHandler(file_handler)
 
     return logger
+
 
 def load_prompt(prompt_name: str, prompts_path: Optional[Path] = None) -> str:
     """
@@ -133,13 +143,13 @@ def load_prompt(prompt_name: str, prompts_path: Optional[Path] = None) -> str:
         str: The loaded prompt text as a single string. Returns an empty string on error.
     """
     if prompts_path is None:
-        prompts_path = Path(__file__).parent / 'prompts.yaml'
+        prompts_path = Path(__file__).parent / "prompts.yaml"
 
     try:
-        with prompts_path.open('r', encoding='utf-8') as f:
+        with prompts_path.open("r", encoding="utf-8") as f:
             prompts_data = yaml.safe_load(f)
-        
-        prompt_text = prompts_data[prompt_name]['prompt']
+
+        prompt_text = prompts_data[prompt_name]["prompt"]
         return prompt_text
 
     except FileNotFoundError:
@@ -152,7 +162,10 @@ def load_prompt(prompt_name: str, prompts_path: Optional[Path] = None) -> str:
         logging.error(f"Error parsing YAML prompts file: {e}")
         return ""
 
-def load_from_json(filepath: str = None, default_filename: str = 'processed_files.json') -> dict:
+
+def load_from_json(
+    filepath: str = None, default_filename: str = "processed_files.json"
+) -> dict:
     """Loads data from a JSON file.
 
     If no filepath is provided, it defaults to a file in the 'jsons' directory.
@@ -167,11 +180,13 @@ def load_from_json(filepath: str = None, default_filename: str = 'processed_file
     if filepath is None:
         try:
             config = load_config()
-            json_dir_path = config.get('directories', {}).get('jsons')
+            json_dir_path = config.get("directories", {}).get("jsons")
             if not json_dir_path:
-                print("Error: 'jsons' directory not found in configuration. Cannot determine default path.")
+                print(
+                    "Error: 'jsons' directory not found in configuration. Cannot determine default path."
+                )
                 return {}
-            
+
             script_dir = Path(__file__).parent
             json_dir = script_dir / Path(json_dir_path)
             os.makedirs(json_dir, exist_ok=True)
@@ -181,13 +196,14 @@ def load_from_json(filepath: str = None, default_filename: str = 'processed_file
             return {}
 
     try:
-        with open(filepath, 'r', encoding='utf-8') as f:
+        with open(filepath, "r", encoding="utf-8") as f:
             return json.load(f)
     except FileNotFoundError:
         return {}
     except (IOError, json.JSONDecodeError) as e:
         print(f"Error loading data from JSON file {filepath}: {e}")
         return {}
+
 
 def find_files(directory: Path) -> List[Path]:
     """
@@ -201,13 +217,16 @@ def find_files(directory: Path) -> List[Path]:
     """
     if not directory.is_dir():
         return []
-    
+
     pdf_files = list(directory.rglob("*.pdf")) + list(directory.rglob("*.docx"))
     non_duplicate_pdf_files = []
     for file in pdf_files:
-        if not file.stem.endswith(')'): #avoiding duplicate files that are copies ending with (1).pdf...(2).pdf...etc
+        if not file.stem.endswith(
+            ")"
+        ):  # avoiding duplicate files that are copies ending with (1).pdf...(2).pdf...etc
             non_duplicate_pdf_files.append(file)
     return non_duplicate_pdf_files
+
 
 def count_tokens(text: str, encodingbase: str = None) -> int:
     """
@@ -222,8 +241,8 @@ def count_tokens(text: str, encodingbase: str = None) -> int:
     """
     if not encodingbase:
         config = load_config()
-        encodingbase = config.get('aiconfig', {}).get('default_encoding', 'o200k_base')
-    
+        encodingbase = config.get("aiconfig", {}).get("default_encoding", "o200k_base")
+
     try:
         encoding = tiktoken.get_encoding(encodingbase)
         tokens = encoding.encode(text)
@@ -231,7 +250,10 @@ def count_tokens(text: str, encodingbase: str = None) -> int:
     except ValueError as e:
         raise ValueError(f"Failed to load encoding '{encodingbase}': {e}") from e
 
-def save_to_json(data: Any, filepath: str = None, default_filename: str = 'processed_files.json'):
+
+def save_to_json(
+    data: Any, filepath: str = None, default_filename: str = "processed_files.json"
+):
     """Saves data to a JSON file.
 
     For testing purposes, if no filepath is provided, it defaults to
@@ -245,11 +267,13 @@ def save_to_json(data: Any, filepath: str = None, default_filename: str = 'proce
     if filepath is None:
         try:
             config = load_config()
-            json_dir_path = config.get('directories', {}).get('jsons')
+            json_dir_path = config.get("directories", {}).get("jsons")
             if not json_dir_path:
-                print("Error: 'jsons' directory not found in configuration. Please check config.yaml.")
+                print(
+                    "Error: 'jsons' directory not found in configuration. Please check config.yaml."
+                )
                 return
-            
+
             script_dir = Path(__file__).parent
             json_dir = script_dir / Path(json_dir_path)
             os.makedirs(json_dir, exist_ok=True)
@@ -258,13 +282,13 @@ def save_to_json(data: Any, filepath: str = None, default_filename: str = 'proce
             print(f"Error: Could not determine JSON directory path: {e}")
             return
 
-
     try:
-        with open(filepath, 'w', encoding='utf-8') as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
         print(f"Successfully saved data to {filepath}")
     except (IOError, TypeError) as e:
         print(f"Error saving data to JSON file: {e}")
+
 
 def get_jurisdiction_data(state: str, jurisdiction_name: str) -> Dict[str, Any]:
     """
@@ -275,8 +299,8 @@ def get_jurisdiction_data(state: str, jurisdiction_name: str) -> Dict[str, Any]:
         jurisdiction_name (str): The jurisdiction name (e.g., "Suffolk County").
 
     Returns:
-        Dict[str, Any]: The jurisdiction's data dictionary containing score_modifier, 
-                       notes, and other jurisdiction-specific information. 
+        Dict[str, Any]: The jurisdiction's data dictionary containing score_modifier,
+                       notes, and other jurisdiction-specific information.
                        Returns empty dict if not found.
 
     Example:
@@ -286,9 +310,10 @@ def get_jurisdiction_data(state: str, jurisdiction_name: str) -> Dict[str, Any]:
     """
     try:
         config = load_config()
-        state_data = config.get('jurisdictions', {}).get(state, {})
+        state_data = config.get("jurisdictions", {}).get(state, {})
         return state_data.get(jurisdiction_name, {})
     except Exception as e:
-        print(f"Error retrieving jurisdiction data for '{jurisdiction_name}, {state}': {e}")
+        print(
+            f"Error retrieving jurisdiction data for '{jurisdiction_name}, {state}': {e}"
+        )
         return {}
-

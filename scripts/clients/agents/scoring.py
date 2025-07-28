@@ -6,7 +6,7 @@ from utils import load_prompt, count_tokens, setup_logger, load_config
 
 
 class LeadScoringClient:
-    
+
     def __init__(self, client: BaseClient, **kwargs):
 
         # Prevent using the abstract BaseClient class directly
@@ -15,8 +15,10 @@ class LeadScoringClient:
                 "Cannot use BaseClient directly. Please provide a concrete implementation "
                 "that inherits from BaseClient (e.g., AzureClient)."
             )
-        
+
         self.client = client
-        self.prompt = load_prompt('lead_scoring')
+        self.prompt = load_prompt("lead_scoring")
         self.logger = setup_logger(self.__class__.__name__, load_config())
-        self.logger.info("Initialized %s with %s", self.__class__.__name__, client.__class__.__name__)
+        self.logger.info(
+            "Initialized %s with %s", self.__class__.__name__, client.__class__.__name__
+        )

@@ -6,7 +6,7 @@ for specific tasks like metadata extraction, lead scoring, etc.
 """
 
 #from .metadata import MetadataExtractionClient
-#from .scoring import LeadScoringClient
+from .scoring import LeadScoringClient
 from .summarization import SummarizationClient
 
 __all__ = [

@@ -5,7 +5,7 @@ from ..base import BaseClient
 from utils import load_prompt, count_tokens, setup_logger, load_config
 
 
-class ScoringClient:
+class LeadScoringClient:
     
     def __init__(self, client: BaseClient, **kwargs):
 

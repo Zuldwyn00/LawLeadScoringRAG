@@ -69,3 +69,11 @@ class AzureClient(BaseClient):
         except Exception as e:
             self.logger.error("Failed to invoke client %s: %s", self.client_type, e)
             raise
+
+    def get_embeddings(self, text: str) -> List[float]:
+        if not isinstance(self.langchain_client_class, AzureOpenAIEmbeddings):
+            self.logger.error("Embeddings are only available for embedding client types, not chat clients")
+            raise ValueError("Embeddings not available for this client type")
+        
+        embedding = self.client.embed_query(text)
+        return embedding

@@ -20,7 +20,7 @@ from .azure import AzureClient
 # ── DOMAIN AGENTS ─────────────────────────────────────────────────────────
 # Import specialized client agents for specific business tasks
 #from .agents.metadata import MetadataExtractionClient
-#from .agents.scoring import LeadScoringClient
+from .agents.scoring import LeadScoringClient
 from .agents.summarization import SummarizationClient
 
 # ── PACKAGE EXPORTS ───────────────────────────────────────────────────────

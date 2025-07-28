@@ -16,14 +16,13 @@ class SummarizationClient:
     using the summarization prompt and logic from aiclients.py.
     """
     
-    def __init__(self, client: BaseClient, **kwargs):
+    def __init__(self, client: BaseClient):
         """
         Initialize the summarization client.
         
         Args:
             client (BaseClient): A client instance from the clients package
                                (e.g., AzureClient, or any other client that implements BaseClient)
-            **kwargs: Additional arguments
             
         Raises:
             ValueError: If the client is the BaseClient class itself (abstract class)
@@ -36,6 +35,7 @@ class SummarizationClient:
             )
         
         self.client = client
+        self.prompt = load_prompt('summarize_text')
         self.logger = setup_logger(self.__class__.__name__, load_config())
         self.logger.info(f"Initialized SummarizationClient with {client.__class__.__name__}")
     
@@ -59,11 +59,8 @@ class SummarizationClient:
         try:
             self.logger.info("Summarizing text with LLM...")
             
-            # Load the summarization prompt
-            system_prompt_content = load_prompt('summarize_text')
-            
             # Create messages
-            system_message = SystemMessage(content=system_prompt_content)
+            system_message = SystemMessage(content=self.prompt)
             user_message = HumanMessage(content=text)
             messages = [system_message, user_message]
             

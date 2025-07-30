@@ -1,3 +1,8 @@
+"""
+DEPRECATED, REMOVE AFTER FULLY TRANFERRING OVER TO MODULAR AI CLIENTS.
+"""
+
+
 from langchain_core.tools import tool
 import os
 import re

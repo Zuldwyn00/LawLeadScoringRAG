@@ -3,12 +3,14 @@ import re
 from datetime import datetime
 from pathlib import Path
 import sys
+import time
 
 # Add the project root to the path so we can import our modules
 sys.path.append(str(Path(__file__).parent))
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
-from scripts.aiclients import EmbeddingManager, ChatManager
+from scripts.clients import AzureClient, LeadScoringClient, SummarizationClient
+from scripts.clients.agents.scoring import extract_score_from_response
 from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from utils import (
@@ -29,45 +31,100 @@ st.set_page_config(
 )
 
 
+# ─── LOG MONITORING FUNCTIONS ──────────────────────────────────────────────────────
+def get_recent_log_entries(max_lines: int = 10) -> list:
+    """
+    Read recent entries from the PDF scraper log file.
+    
+    Args:
+        max_lines (int): Maximum number of recent log lines to return
+        
+    Returns:
+        list: List of recent log entries as formatted strings
+    """
+    try:
+        log_file = Path(__file__).parent / "logs" / "pdf_scraper.log"
+        if not log_file.exists():
+            return ["No log file found"]
+        
+        with open(log_file, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        
+        # Get the last max_lines entries
+        recent_lines = lines[-max_lines:] if len(lines) > max_lines else lines
+        
+        # Format the log entries for display
+        formatted_entries = []
+        for line in recent_lines:
+            line = line.strip()
+            if line:
+                # Extract timestamp and message for cleaner display
+                # Format: 2025-07-30 10:44:01 - AzureClient - DEBUG - Loaded client config...
+                parts = line.split(' - ', 3)
+                if len(parts) >= 4:
+                    timestamp = parts[0]
+                    component = parts[1]
+                    level = parts[2]
+                    message = parts[3]
+                    
+                    # Format for tooltip display
+                    formatted_entry = f"{timestamp} | {component} | {level}\n{message}"
+                    formatted_entries.append(formatted_entry)
+                else:
+                    formatted_entries.append(line)
+        
+        return formatted_entries if formatted_entries else ["No recent log entries"]
+        
+    except Exception as e:
+        return [f"Error reading log: {str(e)}"]
+
+
+def create_log_tooltip() -> str:
+    """
+    Create HTML tooltip content with recent log entries.
+    
+    Returns:
+        str: HTML string for the tooltip
+    """
+    log_entries = get_recent_log_entries(8)  # Show last 8 entries
+    
+    # Create tooltip content with proper HTML escaping
+    tooltip_content = "<div style='max-width: 600px; max-height: 400px; overflow-y: auto;'>"
+    tooltip_content += "<h4 style='margin: 0 0 10px 0; color: #1f77b4;'>Recent Activity Log</h4>"
+    
+    for entry in log_entries:
+        if entry.startswith("Error") or entry.startswith("No"):
+            # Escape HTML characters for safety
+            safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
+            tooltip_content += f"<div style='color: #d62728; margin: 5px 0; font-size: 12px;'>{safe_entry}</div>"
+        else:
+            # Escape HTML characters for safety
+            safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
+            tooltip_content += f"<div style='margin: 5px 0; font-size: 12px; line-height: 1.3;'>{safe_entry}</div>"
+    
+    tooltip_content += "</div>"
+    return tooltip_content
+
+
 # ─── INITIALIZATION ─────────────────────────────────────────────────────────────────
 @st.cache_resource
 def initialize_managers():
-    """Initialize all required managers."""
+    """Initialize all required managers using the new modular client/agent setup."""
     ensure_directories()
     qdrant_manager = QdrantManager()
-    chat_manager = ChatManager()
-    embedding_manager = EmbeddingManager()
-    return qdrant_manager, chat_manager, embedding_manager
+
+    # Initialize embedding and chat clients using AzureClient
+    embedding_client = AzureClient("text_embedding_3_small")
+    chat_client = AzureClient("gpt-o4-mini")
+
+    # Initialize agents
+    summarization_client = SummarizationClient(chat_client)
+    lead_scoring_client = LeadScoringClient(chat_client, summarizer=summarization_client)
+
+    return qdrant_manager, lead_scoring_client, embedding_client
 
 
 # ─── HELPER FUNCTIONS ──────────────────────────────────────────────────────────────
-def extract_score_from_response(response: str) -> int:
-    """
-    Extract the numerical lead score from the AI response.
-
-    Args:
-        response (str): The AI response containing the lead score
-
-    Returns:
-        int: The extracted score (1-100), or 0 if not found
-    """
-    # Look for "Lead Score: X/100" pattern
-    pattern = r"Lead Score:\s*(\d+)/100"
-    match = re.search(pattern, response, re.IGNORECASE)
-
-    if match:
-        return int(match.group(1))
-
-    # Fallback: look for any number followed by /100
-    pattern = r"(\d+)/100"
-    match = re.search(pattern, response)
-
-    if match:
-        return int(match.group(1))
-
-    return 0
-
-
 def extract_confidence_from_response(response: str) -> int:
     """
     Extract the numerical confidence score from the AI response.
@@ -106,7 +163,7 @@ def extract_confidence_from_response(response: str) -> int:
     if match:
         return int(match.group(1))
 
-    return 50  # Default to middle confidence if not found
+    return 0  # Default to 0 confidence if not found
 
 
 def get_score_color(score: int) -> str:
@@ -133,7 +190,7 @@ def get_score_color(score: int) -> str:
 
 def score_lead_process(lead_description: str) -> tuple[int, int, str]:
     """
-    Run the complete lead scoring process.
+    Run the complete lead scoring process using the new modular client/agent setup.
 
     Args:
         lead_description (str): The lead description to score
@@ -142,10 +199,10 @@ def score_lead_process(lead_description: str) -> tuple[int, int, str]:
         tuple[int, int, str]: (score, confidence, full_response)
     """
     try:
-        qdrant_manager, chat_manager, embedding_manager = initialize_managers()
+        qdrant_manager, lead_scoring_client, embedding_client = initialize_managers()
 
         # Get embeddings for the lead description
-        question_vector = embedding_manager.get_embeddings(lead_description)
+        question_vector = embedding_client.get_embeddings(lead_description)
 
         # Search for similar historical cases
         search_results = qdrant_manager.search_vectors(
@@ -158,8 +215,8 @@ def score_lead_process(lead_description: str) -> tuple[int, int, str]:
         # Get historical context
         historical_context = qdrant_manager.get_context(search_results)
 
-        # Score the lead
-        final_analysis = chat_manager.score_lead(
+        # Score the lead using the LeadScoringClient
+        final_analysis = lead_scoring_client.score_lead(
             new_lead_description=lead_description, historical_context=historical_context
         )
 
@@ -175,8 +232,37 @@ def score_lead_process(lead_description: str) -> tuple[int, int, str]:
 
 
 # ─── SESSION STATE INITIALIZATION ──────────────────────────────────────────────────
+import json
+import os
+from pathlib import Path
+
+def load_scored_leads():
+    """Load scored leads from the temporary JSON file."""
+    home_dir = Path.home()
+    score_file = home_dir / "score_tests.json"
+    
+    if score_file.exists():
+        try:
+            with open(score_file, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            st.warning(f"Could not load previous scores: {e}")
+            return []
+    return []
+
+def save_scored_leads(leads):
+    """Save scored leads to the temporary JSON file."""
+    home_dir = Path.home()
+    score_file = home_dir / "score_tests.json"
+    
+    try:
+        with open(score_file, 'w', encoding='utf-8') as f:
+            json.dump(leads, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        st.error(f"Could not save scores: {e}")
+
 if "scored_leads" not in st.session_state:
-    st.session_state.scored_leads = []
+    st.session_state.scored_leads = load_scored_leads()
 
 # ─── MAIN UI ────────────────────────────────────────────────────────────────────────
 st.title("⚖️ Lead Scoring System")
@@ -198,29 +284,134 @@ with st.container():
     with col1:
         if st.button("Score Lead", type="primary", disabled=not lead_text.strip()):
             if lead_text.strip():
+                # Process the lead scoring with spinner
                 with st.spinner("Analyzing lead..."):
                     score, confidence, analysis = score_lead_process(lead_text.strip())
 
-                    # Add to scored leads
-                    new_lead = {
-                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        "description": lead_text.strip(),
-                        "score": score,
-                        "confidence": confidence,
-                        "analysis": analysis,
-                    }
+                # Add to scored leads
+                new_lead = {
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "description": lead_text.strip(),
+                    "score": score,
+                    "confidence": confidence,
+                    "analysis": analysis,
+                }
 
-                    st.session_state.scored_leads.insert(
-                        0, new_lead
-                    )  # Add to top of list
+                st.session_state.scored_leads.insert(
+                    0, new_lead
+                )  # Add to top of list
 
-                    st.success(f"Lead scored: {score}/100")
-                    st.rerun()
+                # Save to file
+                save_scored_leads(st.session_state.scored_leads)
+
+                st.success(f"Lead scored: {score}/100")
+                st.rerun()
 
     with col2:
         if st.button("Clear All"):
             st.session_state.scored_leads = []
+            # Save empty state to file
+            save_scored_leads([])
             st.rerun()
+
+# Log Monitoring Section
+st.markdown("---")
+with st.expander("📋 System Activity Log", expanded=False):
+    col1, col2 = st.columns([3, 1])
+    
+    with col1:
+        # Log filtering options
+        filter_col1, filter_col2, filter_col3 = st.columns(3)
+        
+        with filter_col1:
+            show_debug = st.checkbox("Show DEBUG", value=False)
+        with filter_col2:
+            show_info = st.checkbox("Show INFO", value=True)
+        with filter_col3:
+            show_warnings = st.checkbox("Show WARNINGS", value=True)
+        
+        # Get log entries
+        log_entries = get_recent_log_entries(20)  # Show more entries in main area
+        
+        if log_entries:
+            st.markdown("**Recent System Activity:**")
+            
+            # Create a container for log entries with custom styling
+            log_container = st.container()
+            with log_container:
+                displayed_count = 0
+                for i, entry in enumerate(log_entries):
+                    # Apply filters
+                    if "DEBUG" in entry and not show_debug:
+                        continue
+                    if "INFO" in entry and not show_info:
+                        continue
+                    if "WARNING" in entry and not show_warnings:
+                        continue
+                    
+                    displayed_count += 1
+                    
+                    # Format the entry for better display
+                    if entry.startswith("Error") or entry.startswith("No"):
+                        st.error(f"❌ {entry}")
+                    elif "WARNING" in entry:
+                        st.warning(f"⚠️ {entry}")
+                    elif "INFO" in entry:
+                        st.info(f"ℹ️ {entry}")
+                    elif "DEBUG" in entry:
+                        st.text(f"🔍 {entry}")
+                    else:
+                        st.text(f"📝 {entry}")
+                
+                if displayed_count == 0:
+                    st.info("No log entries match the current filters")
+        else:
+            st.info("No recent log entries found")
+    
+    with col2:
+        st.markdown("**Log Controls:**")
+        
+        # Auto-refresh toggle
+        auto_refresh_main = st.checkbox("🔄 Auto-refresh", value=False, help="Automatically refresh log entries")
+        
+        # View mode toggle
+        view_mode = st.selectbox("View Mode:", ["Detailed", "Compact Table"], key="log_view_mode")
+        
+        if st.button("🔄 Manual Refresh", key="main_refresh_log"):
+            st.rerun()
+        
+        if st.button("📄 View Full Log", key="view_full_log"):
+            # Show full log in a modal-like expander
+            with st.expander("📄 Full Log File", expanded=True):
+                try:
+                    log_file = Path(__file__).parent / "logs" / "pdf_scraper.log"
+                    if log_file.exists():
+                        with open(log_file, 'r', encoding='utf-8') as f:
+                            full_log = f.read()
+                        st.text_area("Full Log Content:", value=full_log, height=400, disabled=True)
+                    else:
+                        st.error("Log file not found")
+                except Exception as e:
+                    st.error(f"Error reading log file: {e}")
+        
+        # Show log file info
+        st.markdown("---")
+        st.markdown("**Log File Info:**")
+        try:
+            log_file = Path(__file__).parent / "logs" / "pdf_scraper.log"
+            if log_file.exists():
+                file_size = log_file.stat().st_size
+                file_size_mb = file_size / (1024 * 1024)
+                st.text(f"Size: {file_size_mb:.2f} MB")
+                
+                # Count lines
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    line_count = sum(1 for _ in f)
+                st.text(f"Lines: {line_count:,}")
+            else:
+                st.text("File: Not found")
+        except Exception as e:
+            st.text(f"Error: {e}")
 
 # Results section
 if st.session_state.scored_leads:
@@ -391,6 +582,50 @@ with st.sidebar:
     """
     )
 
+    # Add real-time log monitoring section
+    st.markdown("---")
+    st.markdown("### 📊 System Monitoring")
+    
+    # Auto-refresh checkbox
+    auto_refresh = st.checkbox("🔄 Auto-refresh logs", value=False, help="Automatically refresh log entries every few seconds")
+    
+    if auto_refresh:
+        # Use st.empty() for real-time updates
+        log_placeholder = st.empty()
+        
+        # Get recent log entries
+        log_entries = get_recent_log_entries(5)  # Show last 5 entries for sidebar
+        
+        with log_placeholder.container():
+            st.markdown("**Recent Activity:**")
+            for entry in log_entries:
+                if entry.startswith("Error") or entry.startswith("No"):
+                    st.error(entry[:100] + "..." if len(entry) > 100 else entry)
+                elif "WARNING" in entry:
+                    st.warning(entry[:100] + "..." if len(entry) > 100 else entry)
+                elif "INFO" in entry:
+                    st.info(entry[:100] + "..." if len(entry) > 100 else entry)
+                else:
+                    st.text(entry[:100] + "..." if len(entry) > 100 else entry)
+        
+        # Auto-refresh every 3 seconds
+        time.sleep(3)
+        st.rerun()
+    else:
+        # Show static log entries
+        log_entries = get_recent_log_entries(3)  # Show last 3 entries for sidebar
+        
+        st.markdown("**Recent Activity:**")
+        for entry in log_entries:
+            if entry.startswith("Error") or entry.startswith("No"):
+                st.error(entry[:80] + "..." if len(entry) > 80 else entry)
+            elif "WARNING" in entry:
+                st.warning(entry[:80] + "..." if len(entry) > 80 else entry)
+            elif "INFO" in entry:
+                st.info(entry[:80] + "..." if len(entry) > 80 else entry)
+            else:
+                st.text(entry[:80] + "..." if len(entry) > 80 else entry)
+
     if st.session_state.scored_leads:
         st.markdown(f"### Statistics")
         scores = [lead["score"] for lead in st.session_state.scored_leads]
@@ -404,3 +639,13 @@ with st.sidebar:
         st.metric("Total Leads", len(st.session_state.scored_leads))
         st.metric("Average Score", f"{avg_score:.1f}")
         st.metric("Average Confidence", f"{avg_confidence:.1f}")
+        
+        # Show file location and save button
+        st.markdown("### Data Persistence")
+        home_dir = Path.home()
+        score_file = home_dir / "score_tests.json"
+        st.text(f"File: {score_file}")
+        
+        if st.button("Save Current State"):
+            save_scored_leads(st.session_state.scored_leads)
+            st.success("Scores saved successfully!")

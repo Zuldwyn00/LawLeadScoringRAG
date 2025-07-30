@@ -34,8 +34,8 @@ class EmbeddingManager:
 
     def _initialize_client(self):
         client = AzureOpenAIEmbeddings(
-            azure_deployment=os.getenv("AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME"),
-            openai_api_version=os.getenv("OPENAI_API_EMBEDDING_VERSION"),
+            azure_deployment="text-embedding-3-small",
+            openai_api_version="2023-05-15",
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
         )
@@ -149,8 +149,8 @@ class ChatManager:
             max_bucket_size=20,
         )
         client = AzureChatOpenAI(
-            azure_deployment=os.getenv("AZURE_OPENAI_DEPLOYMENT_NAME"),
-            openai_api_version=os.getenv("AZURE_OPENAI_API_VERSION"),
+            azure_deployment="o4-mini",
+            openai_api_version="2025-01-01-preview",
             azure_endpoint=os.getenv("AZURE_OPENAI_ENDPOINT"),
             api_key=os.getenv("AZURE_OPENAI_API_KEY"),
             rate_limiter=rate_limiter,

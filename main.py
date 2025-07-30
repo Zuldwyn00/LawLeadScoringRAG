@@ -20,6 +20,7 @@
 
 # TODO: fix the mess that is our requirements file, currently it has all requirements listed for every import we use including the imports itself.I
 
+import qdrant_client
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.aiclients import EmbeddingManager, ChatManager
 from scripts.vectordb import QdrantManager
@@ -34,7 +35,7 @@ from utils import (
     save_to_json,
 )
 
-from scripts.clients import SummarizationClient, LeadScoringClient, AzureClient, azure
+from scripts.clients import SummarizationClient, LeadScoringClient, AzureClient, BaseClient
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -47,6 +48,7 @@ def embedding_test(filepath: str, case_id: int):
     embeddingmanager = EmbeddingManager()
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
+    qdrantmanager.create_collection('case_files')
     files = find_files(Path(filepath))
     progress = len(files)
     print(f"Found {progress} files")
@@ -105,33 +107,31 @@ def embedding_test(filepath: str, case_id: int):
 
 
 def score_test():
-    qdrantmanager = QdrantManager()
-    chat_manager = ChatManager()
-    embeddingmanager = EmbeddingManager()
+    qdrant_client = QdrantManager()
+    azure_client = AzureClient(client_type="gpt-o4-mini")
 
+    embedding_client = AzureClient(client_type='text_embedding_3_small')
+    lead_client = LeadScoringClient(client=azure_client)
+    
     new_lead_description = (
-        "The client, a 45-year-old construction worker from Hempstead, Nassau County, slipped and fell while exiting a Whole Foods in Garden City last month during a winter storm. "
-        "He claims the automatic sliding doors created a 'wind tunnel effect' that blew snow and ice into the vestibule area, making it extremely slippery. "
-        "The client sustained what appears to be a torn meniscus requiring arthroscopic surgery, but he admits he was wearing work boots with worn treads and was carrying heavy groceries in both hands while talking on his phone. "
-        "Store security footage shows the incident, but also reveals the client walked past two 'Caution: Wet Floor' signs and a store employee was actively salting the area just 10 minutes before the fall. "
-        "The client has a documented history of three prior workers' compensation claims for knee injuries over the past eight years, including one surgery on the same knee two years ago. "
-        "Two witnesses saw the fall - one is the client's adult daughter who was shopping with him, and the other is an elderly customer who has since been diagnosed with early-stage dementia. "
-        "The client waited four days to seek medical treatment, initially going to a chiropractor before seeing an orthopedic surgeon. "
-        "Whole Foods' insurance carrier has already retained counsel and is claiming the client was intoxicated, though no sobriety testing was performed and the client denies drinking. "
-        "The store manager claims they have a written snow removal protocol that was followed, but admits the specific area where the client fell had been problematic all winter due to the door design. "
-        "The client's medical bills are currently at $35,000 and climbing, he's been out of work for six weeks, but he's also scheduled to retire with full pension benefits in eight months."
+        "The client located in Suffolk County was involved in a slip and fall. The client states that they were in their apartment complex on the sidewalk walking over to meet their girlfriend."
+        "The client states that they went to pick up their girlfriend with a large hug, and in doing so after walking 2 steps forward with her in his arms he stepped badly on a flowerbed next to the sidewalk and sprained his ankle"
+        "The client went to an urgent care after 3 days with an issue of his ankle clicking with every step and had an x-ray done, the initial x-ray found nothing."
+        "The client went to an orthpedist after 1 week after the initial injury and got another x-ray which showed a very small alread-healing fracture."
+        "After 2 months with the injury the clients ankle stated by them to be weakened and gets injured much more easily where walking on uneven terrain can cause another near-ankle sprain if not careful, the clicking in the ankle persists"
+        "The client is scheduled for an MRI on their ankle on August 12th, 3 months after the initial injury as they had to wait for insurance approval. The medical invervention has been kept up-date as necessary and the client has gotten medical care as fast as they have been allowed."
     )
-    question_vector = embeddingmanager.get_embeddings(new_lead_description)
-    search_results = qdrantmanager.search_vectors(
+    question_vector = embedding_client.get_embeddings(new_lead_description)
+    search_results = qdrant_client.search_vectors(
         collection_name="case_files",
         query_vector=question_vector,
         vector_name="chunk",
-        limit=20,
+        limit=10,
     )
+    
+    historical_context = qdrant_client.get_context(search_results)
 
-    historical_context = qdrantmanager.get_context(search_results)
-
-    final_analysis = chat_manager.score_lead(
+    final_analysis = lead_client.score_lead(
         new_lead_description=new_lead_description, historical_context=historical_context
     )
     print(final_analysis)
@@ -196,26 +196,19 @@ def run_ocr_on_folder(folder_path: str):
 
 
 def main():
-    azure_client = AzureClient(client_type="gpt-o4-mini")
-    client = SummarizationClient(client=azure_client)
-    client2 = LeadScoringClient(client=azure_client)
-    azure_client2 = AzureClient(client_type="text_embedding_3_small")
-
-    # embed = azure_client2.get_embeddings("Hello World ya ya whats up world, ya ya ya heyo man")
-    summary = client.summarize_text(
-        "The client, a 45-year-old construction worker from Hempstead, Nassau County, slipped and fell while exiting a Whole Foods in Garden City last month during a winter storm. "
-        "He claims the automatic sliding doors created a 'wind tunnel effect' that blew snow and ice into the vestibule area, making it extremely slippery. "
-        "The client sustained what appears to be a torn meniscus requiring arthroscopic surgery, but he admits he was wearing work boots with worn treads and was carrying heavy groceries in both hands while talking on his phone. "
-        "Store security footage shows the incident, but also reveals the client walked past two 'Caution: Wet Floor' signs and a store employee was actively salting the area just 10 minutes before the fall. "
-        "The client has a documented history of three prior workers' compensation claims for knee injuries over the past eight years, including one surgery on the same knee two years ago. "
-        "Two witnesses saw the fall - one is the client's adult daughter who was shopping with him, and the other is an elderly customer who has since been diagnosed with early-stage dementia. "
-        "The client waited four days to seek medical treatment, initially going to a chiropractor before seeing an orthopedic surgeon. "
-        "Whole Foods' insurance carrier has already retained counsel and is claiming the client was intoxicated, though no sobriety testing was performed and the client denies drinking. "
-        "The store manager claims they have a written snow removal protocol that was followed, but admits the specific area where the client fell had been problematic all winter due to the door design. "
-        "The client's medical bills are currently at $35,000 and climbing, he's been out of work for six weeks, but he's also scheduled to retire with full pension benefits in eight months."
-    )
-    print(summary)
-
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs', 10550076)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs2', 2211830)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs3', 1637313)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs4', 1660355)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs5', 1508908)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs6', 1550736)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs7', 2369954)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs8', 1989212)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs9', 997000)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs10', 1885788)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs11', 2081492)
+    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs12', 2207174)
+    
 
 if __name__ == "__main__":
     main()

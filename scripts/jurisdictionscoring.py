@@ -24,6 +24,7 @@ config = load_config()
 
 # TODO: MAGIC NUMBERS - Get ride of the magic numbers like 0.6, 0.4, etc and use the config or something else.
 
+#TODO: Average out the places with less cases by maybe dividing by the total average amount of cases each jurisdiction has or something?
 
 # ─── JURISDICTION SCORE MANAGER CLASS ────────────────────────────────────────────────────
 class JurisdictionScoreManager:
@@ -274,7 +275,7 @@ class JurisdictionScoreManager:
         x = case_age_years
 
         conditionlist = [x <= 1, (x > 1) & (x <= 3), (x > 3) & (x <= 5), x > 5]
-        functionlist = [1.0, 0.8, 0.6, 0.4]  # multiplier depending on given age
+        functionlist = [1.0, 0.8, 0.6, 0.4]  # multiplier depending on given age, older cases are less valuable
 
         recency_multiplier = numpy.piecewise(x, conditionlist, functionlist)
         return recency_multiplier

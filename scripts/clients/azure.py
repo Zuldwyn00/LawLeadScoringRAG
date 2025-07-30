@@ -1,5 +1,6 @@
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 import os
+import json
 from langchain_core.messages import (
     BaseMessage,
     AIMessage,
@@ -12,16 +13,22 @@ import os
 
 from utils import *
 
-
 class AzureClient(BaseClient):
 
     def __init__(self, client_type: str, **kwargs):
         """
         Initialize Azure client with configuration loaded from client_configs.json.
 
+        The client type determines whether this becomes an embedding client or a chat client.
+        Clients configured in the "embedding_clients" section become AzureOpenAIEmbeddings,
+        while all other sections (e.g., "azure_clients") become AzureChatOpenAI.
+        A single client instance cannot be both - it must be either embedding or chat.
+
         Args:
             client_type (str): The client configuration name from client_configs.json
-                             (e.g., "gpt-o4-mini", "text_embedding_3_small")
+                             The section this config belongs to determines the client type:
+                             - "embedding_clients" section → AzureOpenAIEmbeddings (embedding only)
+                             - Other sections → AzureChatOpenAI (chat only)
             **kwargs: Additional arguments passed to BaseClient constructor
         """
         super().__init__(**kwargs)
@@ -80,9 +87,9 @@ class AzureClient(BaseClient):
             raise
 
     def get_embeddings(self, text: str) -> List[float]:
-        if not isinstance(self.langchain_client_class, AzureOpenAIEmbeddings):
+        if not isinstance(self.client, AzureOpenAIEmbeddings):
             self.logger.error(
-                "Embeddings are only available for embedding client types, not chat clients"
+                "Embeddings are only available for embedding client types, not chat clients:"
             )
             raise ValueError("Embeddings not available for this client type")
 

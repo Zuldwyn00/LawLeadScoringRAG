@@ -2,7 +2,7 @@
 DEPRECATED, REMOVE AFTER FULLY TRANFERRING OVER TO MODULAR AI CLIENTS.
 """
 
-
+from warnings import deprecated
 from langchain_core.tools import tool
 import os
 import re
@@ -30,7 +30,7 @@ logger = setup_logger(__name__, config)
 # ChatManager can be seperated into AIClient (we can define the client to use for each tool, very nice), RateLimiter for handling all ratelimiting logic, and ToolOrchestrator
 # This way we can reuse a lot of these for different tools and AI agents.
 
-
+@deprecated('Use clients and agents folder instead')
 class EmbeddingManager:
     def __init__(self):
         self.config = config
@@ -82,7 +82,7 @@ class EmbeddingManager:
 
         return embeddings1 + embeddings2
 
-
+@deprecated('Use clients and agents folder instead')
 class RateLimiter:
     def __init__(self):
         self.config = config
@@ -98,7 +98,7 @@ class RateLimiter:
         time.sleep(seconds_to_wait)
         self.logger.debug("Done waiting.")
 
-
+@deprecated('Use clients and agents folder instead')
 class AIChat:
     def __init__(
         self,
@@ -130,7 +130,7 @@ class AIChat:
     def _initialize_client(self):
         pass
 
-
+@deprecated('Use clients and agents folder instead')
 class ChatManager:
     def __init__(
         self, messages: list = [], temperature: float = 0.0
@@ -359,7 +359,7 @@ class ChatManager:
             self.logger.error("An unexpected error occurred in score_lead: %s", e)
             return f"An error occurred while scoring the lead: {e}"
 
-
+@deprecated('Use clients and agents folder instead')
 def extract_score_from_response(response: str) -> int:
     """
     Extract the numerical lead score from the AI response.
@@ -386,7 +386,7 @@ def extract_score_from_response(response: str) -> int:
 
     return 0
 
-
+@deprecated('Use clients and agents folder instead')
 def extract_jurisdiction_from_response(response: str) -> str:
     """
     Extract the jurisdiction from the AI response using the structured format.
@@ -413,7 +413,7 @@ def extract_jurisdiction_from_response(response: str) -> str:
 
     return ""
 
-
+@deprecated('Use clients and agents folder instead')
 def wait_for_rate_limit(seconds_to_wait: int = 120) -> None:
     """
     Waits for a specified amount of time to avoid rate limiting, defaults to 120 seconds.
@@ -422,7 +422,7 @@ def wait_for_rate_limit(seconds_to_wait: int = 120) -> None:
     time.sleep(seconds_to_wait)
     logger.debug("Done waiting.")
 
-
+@deprecated('Use clients and agents folder instead')
 def summarize_text_with_llm(text: str) -> str:
     """
     Summarizes the given text using the language model.
@@ -442,6 +442,7 @@ def summarize_text_with_llm(text: str) -> str:
 
 # TODO: How to make this call an LLM to summarize the file text?
 @tool
+@deprecated('Use clients and agents folder instead')
 def get_file_content(filepath: str) -> str:
     """
     Gets the text content from a single file. If the content is too long,
@@ -472,7 +473,7 @@ def get_file_content(filepath: str) -> str:
         logger.error(f"Error reading file {filepath}: {e}")
         return f"Error: Failed to read file {filepath}. Reason: {e}"
 
-
+@deprecated('Use clients and agents folder instead')
 class ToolManager:
     def __init__(self, tools: List[Callable]):
         self.config = config

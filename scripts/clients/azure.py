@@ -15,7 +15,7 @@ from utils import *
 
 class AzureClient(BaseClient):
 
-    def __init__(self, client_type: str, **kwargs):
+    def __init__(self, client_config: str, **kwargs):
         """
         Initialize Azure client with configuration loaded from client_configs.json.
 
@@ -25,7 +25,7 @@ class AzureClient(BaseClient):
         A single client instance cannot be both - it must be either embedding or chat.
 
         Args:
-            client_type (str): The client configuration name from client_configs.json
+            client_config (str): The client configuration name from client_configs.json
                              The section this config belongs to determines the client type:
                              - "embedding_clients" section → AzureOpenAIEmbeddings (embedding only)
                              - Other sections → AzureChatOpenAI (chat only)
@@ -33,8 +33,8 @@ class AzureClient(BaseClient):
         """
         super().__init__(**kwargs)
 
-        self.client_config = self.load_client_config(client_type)
-        self.client_type = client_type
+        self.client_config = self.load_client_config(client_config)
+        self.client_type = client_config
         self.deployment_name = self.client_config["deployment_name"]
         self.api_version = self.client_config["api_version"]
 

@@ -35,7 +35,7 @@ from utils import (
     save_to_json,
 )
 
-from scripts.clients import SummarizationClient, LeadScoringClient, AzureClient, BaseClient
+from scripts.clients import SummarizationClient, LeadScoringClient, AzureClient
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -108,9 +108,9 @@ def embedding_test(filepath: str, case_id: int):
 
 def score_test():
     qdrant_client = QdrantManager()
-    azure_client = AzureClient(client_type="gpt-o4-mini")
+    azure_client = AzureClient(client_config="gpt-4.1")
 
-    embedding_client = AzureClient(client_type='text_embedding_3_small')
+    embedding_client = AzureClient(client_config='text_embedding_3_small')
     lead_client = LeadScoringClient(client=azure_client)
     
     new_lead_description = (

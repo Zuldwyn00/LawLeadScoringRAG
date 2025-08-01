@@ -90,10 +90,10 @@ def apply_ocr(filepath: str) -> None:
         logger.error(f"Failed to apply OCR to {filepath}: {e}")
 
 
-def get_text_from_file(filepath: str):
+def get_text_from_file(filepath: str, **kwargs):
     request_options = {"timeout": 300}  # Set timeout to 5 minutes (300 seconds)
-    parsed_pdf = parser.from_file(filepath, requestOptions=request_options)
-    return parsed_pdf
+    parsed_file = parser.from_file(filepath, requestOptions=request_options, **kwargs)
+    return parsed_file
 
 
 class FileManager:

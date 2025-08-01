@@ -139,7 +139,7 @@ class ChatManager:
         self.logger = setup_logger(
             "ChatManager", self.config, filename="chatmanager.log"
         )
-        self.tool_manager = ToolManager(tools=[get_file_content])
+        self.tool_manager = ToolManager(tools=[get_file_context])
         self.temperature = temperature
         self.client = self._initialize_client()
         self.message_history = messages if messages else []
@@ -443,7 +443,7 @@ def summarize_text_with_llm(text: str) -> str:
 # TODO: How to make this call an LLM to summarize the file text?
 @tool
 @deprecated('Use clients and agents folder instead')
-def get_file_content(filepath: str) -> str:
+def get_file_context(filepath: str) -> str:
     """
     Gets the text content from a single file. If the content is too long,
     it will be summarized.
@@ -455,7 +455,7 @@ def get_file_content(filepath: str) -> str:
         str: The text content of the file, or an error message if reading fails.
     """
     try:
-        logger.info(f"Tool 'get_file_content' called for: {filepath}")
+        logger.info(f"Tool 'get_file_context' called for: {filepath}")
         parsed_content = get_text_from_file(filepath)
 
         if parsed_content and "content" in parsed_content:

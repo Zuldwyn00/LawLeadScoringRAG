@@ -3,14 +3,13 @@ import re
 from datetime import datetime
 from pathlib import Path
 import sys
-import time
 
 # Add the project root to the path so we can import our modules
 sys.path.append(str(Path(__file__).parent))
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.clients import AzureClient, LeadScoringClient, SummarizationClient
-from scripts.clients.agents.scoring import extract_score_from_response
+from scripts.clients.agents.scoring import extract_score_from_response, extract_confidence_from_response
 from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from utils import (
@@ -30,81 +29,43 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ─── PASSWORD AUTHENTICATION ───────────────────────────────────────────────────────
+import os
 
-# ─── LOG MONITORING FUNCTIONS ──────────────────────────────────────────────────────
-def get_recent_log_entries(max_lines: int = 10) -> list:
-    """
-    Read recent entries from the PDF scraper log file.
+def check_password():
+    """Returns `True` if the user had the correct password."""
     
-    Args:
-        max_lines (int): Maximum number of recent log lines to return
-        
-    Returns:
-        list: List of recent log entries as formatted strings
-    """
-    try:
-        log_file = Path(__file__).parent / "logs" / "pdf_scraper.log"
-        if not log_file.exists():
-            return ["No log file found"]
-        
-        with open(log_file, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        # Get the last max_lines entries
-        recent_lines = lines[-max_lines:] if len(lines) > max_lines else lines
-        
-        # Format the log entries for display
-        formatted_entries = []
-        for line in recent_lines:
-            line = line.strip()
-            if line:
-                # Extract timestamp and message for cleaner display
-                # Format: 2025-07-30 10:44:01 - AzureClient - DEBUG - Loaded client config...
-                parts = line.split(' - ', 3)
-                if len(parts) >= 4:
-                    timestamp = parts[0]
-                    component = parts[1]
-                    level = parts[2]
-                    message = parts[3]
-                    
-                    # Format for tooltip display
-                    formatted_entry = f"{timestamp} | {component} | {level}\n{message}"
-                    formatted_entries.append(formatted_entry)
-                else:
-                    formatted_entries.append(line)
-        
-        return formatted_entries if formatted_entries else ["No recent log entries"]
-        
-    except Exception as e:
-        return [f"Error reading log: {str(e)}"]
+    # Get password from environment variable
+    CORRECT_PASSWORD = os.getenv("STREAMLIT_PASSWORD")
 
-
-def create_log_tooltip() -> str:
-    """
-    Create HTML tooltip content with recent log entries.
-    
-    Returns:
-        str: HTML string for the tooltip
-    """
-    log_entries = get_recent_log_entries(8)  # Show last 8 entries
-    
-    # Create tooltip content with proper HTML escaping
-    tooltip_content = "<div style='max-width: 600px; max-height: 400px; overflow-y: auto;'>"
-    tooltip_content += "<h4 style='margin: 0 0 10px 0; color: #1f77b4;'>Recent Activity Log</h4>"
-    
-    for entry in log_entries:
-        if entry.startswith("Error") or entry.startswith("No"):
-            # Escape HTML characters for safety
-            safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
-            tooltip_content += f"<div style='color: #d62728; margin: 5px 0; font-size: 12px;'>{safe_entry}</div>"
+    def password_entered():
+        """Checks whether a password entered by the user is correct."""
+        if st.session_state["password"] == CORRECT_PASSWORD:
+            st.session_state["password_correct"] = True
+            del st.session_state["password"]  # Don't store password.
         else:
-            # Escape HTML characters for safety
-            safe_entry = entry.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
-            tooltip_content += f"<div style='margin: 5px 0; font-size: 12px; line-height: 1.3;'>{safe_entry}</div>"
-    
-    tooltip_content += "</div>"
-    return tooltip_content
+            st.session_state["password_correct"] = False
 
+    # First run, show inputs for username + password.
+    if "password_correct" not in st.session_state:
+        st.text_input(
+            "Password", type="password", on_change=password_entered, key="password"
+        )
+        return False
+    # Password correct.
+    elif st.session_state["password_correct"]:
+        return True
+    # Password incorrect, show input + error.
+    else:
+        st.text_input(
+            "Password", type="password", on_change=password_entered, key="password"
+        )
+        st.error("😕 Password incorrect")
+        return False
+
+# Check password before showing any content
+if not check_password():
+    st.stop()  # Do not continue if not authenticated.
 
 # ─── INITIALIZATION ─────────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -125,45 +86,46 @@ def initialize_managers():
 
 
 # ─── HELPER FUNCTIONS ──────────────────────────────────────────────────────────────
-def extract_confidence_from_response(response: str) -> int:
+def get_current_processing_logs() -> str:
     """
-    Extract the numerical confidence score from the AI response.
-
-    Args:
-        response (str): The AI response containing the confidence score
-
+    Get INFO log messages from the current processing session only.
+    
     Returns:
-        int: The extracted confidence (1-100), or 50 if not found
+        str: Formatted log messages for current processing session
     """
-    # Look for "Confidence: X/100" pattern
-    pattern = r"Confidence:\s*(\d+)/100"
-    match = re.search(pattern, response, re.IGNORECASE)
+    if not st.session_state.processing_logs:
+        return "No processing logs yet..."
+    
+    # Format the logs with timestamps
+    formatted_logs = []
+    for log_entry in st.session_state.processing_logs:
+        timestamp = log_entry.get('timestamp', '')
+        message = log_entry.get('message', '')
+        formatted_logs.append(f"{timestamp}: {message}")
+    
+    return "\n".join(formatted_logs)
 
-    if match:
-        return int(match.group(1))
 
-    # Look for "Confidence Score: X/100" pattern
-    pattern = r"Confidence Score:\s*(\d+)/100"
-    match = re.search(pattern, response, re.IGNORECASE)
+def start_processing_session():
+    """Start a new processing session and clear previous logs."""
+    st.session_state.processing_logs = []
+    st.session_state.processing_start_time = time.time()
 
-    if match:
-        return int(match.group(1))
 
-    # Look for "Confidence Level: X%" pattern
-    pattern = r"Confidence Level:\s*(\d+)%"
-    match = re.search(pattern, response, re.IGNORECASE)
+def add_processing_log(message: str):
+    """Add a log message to the current processing session."""
+    if st.session_state.processing_start_time is not None:
+        timestamp = time.strftime("%H:%M:%S", time.localtime())
+        st.session_state.processing_logs.append({
+            'timestamp': timestamp,
+            'message': message
+        })
 
-    if match:
-        return int(match.group(1))
 
-    # Look for "Confidence: X%" pattern
-    pattern = r"Confidence:\s*(\d+)%"
-    match = re.search(pattern, response, re.IGNORECASE)
-
-    if match:
-        return int(match.group(1))
-
-    return 0  # Default to 0 confidence if not found
+def end_processing_session():
+    """End the processing session and clear logs."""
+    st.session_state.processing_logs = []
+    st.session_state.processing_start_time = None
 
 
 def get_score_color(score: int) -> str:
@@ -199,11 +161,14 @@ def score_lead_process(lead_description: str) -> tuple[int, int, str]:
         tuple[int, int, str]: (score, confidence, full_response)
     """
     try:
+        add_processing_log("Initializing AI clients and managers...")
         qdrant_manager, lead_scoring_client, embedding_client = initialize_managers()
 
+        add_processing_log("Generating embeddings for lead description...")
         # Get embeddings for the lead description
         question_vector = embedding_client.get_embeddings(lead_description)
 
+        add_processing_log("Searching for similar historical cases...")
         # Search for similar historical cases
         search_results = qdrant_manager.search_vectors(
             collection_name="case_files",
@@ -212,21 +177,26 @@ def score_lead_process(lead_description: str) -> tuple[int, int, str]:
             limit=10,
         )
 
+        add_processing_log("Retrieving historical context...")
         # Get historical context
         historical_context = qdrant_manager.get_context(search_results)
 
+        add_processing_log("Analyzing lead with AI scoring system...")
         # Score the lead using the LeadScoringClient
         final_analysis = lead_scoring_client.score_lead(
             new_lead_description=lead_description, historical_context=historical_context
         )
 
+        add_processing_log("Extracting score and confidence metrics...")
         # Extract numerical score and confidence
         score = extract_score_from_response(final_analysis)
         confidence = extract_confidence_from_response(final_analysis)
 
+        add_processing_log("Lead scoring completed successfully!")
         return score, confidence, final_analysis
 
     except Exception as e:
+        add_processing_log(f"Error occurred: {str(e)}")
         st.error(f"Error processing lead: {str(e)}")
         return 0, 50, f"Error: {str(e)}"
 
@@ -235,6 +205,7 @@ def score_lead_process(lead_description: str) -> tuple[int, int, str]:
 import json
 import os
 from pathlib import Path
+import time
 
 def load_scored_leads():
     """Load scored leads from the temporary JSON file."""
@@ -264,6 +235,12 @@ def save_scored_leads(leads):
 if "scored_leads" not in st.session_state:
     st.session_state.scored_leads = load_scored_leads()
 
+# Initialize processing logs tracking
+if "processing_logs" not in st.session_state:
+    st.session_state.processing_logs = []
+if "processing_start_time" not in st.session_state:
+    st.session_state.processing_start_time = None
+
 # ─── MAIN UI ────────────────────────────────────────────────────────────────────────
 st.title("⚖️ Lead Scoring System")
 st.markdown("Enter a lead description to score its potential for success.")
@@ -279,19 +256,51 @@ with st.container():
         help="Provide as much detail as possible about the incident, injuries, and circumstances.",
     )
 
-    col1, col2, col3 = st.columns([1, 1, 4])
+    col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
 
     with col1:
         if st.button("Score Lead", type="primary", disabled=not lead_text.strip()):
             if lead_text.strip():
-                # Process the lead scoring with spinner
-                with st.spinner("Analyzing lead..."):
-                    score, confidence, analysis = score_lead_process(lead_text.strip())
+                # Start processing session
+                start_processing_session()
+                
+                # Process the lead scoring with spinner and log tooltip
+                recent_logs = get_current_processing_logs()
+                
+                # Create the spinner with tooltip using HTML
+                st.markdown(
+                    f"""
+                    <div class="log-tooltip">
+                        <div class="tooltip-content">
+                            <strong>Current Processing Logs:</strong><br><br>
+                            {recent_logs}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #f0f2f6; border-radius: 8px; border: 1px solid #e0e0e0;">
+                            <div style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span style="font-weight: 500; color: #2c3e50;">Analyzing lead...</span>
+                        </div>
+                    </div>
+                    <style>
+                    @keyframes spin {{
+                        0% {{ transform: rotate(0deg); }}
+                        100% {{ transform: rotate(360deg); }}
+                    }}
+                    </style>
+                    """,
+                    unsafe_allow_html=True
+                )
+                
+                # Process the lead scoring (remove all quotation marks)
+                cleaned_lead_text = lead_text.strip().replace('"', '').replace("'", '')
+                score, confidence, analysis = score_lead_process(cleaned_lead_text)
+                
+                # End processing session and clear logs
+                end_processing_session()
 
                 # Add to scored leads
                 new_lead = {
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                    "description": lead_text.strip(),
+                    "description": cleaned_lead_text,
                     "score": score,
                     "confidence": confidence,
                     "analysis": analysis,
@@ -313,111 +322,88 @@ with st.container():
             # Save empty state to file
             save_scored_leads([])
             st.rerun()
-
-# Log Monitoring Section
-st.markdown("---")
-with st.expander("📋 System Activity Log", expanded=False):
-    col1, col2 = st.columns([3, 1])
-    
-    with col1:
-        # Log filtering options
-        filter_col1, filter_col2, filter_col3 = st.columns(3)
-        
-        with filter_col1:
-            show_debug = st.checkbox("Show DEBUG", value=False)
-        with filter_col2:
-            show_info = st.checkbox("Show INFO", value=True)
-        with filter_col3:
-            show_warnings = st.checkbox("Show WARNINGS", value=True)
-        
-        # Get log entries
-        log_entries = get_recent_log_entries(20)  # Show more entries in main area
-        
-        if log_entries:
-            st.markdown("**Recent System Activity:**")
             
-            # Create a container for log entries with custom styling
-            log_container = st.container()
-            with log_container:
-                displayed_count = 0
-                for i, entry in enumerate(log_entries):
-                    # Apply filters
-                    if "DEBUG" in entry and not show_debug:
-                        continue
-                    if "INFO" in entry and not show_info:
-                        continue
-                    if "WARNING" in entry and not show_warnings:
-                        continue
-                    
-                    displayed_count += 1
-                    
-                    # Format the entry for better display
-                    if entry.startswith("Error") or entry.startswith("No"):
-                        st.error(f"❌ {entry}")
-                    elif "WARNING" in entry:
-                        st.warning(f"⚠️ {entry}")
-                    elif "INFO" in entry:
-                        st.info(f"ℹ️ {entry}")
-                    elif "DEBUG" in entry:
-                        st.text(f"🔍 {entry}")
-                    else:
-                        st.text(f"📝 {entry}")
-                
-                if displayed_count == 0:
-                    st.info("No log entries match the current filters")
-        else:
-            st.info("No recent log entries found")
-    
-    with col2:
-        st.markdown("**Log Controls:**")
-        
-        # Auto-refresh toggle
-        auto_refresh_main = st.checkbox("🔄 Auto-refresh", value=False, help="Automatically refresh log entries")
-        
-        # View mode toggle
-        view_mode = st.selectbox("View Mode:", ["Detailed", "Compact Table"], key="log_view_mode")
-        
-        if st.button("🔄 Manual Refresh", key="main_refresh_log"):
+    with col3:
+        if st.button("Load Example"):
+            # Example lead data
+            example_description = (
+                "Potential client – Suffolk County slip-and-fall. A 28-year-old tenant was "
+                "walking on the paved sidewalk that cuts across the landscaped courtyard of "
+                "his apartment complex at about 7 p.m. when he stepped on what he describes "
+                "as a 'moss-covered, partially collapsed brick' that was hidden by overgrown "
+                "ground-cover plants. He lost footing, rolled his right ankle hard, and fell "
+                "onto the adjacent flowerbed. He was able to limp back to his unit and iced "
+                "the ankle overnight. Next morning the ankle was markedly swollen; he "
+                "presented to an urgent-care clinic two days post-incident where an x-ray "
+                "was read as negative for fracture and he was given an air-cast and crutches. "
+                "Because pain and clicking persisted, he followed up with an orthopedist six "
+                "days later; repeat imaging showed a small, already-healing avulsion fracture "
+                "at the lateral malleolus. He has been in PT since week 3, but at the "
+                "10-week mark still has intermittent swelling, instability on uneven ground, "
+                "and a persistent click when descending stairs. MRI is scheduled for August "
+                "12 (insurance-delayed) to rule out ligament tear. He has notified the "
+                "property manager in writing and has photos of the displaced brick and "
+                "overgrown vegetation taken the day after the fall. Two possible soft spots: "
+                "(1) he admits he had consumed 'a beer or two' at a neighbor's barbecue "
+                "about an hour before the incident, and (2) he continued to attend his "
+                "flag-football league games in weeks 2–4 against medical advice, which the "
+                "defense will argue aggravated the injury."
+            )
+            
+            example_analysis = (
+                "**Lead Score:** Lead Score: 77/100  \n"
+                "**Confidence Score:** Confidence Score: 78/100  \n"
+                "**Jurisdiction:** Jurisdiction: Suffolk County  \n"
+                "**Recommendation:** Medium-potential case with moderate risks; recommend further investigation and medical follow-up before full commitment.\n\n"
+                "**Executive Summary:**  \n"
+                "This Suffolk County slip-and-fall case presents a viable claim based on photographic evidence of a defective, moss-covered, and partially collapsed brick on a residential sidewalk, resulting in a documented avulsion fracture and ongoing ankle instability. The lead aligns with successful premises liability cases in the jurisdiction, particularly those involving clear defects and persistent injury. However, moderate risks exist due to the claimant's admission of alcohol consumption prior to the incident and post-injury participation in sports against medical advice, both of which could be leveraged by the defense to argue comparative negligence or aggravation of injury. The strength of the evidence is solid but not overwhelming, and the injury, while real, is less severe than those in the highest-value precedents. Suffolk County is generally favorable to plaintiffs in premises cases, with average settlements for moderate ankle injuries typically ranging from $40,000 to $120,000, depending on permanency and liability clarity.\n\n"
+                "**Detailed Rationale:**\n\n"
+                "**1. Positive Indicators (Alignment with Past Successes):**  \n"
+                "*   - The presence of a clear, physical defect (moss-covered, collapsed brick) and photographic evidence closely mirrors the successful fact patterns in Case-997000 (Coram, NY), where a defective step led to a fractured ankle and a strong liability argument.  \n"
+                "*   - The injury (avulsion fracture at the lateral malleolus) is objectively documented, with ongoing symptoms and a scheduled MRI, similar to the persistent impairment and medical follow-up seen in Case-997000 (07-14-2022.pdf).  \n"
+                "*   - The claimant promptly notified the property manager in writing and has photographic documentation, which strengthens notice and liability arguments, as seen in other successful Suffolk County premises cases.\n\n"
+                "**2. Negative Indicators & Risk Factors (Alignment with Past Losses/Challenges):**  \n"
+                "*   - The claimant's admission of consuming 'a beer or two' before the incident introduces a comparative negligence argument, which, while not necessarily fatal, could reduce recovery (noted as a complicating factor in other cases, though not directly in the provided summaries).  \n"
+                "*   - Continued participation in flag-football against medical advice in the weeks following the injury may allow the defense to argue that the claimant aggravated his own injury, potentially reducing damages or complicating causation (a risk not directly mirrored in the provided cases, but a known defense tactic).  \n"
+                "*   - The injury, while real, is less severe than the trimalleolar fracture and surgical cases (e.g., Case-997000, 07-14-2022.pdf), which may limit the upper value of the claim.\n\n"
+                "**3. Strength of Precedent:**  \n"
+                "The historical cases provided are highly relevant, especially those involving defective steps and ankle fractures in Suffolk County. The fact patterns, medical documentation, and liability arguments are closely aligned, though the injuries in the strongest precedents are somewhat more severe.\n\n"
+                "**4. Geographic & Jurisdictional Analysis:**  \n"
+                "*   Suffolk County is generally favorable to plaintiffs in premises liability cases, especially where there is clear evidence of a defect and notice. Average settlement values for moderate ankle injuries (avulsion fracture, persistent symptoms, but no major surgery) typically range from $40,000 to $120,000. More severe injuries with surgery and permanent impairment can exceed $150,000, but this case is likely to fall in the mid-range unless the MRI reveals a significant ligament tear or permanent disability.\n\n"
+                "**5. Case ID of cases given in the context:**  \n"
+                "*   ID:997000, ID:2207174, ID:2211830, ID:1660355\n\n"
+                "**6. Analysis Depth & Tool Usage:**  \n"
+                "*   **Tool Calls Made:**  \n"
+                "    - Call 1: get_file_context(997000 02-14-2024.docx) - Sought detailed fact pattern and injury documentation for a similar premises case.  \n"
+                "    - Call 2: get_file_context(997000 12-18-2024.docx) - Sought defendant testimony regarding notice, repairs, and property condition.  \n"
+                "    - Call 3: get_file_context(2211830 12-30-2024.pdf) - Sought comparative settlement and liability data for a recent Suffolk County premises case.  \n"
+                "    - Call 4: get_file_context(997000 07-14-2022.pdf) - Sought detailed medical and outcome data for a severe ankle injury premises case.  \n"
+                "    - Call 5: get_file_context(997000 10-19-2022.docx) - Sought employment impact and damages data for a similar injury.  \n"
+                "*   **Confidence Impact:**  \n"
+                "    - Each tool call provided additional context on liability, injury severity, and damages, increasing confidence from moderate to high-moderate. The main limitation is the lack of a clear, high-value outcome for a case with similar injury severity and the presence of some complicating factors in the new lead.  \n"
+                "*   **Overall Evidence Strength:** Moderate to High. The evidence base is solid for liability and injury, but the risks and moderate injury severity prevent a higher confidence score."
+            )
+            
+            # Add example lead to scored leads
+            example_lead = {
+                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "description": example_description,
+                "score": 77,
+                "confidence": 78,
+                "analysis": example_analysis,
+                "is_example": True,  # Flag to identify this as an example
+            }
+
+            st.session_state.scored_leads.insert(0, example_lead)
+            save_scored_leads(st.session_state.scored_leads)
+            st.success("Example lead loaded!")
             st.rerun()
-        
-        if st.button("📄 View Full Log", key="view_full_log"):
-            # Show full log in a modal-like expander
-            with st.expander("📄 Full Log File", expanded=True):
-                try:
-                    log_file = Path(__file__).parent / "logs" / "pdf_scraper.log"
-                    if log_file.exists():
-                        with open(log_file, 'r', encoding='utf-8') as f:
-                            full_log = f.read()
-                        st.text_area("Full Log Content:", value=full_log, height=400, disabled=True)
-                    else:
-                        st.error("Log file not found")
-                except Exception as e:
-                    st.error(f"Error reading log file: {e}")
-        
-        # Show log file info
-        st.markdown("---")
-        st.markdown("**Log File Info:**")
-        try:
-            log_file = Path(__file__).parent / "logs" / "pdf_scraper.log"
-            if log_file.exists():
-                file_size = log_file.stat().st_size
-                file_size_mb = file_size / (1024 * 1024)
-                st.text(f"Size: {file_size_mb:.2f} MB")
-                
-                # Count lines
-                with open(log_file, 'r', encoding='utf-8') as f:
-                    line_count = sum(1 for _ in f)
-                st.text(f"Lines: {line_count:,}")
-            else:
-                st.text("File: Not found")
-        except Exception as e:
-            st.text(f"Error: {e}")
 
 # Results section
 if st.session_state.scored_leads:
     st.subheader("Scored Leads")
 
-    # Custom CSS for the score blocks and hover effects
+    # Custom CSS for the score blocks, hover effects, and warning labels
     st.markdown(
         """
     <style>
@@ -472,6 +458,71 @@ if st.session_state.scored_leads:
         color: #888;
         font-style: italic;
     }
+    
+    .warning-label {
+        background: repeating-linear-gradient(
+            45deg,
+            rgba(255, 193, 7, 0.3),
+            rgba(255, 193, 7, 0.3) 10px,
+            rgba(255, 193, 7, 0.1) 10px,
+            rgba(255, 193, 7, 0.1) 20px
+        );
+        border: 2px solid #ffc107;
+        border-radius: 6px;
+        padding: 8px 12px;
+        margin: 5px 0;
+        font-weight: bold;
+        color: #856404;
+        text-align: center;
+        font-size: 14px;
+    }
+    
+    .log-tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .log-tooltip .tooltip-content {
+        visibility: hidden;
+        width: 400px;
+        background-color: #2c3e50;
+        color: #ecf0f1;
+        text-align: left;
+        border-radius: 8px;
+        padding: 12px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -200px;
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        line-height: 1.4;
+        max-height: 300px;
+        overflow-y: auto;
+        white-space: pre-wrap;
+        word-wrap: break-word;
+        border: 2px solid #34495e;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    }
+    
+    .log-tooltip .tooltip-content::after {
+        content: "";
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        margin-left: -5px;
+        border-width: 5px;
+        border-style: solid;
+        border-color: #2c3e50 transparent transparent transparent;
+    }
+    
+    .log-tooltip:hover .tooltip-content {
+        visibility: visible;
+        opacity: 1;
+    }
     </style>
     """,
         unsafe_allow_html=True,
@@ -517,6 +568,13 @@ if st.session_state.scored_leads:
                 )
 
             with content_col:
+                # Show warning label for example leads
+                if lead.get("is_example", False):
+                    st.markdown(
+                        '<div class="warning-label">⚠️ EXAMPLE LEAD - This is an already completed example lead.</div>',
+                        unsafe_allow_html=True
+                    )
+                
                 # Create expandable container for lead details
                 with st.expander(
                     f"Score: {lead['score']}/100 | Confidence: {lead.get('confidence', 50)}/100 - {lead['timestamp']}",
@@ -581,50 +639,6 @@ with st.sidebar:
     5. **Border color** shows AI confidence in the analysis
     """
     )
-
-    # Add real-time log monitoring section
-    st.markdown("---")
-    st.markdown("### 📊 System Monitoring")
-    
-    # Auto-refresh checkbox
-    auto_refresh = st.checkbox("🔄 Auto-refresh logs", value=False, help="Automatically refresh log entries every few seconds")
-    
-    if auto_refresh:
-        # Use st.empty() for real-time updates
-        log_placeholder = st.empty()
-        
-        # Get recent log entries
-        log_entries = get_recent_log_entries(5)  # Show last 5 entries for sidebar
-        
-        with log_placeholder.container():
-            st.markdown("**Recent Activity:**")
-            for entry in log_entries:
-                if entry.startswith("Error") or entry.startswith("No"):
-                    st.error(entry[:100] + "..." if len(entry) > 100 else entry)
-                elif "WARNING" in entry:
-                    st.warning(entry[:100] + "..." if len(entry) > 100 else entry)
-                elif "INFO" in entry:
-                    st.info(entry[:100] + "..." if len(entry) > 100 else entry)
-                else:
-                    st.text(entry[:100] + "..." if len(entry) > 100 else entry)
-        
-        # Auto-refresh every 3 seconds
-        time.sleep(3)
-        st.rerun()
-    else:
-        # Show static log entries
-        log_entries = get_recent_log_entries(3)  # Show last 3 entries for sidebar
-        
-        st.markdown("**Recent Activity:**")
-        for entry in log_entries:
-            if entry.startswith("Error") or entry.startswith("No"):
-                st.error(entry[:80] + "..." if len(entry) > 80 else entry)
-            elif "WARNING" in entry:
-                st.warning(entry[:80] + "..." if len(entry) > 80 else entry)
-            elif "INFO" in entry:
-                st.info(entry[:80] + "..." if len(entry) > 80 else entry)
-            else:
-                st.text(entry[:80] + "..." if len(entry) > 80 else entry)
 
     if st.session_state.scored_leads:
         st.markdown(f"### Statistics")

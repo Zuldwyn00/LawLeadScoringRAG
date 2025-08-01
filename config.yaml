@@ -1,5 +1,4 @@
 directories:
-  pdfs: "PDFs" #relative to script directory
   data: "scripts/data" #relative to script directory
   jsons: "scripts/data/jsons" #relative to script directory
   logs: "logs"

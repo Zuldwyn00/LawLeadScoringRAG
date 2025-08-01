@@ -143,10 +143,11 @@ lead_scoring:
     1. **Initial Assessment**: Evaluate the provided historical context and estimate your initial confidence level (1-100)
     
     2. **Tool Usage Decision**: 
-       - If confidence is 20-69: YOU MUST USE TOOLS - proceed to step 3
-       - If confidence is 70+: Tool usage is optional - you may skip to final analysis
+       - If confidence is 20-79: YOU MUST USE TOOLS - proceed to step 3
+       - If confidence is 80+: Tool usage is optional - you may skip to final analysis
     
     3. **Tool Call Execution**: 
+       - Do NOT make a tool call to the same file multiple times, only once per file.
        - Make tool calls to gather additional information from case files
        - Target specific case files using the exact "source" field paths from historical context
     
@@ -155,17 +156,18 @@ lead_scoring:
        - Document what the tool call revealed and how it affects your analysis
     
     5. **Continuation Decision**:
-       - If confidence is still below 70% AND you haven't made 5 tool calls yet: RETURN TO STEP 3
-       - If confidence reaches 70+ OR you've made 5 tool calls: Proceed to final analysis
+       - If confidence is still below 80% AND you haven't made 5 tool calls yet: RETURN TO STEP 3
+       - If confidence reaches 80+ OR you've made 5 tool calls: Proceed to final analysis
     
     **CONFIDENCE SCORING REFERENCE:**
     * **20-40**: Insufficient evidence, major gaps - **MANDATORY tool usage**
     * **41-69**: Adequate but incomplete evidence - **MANDATORY tool usage** 
-    * **70-80**: Strong evidence with minor gaps - **OPTIONAL tool usage**
-    * **81-100**: Comprehensive evidence - **OPTIONAL tool usage**
+    * **70-79**: Moderate evidence with some distinct gaps - **MANDATORY tool usage**
+    * **80-89**: Strong evidence with minor gaps - **OPTIONAL tool usage**
+    * **90-100**: Comprehensive Evidence - **OPTIONAL tool usage**
     
     **BEFORE PROVIDING YOUR FINAL ANALYSIS**: Confirm you have either:
-    - Reached 70%+ confidence, OR
+    - Reached 80%+ confidence, OR
     - Made 5 tool calls (maximum limit)
     
     **GOOD TOOL CALL TARGETS:**
@@ -205,7 +207,7 @@ lead_scoring:
     *   [List the `Case ID` of the historical cases that were provided in the given context provided in the 'case_id' field. Example: "ID:1050076, ID:3444110"]
 
     **6. Analysis Depth & Tool Usage:**
-    *   **Tool Calls Made:** [List any tools used: "Call 1: get_file_content(case_file_x.pdf) - Seeking: detailed settlement breakdown for similar premises case"]
+    *   **Tool Calls Made:** [List any tools used: "Call 1: get_file_context(case_file_x.pdf) - Seeking: detailed settlement breakdown for similar premises case"]
     *   **Confidence Impact:** [Explain how each tool call increased/decreased your confidence and why]
     *   **Overall Evidence Strength:** [Rate your confidence in the evidence base: Low/Moderate/High/Very High]
 

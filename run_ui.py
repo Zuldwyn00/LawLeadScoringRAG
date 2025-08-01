@@ -31,7 +31,7 @@ def main():
         sys.exit(1)
 
     local_ip = get_local_ip()
-    port = 8501
+    port = 3000
 
     print("Starting Lead Scoring UI...")
     print(f"🌐 Network Access:")

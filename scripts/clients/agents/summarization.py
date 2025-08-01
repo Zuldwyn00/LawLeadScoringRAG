@@ -2,7 +2,6 @@
 A client that gets a summarization of a given text.
 """
 
-from typing import Optional, List
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from ..base import BaseClient
@@ -42,14 +41,13 @@ class SummarizationClient:
             f"Initialized SummarizationClient with {client.__class__.__name__}"
         )
 
-    def summarize_text(self, text: str, max_tokens: int = 13000) -> str:
+    def summarize_text(self, text: str, max_tokens: int = 18000) -> str:
         """
         Summarizes the given text using the language model.
 
         Args:
             text (str): The text to summarize
             max_tokens (int): Maximum tokens allowed before summarization is skipped
-                            (default: 13000)
 
         Returns:
             str: The summarized text, or error message if summarization fails
@@ -59,8 +57,8 @@ class SummarizationClient:
             self.logger.warning(
                 f"Text is too long to summarize ({count_tokens(text)} tokens > {max_tokens})"
             )
-            return "The text is too long to summarize."
-
+            return "The text is too long to summarize, returning first 4000 characters\n\n" + text[:4000]
+            
         try:
             self.logger.info("Summarizing text with LLM...")
 

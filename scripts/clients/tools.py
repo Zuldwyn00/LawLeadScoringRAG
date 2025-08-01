@@ -1,7 +1,9 @@
 # ─── FILE CONTENT TOOL ──────────────────────────────────────────────────────────
+from calendar import c
 from typing import Optional, List, Callable
 from utils import count_tokens, setup_logger, load_config
 from scripts.filemanagement import get_text_from_file
+from .agents.utils.summarization_registry import set_summarizer, get_summarizer
 
 from langchain_core.tools import tool
 
@@ -45,37 +47,38 @@ class ToolManager:
 
 
 @tool
-def get_file_content(filepath: str, summarizer=None, max_tokens: int = 10000) -> str:
+def get_file_context(filepath: str, token_threshold: int = 4000) -> tuple:
     """
-    Gets the text content from a single file. If the content is too long,
-    it will be summarized using the provided summarizer.
+    Retrieves content from a file and returns it along with token count, summarizes the content
+    if it surpasses token_threshold.
 
     Args:
-        filepath (str): The path to the file to read.
-        summarizer (object, optional): An agent with a summarize_text(text) method.
-        max_tokens (int): The token threshold above which summarization is triggered.
+        filepath (str): Path to the file to read.
+        token_threshold (int): Maximum tokens allowed before summarization client is triggered
 
     Returns:
-        str: The text content of the file, possibly summarized, or an error message.
+        tuple: A tuple containing (content, token_count) on success, or a string error message on failure for a clean fallback rather than raising an error.
+               - content (str): The text content extracted from the file
+               - token_count (int): Number of tokens in the content
     """
     try:
-        logger.info(f"Tool 'get_file_content' called for: {filepath}")
-        parsed_content = get_text_from_file(filepath)
-
-        if parsed_content and "content" in parsed_content:
-            content = parsed_content["content"]
-            
-            if summarizer and count_tokens(content) > max_tokens:
-                content = summarizer.summarize_text(content)
-            elif not summarizer and count_tokens(content) > max_tokens:
-                logger.warning(f"No summarizer provided for get_file_content; returning first 2000 characters only.")
-                content = content[:2000]
-                
-            return content
-        else:
-            logger.warning(f"No content found in file: {filepath}")
+        logger.info(f"Tool 'get_file_context' called for: {filepath}")
+        parsed = get_text_from_file(filepath)
+        if not parsed or 'content' not in parsed:
             return f"Warning: No content found in file: {filepath}"
+        
+        content = parsed['content']
+        original_tokens = count_tokens(content)
 
+        summarizer_fn = get_summarizer()
+        if summarizer_fn and original_tokens > token_threshold:
+            logger.info("File '%s' has '%i' tokens > '%i'; summarising...", filepath, original_tokens, token_threshold)
+            content = summarizer_fn(content) 
+            token_count = count_tokens(content)       
+        else:
+            token_count = original_tokens
+
+        return(content, token_count)
     except Exception as e:
         logger.error(f"Failed to read file '{filepath}': {type(e).__name__}: {str(e)}")
         return f"Error: Unable to read file {filepath}"

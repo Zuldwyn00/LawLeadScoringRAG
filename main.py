@@ -108,18 +108,32 @@ def embedding_test(filepath: str, case_id: int):
 
 def score_test():
     qdrant_client = QdrantManager()
-    azure_client = AzureClient(client_config="gpt-4.1")
-
     embedding_client = AzureClient(client_config='text_embedding_3_small')
-    lead_client = LeadScoringClient(client=azure_client)
+    summarizer = SummarizationClient(AzureClient(client_config="gpt-o4-mini"))
+    scorer = LeadScoringClient(AzureClient(client_config="gpt-4.1"), temperature=0.0, summarizer=summarizer)
     
     new_lead_description = (
-        "The client located in Suffolk County was involved in a slip and fall. The client states that they were in their apartment complex on the sidewalk walking over to meet their girlfriend."
-        "The client states that they went to pick up their girlfriend with a large hug, and in doing so after walking 2 steps forward with her in his arms he stepped badly on a flowerbed next to the sidewalk and sprained his ankle"
-        "The client went to an urgent care after 3 days with an issue of his ankle clicking with every step and had an x-ray done, the initial x-ray found nothing."
-        "The client went to an orthpedist after 1 week after the initial injury and got another x-ray which showed a very small alread-healing fracture."
-        "After 2 months with the injury the clients ankle stated by them to be weakened and gets injured much more easily where walking on uneven terrain can cause another near-ankle sprain if not careful, the clicking in the ankle persists"
-        "The client is scheduled for an MRI on their ankle on August 12th, 3 months after the initial injury as they had to wait for insurance approval. The medical invervention has been kept up-date as necessary and the client has gotten medical care as fast as they have been allowed."
+    "Potential client – Suffolk County slip-and-fall. A 28-year-old tenant was "
+    "walking on the paved sidewalk that cuts across the landscaped courtyard of "
+    "his apartment complex at about 7 p.m. when he stepped on what he describes "
+    "as a 'moss-covered, partially collapsed brick' that was hidden by overgrown "
+    "ground-cover plants. He lost footing, rolled his right ankle hard, and fell "
+    "onto the adjacent flowerbed. He was able to limp back to his unit and iced "
+    "the ankle overnight. Next morning the ankle was markedly swollen; he "
+    "presented to an urgent-care clinic two days post-incident where an x-ray "
+    "was read as negative for fracture and he was given an air-cast and crutches. "
+    "Because pain and clicking persisted, he followed up with an orthopedist six "
+    "days later; repeat imaging showed a small, already-healing avulsion fracture "
+    "at the lateral malleolus. He has been in PT since week 3, but at the "
+    "10-week mark still has intermittent swelling, instability on uneven ground, "
+    "and a persistent click when descending stairs. MRI is scheduled for August "
+    "12 (insurance-delayed) to rule out ligament tear. He has notified the "
+    "property manager in writing and has photos of the displaced brick and "
+    "overgrown vegetation taken the day after the fall. Two possible soft spots: "
+    "(1) he admits he had consumed 'a beer or two' at a neighbor's barbecue "
+    "about an hour before the incident, and (2) he continued to attend his "
+    "flag-football league games in weeks 2–4 against medical advice, which the "
+    "defense will argue aggravated the injury."
     )
     question_vector = embedding_client.get_embeddings(new_lead_description)
     search_results = qdrant_client.search_vectors(
@@ -131,7 +145,7 @@ def score_test():
     
     historical_context = qdrant_client.get_context(search_results)
 
-    final_analysis = lead_client.score_lead(
+    final_analysis = scorer.score_lead(
         new_lead_description=new_lead_description, historical_context=historical_context
     )
     print(final_analysis)
@@ -196,18 +210,7 @@ def run_ocr_on_folder(folder_path: str):
 
 
 def main():
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs', 10550076)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs2', 2211830)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs3', 1637313)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs4', 1660355)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs5', 1508908)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs6', 1550736)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs7', 2369954)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs8', 1989212)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs9', 997000)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs10', 1885788)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs11', 2081492)
-    embedding_test(r'C:\Users\Justin\Desktop\testdocsmain\testdocs12', 2207174)
+    score_test()
     
 
 if __name__ == "__main__":

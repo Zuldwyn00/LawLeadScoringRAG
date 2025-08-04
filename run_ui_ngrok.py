@@ -97,6 +97,7 @@ def start_ngrok_tunnel(port, ngrok_path):
         print("🔗 Starting ngrok tunnel for temporary testing...")
         
         # Start ngrok with standard tunnel (works with free plan)
+        # For stable URLs, use: --domain=your-reserved-domain.ngrok.io (requires paid plan)
         ngrok_process = subprocess.Popen(
             [ngrok_path, "http", str(port)],
             stdout=subprocess.PIPE,
@@ -175,8 +176,12 @@ def main():
     print(f"📱 Local Access:")
     print(f"   Local: http://localhost:{port}")
     print(f"   Network: http://{local_ip}:{port}")
+    print("\n🔄 To restart just Streamlit with code updates:")
+    print("   1. Press Ctrl+C to stop Streamlit")
+    print("   2. Run: python -m streamlit run lead_scoring_ui.py --server.address 0.0.0.0 --server.port 3000")
+    print("   3. Ngrok URL will remain the same!")
     
-    print("Press Ctrl+C to stop the server.")
+    print("\nPress Ctrl+C to stop the server.")
 
     # Store processes for cleanup
     processes = []

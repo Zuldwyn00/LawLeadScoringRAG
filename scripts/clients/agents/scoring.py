@@ -56,6 +56,10 @@ class LeadScoringClient:
         Returns:
             str: The response from the language model with jurisdiction-modified score.
         """
+        # Reset tool call count for this new lead scoring session
+        self.tool_manager.tool_call_count = 0
+        self.logger.debug("Reset tool call count for new lead scoring session")
+        
         system_prompt_content = load_prompt("lead_scoring")
         self.logger.debug(
             f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}"

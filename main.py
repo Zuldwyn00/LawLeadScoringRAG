@@ -18,22 +18,18 @@
 
 # TODO: Rest api integration for a function system.
 
-# TODO: fix the mess that is our requirements file, currently it has all requirements listed for every import we use including the imports itself.I
+# TODO: fix the mess that is our requirements file, currently it has all requirements listed for every import we use including the imports itself.
 
+#TODO: The jurisdiction scoring is inflated i believe, as it adds together all the duplicated values of the settlement values to get the average, rather than just the unique values.
+
+from numpy import save
 import qdrant_client
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.aiclients import EmbeddingManager, ChatManager
 from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
-from utils import (
-    ensure_directories,
-    load_config,
-    setup_logger,
-    find_files,
-    load_from_json,
-    save_to_json,
-)
+from utils import *
 
 from scripts.clients import SummarizationClient, LeadScoringClient, AzureClient
 
@@ -180,8 +176,9 @@ def jurisdiction_score_test():
 
     jurisdiction_manager.save_to_json(data=scores)
 
-    mod = jurisdiction_manager.get_jurisdiction_modifier("Suffolk County")
-    print(mod)
+    print(jurisdiction_manager.get_jurisdiction_modifier("Suffolk County"))
+    print(jurisdiction_manager.get_jurisdiction_modifier("Nassau County"))
+    print(jurisdiction_manager.get_jurisdiction_modifier("Queen's County"))
 
 
 def run_ocr_on_folder(folder_path: str):
@@ -208,10 +205,16 @@ def run_ocr_on_folder(folder_path: str):
         except Exception as e:
             logger.error(f"An error occurred while processing {pdf_file.name}: {e}")
 
+def settlement_value_test():
+    qdrant_manager = QdrantManager()
+    cases = qdrant_manager.get_cases_by_jurisdiction('case_files', 'Suffolk County')
+    settlements = qdrant_manager.get_case_settlements(cases)
+    #give the AI the information from extract_highest_settlements so it always knows the outcome of cases it gets
+    values = extract_highest_settlements(settlements)
+    print(values)
 
 def main():
-    score_test()
-    
+    jurisdiction_score_test()
 
 if __name__ == "__main__":
     main()

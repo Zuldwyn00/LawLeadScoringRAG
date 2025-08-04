@@ -317,3 +317,57 @@ def get_jurisdiction_data(state: str, jurisdiction_name: str) -> Dict[str, Any]:
             f"Error retrieving jurisdiction data for '{jurisdiction_name}, {state}': {e}"
         )
         return {}
+
+
+def extract_highest_settlements(settlement_data: dict) -> List[tuple]:
+    """
+    Extracts case IDs and their highest settlement values from settlement data.
+    
+    Args:
+        settlement_data (dict): Dictionary containing case IDs as keys and settlement data as values.
+            Each case has a 'settlement_data' list with objects containing 'value' fields.
+    
+    Returns:
+        List[tuple]: List of tuples containing (case_id, highest_settlement_value).
+            Returns empty list if no settlement data or if all cases have no settlements.
+    
+    Example:
+        Input: {
+            "2369954": {
+                "settlement_data": [
+                    {"value": "5000.00", "source": "..."},
+                    {"value": "7500.00", "source": "..."}
+                ],
+                "case_count": 8
+            }
+        }
+        Output: [("2369954", 7500.00)]
+    """
+    highest_settlements = []
+    
+    for case_id, case_data in settlement_data.items():
+        settlement_list = case_data.get('settlement_data', [])
+        
+        if not settlement_list:
+            continue  # Skip cases with no settlement data
+        
+        # Extract all settlement values and convert to float
+        settlement_values = []
+        for settlement in settlement_list:
+            try:
+                # Remove any currency symbols and commas, then convert to float
+                value_str = settlement.get('value', '0')
+                # Clean the value string - remove $, commas, and whitespace
+                clean_value = value_str.replace('$', '').replace(',', '').strip()
+                value_float = float(clean_value)
+                settlement_values.append(value_float)
+            except (ValueError, TypeError) as e:
+                print(f"Warning: Could not parse settlement value '{value_str}' for case {case_id}: {e}")
+                continue
+        
+        if settlement_values:
+            # Find the highest settlement value for this case
+            highest_value = max(settlement_values)
+            highest_settlements.append((case_id, highest_value))
+    
+    return highest_settlements

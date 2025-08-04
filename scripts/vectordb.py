@@ -135,7 +135,7 @@ class QdrantManager:
         collection_name: str,
         query_vector: List[float],
         vector_name: str = "chunk",
-        limit: int = 5,
+        limit: int = 10,
     ) -> list:
         """
         Searches for similar vectors in the collection.

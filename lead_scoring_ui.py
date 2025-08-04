@@ -201,28 +201,209 @@ def score_lead_process(lead_description: str) -> tuple[int, int, str]:
         return 0, 50, f"Error: {str(e)}"
 
 
+def score_lead_process_with_hover_tooltip(lead_description: str) -> tuple[int, int, str]:
+    """
+    Run the complete lead scoring process with hover tooltip showing real-time logs.
+
+    Args:
+        lead_description (str): The lead description to score
+
+    Returns:
+        tuple[int, int, str]: (score, confidence, full_response)
+    """
+    try:
+        # Create a placeholder for the hover tooltip
+        tooltip_placeholder = st.empty()
+        
+        # Record the start time for this processing session
+        import datetime
+        session_start_time = datetime.datetime.now()
+        
+        def get_info_logs_from_file() -> str:
+            """Get all INFO logs from the pdf_scraper.log file that occurred after session start."""
+            try:
+                log_file = Path("logs/pdf_scraper.log")
+                if not log_file.exists():
+                    return "No log file found..."
+                
+                with open(log_file, 'r', encoding='utf-8') as f:
+                    lines = f.readlines()
+                
+                # Filter for INFO logs that occurred after session start
+                info_logs = []
+                for line in lines:
+                    if " - INFO - " in line:
+                        # Extract timestamp and message
+                        parts = line.split(" - INFO - ")
+                        if len(parts) == 2:
+                            timestamp_str = parts[0].split(" - ")[0]  # Get just the timestamp
+                            message = parts[1].strip()
+                            
+                            # Parse the timestamp
+                            try:
+                                log_time = datetime.datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
+                                # Only include logs that occurred after session start
+                                if log_time >= session_start_time:
+                                    # Extract just the time part (HH:MM:SS)
+                                    time_only = log_time.strftime("%H:%M:%S")
+                                    info_logs.append(f"{time_only}: {message}")
+                            except ValueError:
+                                # If timestamp parsing fails, skip this line
+                                continue
+                
+                # Return the logs (most recent first, limit to last 10)
+                return "\n".join(info_logs[-10:])
+            except Exception as e:
+                return f"Error reading log file: {str(e)}"
+        
+        def update_tooltip():
+            """Helper function to update the tooltip with current logs."""
+            with tooltip_placeholder.container():
+                st.markdown(
+                    f"""
+                    <div class="log-tooltip">
+                        <div class="tooltip-content">
+                            <strong>Current Processing Logs:</strong><br><br>
+                            {get_info_logs_from_file()}
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <div style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+                            <span style="font-weight: 500; color: #2c3e50;">Analyzing lead...</span>
+                        </div>
+                    </div>
+                    <style>
+                    @keyframes spin {{
+                        0% {{ transform: rotate(0deg); }}
+                        100% {{ transform: rotate(360deg); }}
+                    }}
+                    </style>
+                    """,
+                    unsafe_allow_html=True
+                )
+        
+        # Show initial tooltip
+        update_tooltip()
+        
+        # Run each step individually and update tooltip after each
+        # Initialize managers
+        qdrant_manager, lead_scoring_client, embedding_client = initialize_managers()
+        update_tooltip()
+        
+        # Generate embeddings
+        question_vector = embedding_client.get_embeddings(lead_description)
+        update_tooltip()
+        
+        # Search for similar cases
+        search_results = qdrant_manager.search_vectors(
+            collection_name="case_files",
+            query_vector=question_vector,
+            vector_name="chunk",
+            limit=10,
+        )
+        update_tooltip()
+        
+        # Get historical context
+        historical_context = qdrant_manager.get_context(search_results)
+        update_tooltip()
+        
+        # Score the lead
+        final_analysis = lead_scoring_client.score_lead(
+            new_lead_description=lead_description, historical_context=historical_context
+        )
+        update_tooltip()
+        
+        # Extract metrics
+        score = extract_score_from_response(final_analysis)
+        confidence = extract_confidence_from_response(final_analysis)
+        update_tooltip()
+        
+        # Final update with all logs
+        update_tooltip()
+        
+        return score, confidence, final_analysis
+
+    except Exception as e:
+        st.error(f"Error processing lead: {str(e)}")
+        return 0, 50, f"Error: {str(e)}"
+
+
 # ─── SESSION STATE INITIALIZATION ──────────────────────────────────────────────────
 import json
 import os
 from pathlib import Path
 import time
 
-def load_scored_leads():
-    """Load scored leads from the temporary JSON file."""
-    home_dir = Path.home()
-    score_file = home_dir / "score_tests.json"
+def get_example_lead():
+    """Get the example lead data."""
+    example_description = (
+        "Potential client – Suffolk County slip-and-fall. A 28-year-old tenant was "
+        "walking on the paved sidewalk that cuts across the landscaped courtyard of "
+        "his apartment complex at about 7 p.m. when he stepped on what he describes "
+        "as a 'moss-covered, partially collapsed brick' that was hidden by overgrown "
+        "ground-cover plants. He lost footing, rolled his right ankle hard, and fell "
+        "onto the adjacent flowerbed. He was able to limp back to his unit and iced "
+        "the ankle overnight. Next morning the ankle was markedly swollen; he "
+        "presented to an urgent-care clinic two days post-incident where an x-ray "
+        "was read as negative for fracture and he was given an air-cast and crutches. "
+        "Because pain and clicking persisted, he followed up with an orthopedist six "
+        "days later; repeat imaging showed a small, already-healing avulsion fracture "
+        "at the lateral malleolus. He has been in PT since week 3, but at the "
+        "10-week mark still has intermittent swelling, instability on uneven ground, "
+        "and a persistent click when descending stairs. MRI is scheduled for August "
+        "12 (insurance-delayed) to rule out ligament tear. He has notified the "
+        "property manager in writing and has photos of the displaced brick and "
+        "overgrown vegetation taken the day after the fall. Two possible soft spots: "
+        "(1) he admits he had consumed 'a beer or two' at a neighbor's barbecue "
+        "about an hour before the incident, and (2) he continued to attend his "
+        "flag-football league games in weeks 2–4 against medical advice, which the "
+        "defense will argue aggravated the injury."
+    )
     
-    if score_file.exists():
-        try:
-            with open(score_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        except Exception as e:
-            st.warning(f"Could not load previous scores: {e}")
-            return []
-    return []
+    example_analysis = (
+        "**Lead Score:** Lead Score: 77/100  \n"
+        "**Confidence Score:** Confidence Score: 78/100  \n"
+        "**Jurisdiction:** Jurisdiction: Suffolk County  \n"
+        "**Recommendation:** Medium-potential case with moderate risks; recommend further investigation and medical follow-up before full commitment.\n\n"
+        "**Executive Summary:**  \n"
+        "This Suffolk County slip-and-fall case presents a viable claim based on photographic evidence of a defective, moss-covered, and partially collapsed brick on a residential sidewalk, resulting in a documented avulsion fracture and ongoing ankle instability. The lead aligns with successful premises liability cases in the jurisdiction, particularly those involving clear defects and persistent injury. However, moderate risks exist due to the claimant's admission of alcohol consumption prior to the incident and post-injury participation in sports against medical advice, both of which could be leveraged by the defense to argue comparative negligence or aggravation of injury. The strength of the evidence is solid but not overwhelming, and the injury, while real, is less severe than those in the highest-value precedents. Suffolk County is generally favorable to plaintiffs in premises cases, with average settlements for moderate ankle injuries typically ranging from $40,000 to $120,000, depending on permanency and liability clarity.\n\n"
+        "**Detailed Rationale:**\n\n"
+        "**1. Positive Indicators (Alignment with Past Successes):**  \n"
+        "*   - The presence of a clear, physical defect (moss-covered, collapsed brick) and photographic evidence closely mirrors the successful fact patterns in Case-997000 (Coram, NY), where a defective step led to a fractured ankle and a strong liability argument.  \n"
+        "*   - The injury (avulsion fracture at the lateral malleolus) is objectively documented, with ongoing symptoms and a scheduled MRI, similar to the persistent impairment and medical follow-up seen in Case-997000 (07-14-2022.pdf).  \n"
+        "*   - The claimant promptly notified the property manager in writing and has photographic documentation, which strengthens notice and liability arguments, as seen in other successful Suffolk County premises cases.\n\n"
+        "**2. Negative Indicators & Risk Factors (Alignment with Past Losses/Challenges):**  \n"
+        "*   - The claimant's admission of consuming 'a beer or two' before the incident introduces a comparative negligence argument, which, while not necessarily fatal, could reduce recovery (noted as a complicating factor in other cases, though not directly in the provided summaries).  \n"
+        "*   - Continued participation in flag-football against medical advice in the weeks following the injury may allow the defense to argue that the claimant aggravated his own injury, potentially reducing damages or complicating causation (a risk not directly mirrored in the provided cases, but a known defense tactic).  \n"
+        "*   - The injury, while real, is less severe than the trimalleolar fracture and surgical cases (e.g., Case-997000, 07-14-2022.pdf), which may limit the upper value of the claim.\n\n"
+        "**3. Strength of Precedent:**  \n"
+        "The historical cases provided are highly relevant, especially those involving defective steps and ankle fractures in Suffolk County. The fact patterns, medical documentation, and liability arguments are closely aligned, though the injuries in the strongest precedents are somewhat more severe.\n\n"
+        "**4. Geographic & Jurisdictional Analysis:**  \n"
+        "*   Suffolk County is generally favorable to plaintiffs in premises liability cases, especially where there is clear evidence of a defect and notice. Average settlement values for moderate ankle injuries (avulsion fracture, persistent symptoms, but no major surgery) typically range from $40,000 to $120,000. More severe injuries with surgery and permanent impairment can exceed $150,000, but this case is likely to fall in the mid-range unless the MRI reveals a significant ligament tear or permanent disability.\n\n"
+        "**5. Case ID of cases given in the context:**  \n"
+        "*   ID:997000, ID:2207174, ID:2211830, ID:1660355\n\n"
+        "**6. Analysis Depth & Tool Usage:**  \n"
+        "*   **Tool Calls Made:**  \n"
+        "    - Call 1: get_file_context(997000 02-14-2024.docx) - Sought detailed fact pattern and injury documentation for a similar premises case.  \n"
+        "    - Call 2: get_file_context(997000 12-18-2024.docx) - Sought defendant testimony regarding notice, repairs, and property condition.  \n"
+        "    - Call 3: get_file_context(2211830 12-30-2024.pdf) - Sought comparative settlement and liability data for a recent Suffolk County premises case.  \n"
+        "    - Call 4: get_file_context(997000 07-14-2022.pdf) - Sought detailed medical and outcome data for a severe ankle injury premises case.  \n"
+        "    - Call 5: get_file_context(997000 10-19-2022.docx) - Sought employment impact and damages data for a similar injury.  \n"
+        "*   **Confidence Impact:**  \n"
+        "    - Each tool call provided additional context on liability, injury severity, and damages, increasing confidence from moderate to high-moderate. The main limitation is the lack of a clear, high-value outcome for a case with similar injury severity and the presence of some complicating factors in the new lead.  \n"
+        "*   **Overall Evidence Strength:** Moderate to High. The evidence base is solid for liability and injury, but the risks and moderate injury severity prevent a higher confidence score."
+    )
+    
+    return {
+        "timestamp": "Example Lead",
+        "description": example_description,
+        "score": 77,
+        "confidence": 78,
+        "analysis": example_analysis,
+        "is_example": True,
+    }
 
-def save_scored_leads(leads):
-    """Save scored leads to the temporary JSON file."""
+def save_example_lead(leads):
+    """Save only example leads to the JSON file."""
     home_dir = Path.home()
     score_file = home_dir / "score_tests.json"
     
@@ -230,10 +411,11 @@ def save_scored_leads(leads):
         with open(score_file, 'w', encoding='utf-8') as f:
             json.dump(leads, f, indent=2, ensure_ascii=False)
     except Exception as e:
-        st.error(f"Could not save scores: {e}")
+        st.error(f"Could not save example lead: {e}")
 
+# Initialize session state with example lead
 if "scored_leads" not in st.session_state:
-    st.session_state.scored_leads = load_scored_leads()
+    st.session_state.scored_leads = [get_example_lead()]
 
 # Initialize processing logs tracking
 if "processing_logs" not in st.session_state:
@@ -256,7 +438,7 @@ with st.container():
         help="Provide as much detail as possible about the incident, injuries, and circumstances.",
     )
 
-    col1, col2, col3, col4 = st.columns([1, 1, 1, 3])
+    col1, col2, col3 = st.columns([1, 1, 6])
 
     with col1:
         if st.button("Score Lead", type="primary", disabled=not lead_text.strip()):
@@ -264,35 +446,9 @@ with st.container():
                 # Start processing session
                 start_processing_session()
                 
-                # Process the lead scoring with spinner and log tooltip
-                recent_logs = get_current_processing_logs()
-                
-                # Create the spinner with tooltip using HTML
-                st.markdown(
-                    f"""
-                    <div class="log-tooltip">
-                        <div class="tooltip-content">
-                            <strong>Current Processing Logs:</strong><br><br>
-                            {recent_logs}
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: #f0f2f6; border-radius: 8px; border: 1px solid #e0e0e0;">
-                            <div style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                            <span style="font-weight: 500; color: #2c3e50;">Analyzing lead...</span>
-                        </div>
-                    </div>
-                    <style>
-                    @keyframes spin {{
-                        0% {{ transform: rotate(0deg); }}
-                        100% {{ transform: rotate(360deg); }}
-                    }}
-                    </style>
-                    """,
-                    unsafe_allow_html=True
-                )
-                
-                # Process the lead scoring (remove all quotation marks)
+                # Process the lead scoring with hover tooltip and real-time logs
                 cleaned_lead_text = lead_text.strip().replace('"', '').replace("'", '')
-                score, confidence, analysis = score_lead_process(cleaned_lead_text)
+                score, confidence, analysis = score_lead_process_with_hover_tooltip(cleaned_lead_text)
                 
                 # End processing session and clear logs
                 end_processing_session()
@@ -310,98 +466,29 @@ with st.container():
                     0, new_lead
                 )  # Add to top of list
 
-                # Save to file
-                save_scored_leads(st.session_state.scored_leads)
-
                 st.success(f"Lead scored: {score}/100")
                 st.rerun()
 
     with col2:
         if st.button("Clear All"):
-            st.session_state.scored_leads = []
-            # Save empty state to file
-            save_scored_leads([])
-            st.rerun()
-            
-    with col3:
-        if st.button("Load Example"):
-            # Example lead data
-            example_description = (
-                "Potential client – Suffolk County slip-and-fall. A 28-year-old tenant was "
-                "walking on the paved sidewalk that cuts across the landscaped courtyard of "
-                "his apartment complex at about 7 p.m. when he stepped on what he describes "
-                "as a 'moss-covered, partially collapsed brick' that was hidden by overgrown "
-                "ground-cover plants. He lost footing, rolled his right ankle hard, and fell "
-                "onto the adjacent flowerbed. He was able to limp back to his unit and iced "
-                "the ankle overnight. Next morning the ankle was markedly swollen; he "
-                "presented to an urgent-care clinic two days post-incident where an x-ray "
-                "was read as negative for fracture and he was given an air-cast and crutches. "
-                "Because pain and clicking persisted, he followed up with an orthopedist six "
-                "days later; repeat imaging showed a small, already-healing avulsion fracture "
-                "at the lateral malleolus. He has been in PT since week 3, but at the "
-                "10-week mark still has intermittent swelling, instability on uneven ground, "
-                "and a persistent click when descending stairs. MRI is scheduled for August "
-                "12 (insurance-delayed) to rule out ligament tear. He has notified the "
-                "property manager in writing and has photos of the displaced brick and "
-                "overgrown vegetation taken the day after the fall. Two possible soft spots: "
-                "(1) he admits he had consumed 'a beer or two' at a neighbor's barbecue "
-                "about an hour before the incident, and (2) he continued to attend his "
-                "flag-football league games in weeks 2–4 against medical advice, which the "
-                "defense will argue aggravated the injury."
-            )
-            
-            example_analysis = (
-                "**Lead Score:** Lead Score: 77/100  \n"
-                "**Confidence Score:** Confidence Score: 78/100  \n"
-                "**Jurisdiction:** Jurisdiction: Suffolk County  \n"
-                "**Recommendation:** Medium-potential case with moderate risks; recommend further investigation and medical follow-up before full commitment.\n\n"
-                "**Executive Summary:**  \n"
-                "This Suffolk County slip-and-fall case presents a viable claim based on photographic evidence of a defective, moss-covered, and partially collapsed brick on a residential sidewalk, resulting in a documented avulsion fracture and ongoing ankle instability. The lead aligns with successful premises liability cases in the jurisdiction, particularly those involving clear defects and persistent injury. However, moderate risks exist due to the claimant's admission of alcohol consumption prior to the incident and post-injury participation in sports against medical advice, both of which could be leveraged by the defense to argue comparative negligence or aggravation of injury. The strength of the evidence is solid but not overwhelming, and the injury, while real, is less severe than those in the highest-value precedents. Suffolk County is generally favorable to plaintiffs in premises cases, with average settlements for moderate ankle injuries typically ranging from $40,000 to $120,000, depending on permanency and liability clarity.\n\n"
-                "**Detailed Rationale:**\n\n"
-                "**1. Positive Indicators (Alignment with Past Successes):**  \n"
-                "*   - The presence of a clear, physical defect (moss-covered, collapsed brick) and photographic evidence closely mirrors the successful fact patterns in Case-997000 (Coram, NY), where a defective step led to a fractured ankle and a strong liability argument.  \n"
-                "*   - The injury (avulsion fracture at the lateral malleolus) is objectively documented, with ongoing symptoms and a scheduled MRI, similar to the persistent impairment and medical follow-up seen in Case-997000 (07-14-2022.pdf).  \n"
-                "*   - The claimant promptly notified the property manager in writing and has photographic documentation, which strengthens notice and liability arguments, as seen in other successful Suffolk County premises cases.\n\n"
-                "**2. Negative Indicators & Risk Factors (Alignment with Past Losses/Challenges):**  \n"
-                "*   - The claimant's admission of consuming 'a beer or two' before the incident introduces a comparative negligence argument, which, while not necessarily fatal, could reduce recovery (noted as a complicating factor in other cases, though not directly in the provided summaries).  \n"
-                "*   - Continued participation in flag-football against medical advice in the weeks following the injury may allow the defense to argue that the claimant aggravated his own injury, potentially reducing damages or complicating causation (a risk not directly mirrored in the provided cases, but a known defense tactic).  \n"
-                "*   - The injury, while real, is less severe than the trimalleolar fracture and surgical cases (e.g., Case-997000, 07-14-2022.pdf), which may limit the upper value of the claim.\n\n"
-                "**3. Strength of Precedent:**  \n"
-                "The historical cases provided are highly relevant, especially those involving defective steps and ankle fractures in Suffolk County. The fact patterns, medical documentation, and liability arguments are closely aligned, though the injuries in the strongest precedents are somewhat more severe.\n\n"
-                "**4. Geographic & Jurisdictional Analysis:**  \n"
-                "*   Suffolk County is generally favorable to plaintiffs in premises liability cases, especially where there is clear evidence of a defect and notice. Average settlement values for moderate ankle injuries (avulsion fracture, persistent symptoms, but no major surgery) typically range from $40,000 to $120,000. More severe injuries with surgery and permanent impairment can exceed $150,000, but this case is likely to fall in the mid-range unless the MRI reveals a significant ligament tear or permanent disability.\n\n"
-                "**5. Case ID of cases given in the context:**  \n"
-                "*   ID:997000, ID:2207174, ID:2211830, ID:1660355\n\n"
-                "**6. Analysis Depth & Tool Usage:**  \n"
-                "*   **Tool Calls Made:**  \n"
-                "    - Call 1: get_file_context(997000 02-14-2024.docx) - Sought detailed fact pattern and injury documentation for a similar premises case.  \n"
-                "    - Call 2: get_file_context(997000 12-18-2024.docx) - Sought defendant testimony regarding notice, repairs, and property condition.  \n"
-                "    - Call 3: get_file_context(2211830 12-30-2024.pdf) - Sought comparative settlement and liability data for a recent Suffolk County premises case.  \n"
-                "    - Call 4: get_file_context(997000 07-14-2022.pdf) - Sought detailed medical and outcome data for a severe ankle injury premises case.  \n"
-                "    - Call 5: get_file_context(997000 10-19-2022.docx) - Sought employment impact and damages data for a similar injury.  \n"
-                "*   **Confidence Impact:**  \n"
-                "    - Each tool call provided additional context on liability, injury severity, and damages, increasing confidence from moderate to high-moderate. The main limitation is the lack of a clear, high-value outcome for a case with similar injury severity and the presence of some complicating factors in the new lead.  \n"
-                "*   **Overall Evidence Strength:** Moderate to High. The evidence base is solid for liability and injury, but the risks and moderate injury severity prevent a higher confidence score."
-            )
-            
-            # Add example lead to scored leads
-            example_lead = {
-                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "description": example_description,
-                "score": 77,
-                "confidence": 78,
-                "analysis": example_analysis,
-                "is_example": True,  # Flag to identify this as an example
-            }
-
-            st.session_state.scored_leads.insert(0, example_lead)
-            save_scored_leads(st.session_state.scored_leads)
-            st.success("Example lead loaded!")
+            # Keep only example leads
+            example_leads = [lead for lead in st.session_state.scored_leads if lead.get("is_example", False)]
+            st.session_state.scored_leads = example_leads
+            # Save only example leads to file
+            save_example_lead(example_leads)
             st.rerun()
 
 # Results section
+st.subheader("Scored Leads")
+
+# Always ensure example lead is present
+example_lead = get_example_lead()
+example_exists = any(lead.get("is_example", False) for lead in st.session_state.scored_leads)
+
+if not example_exists:
+    st.session_state.scored_leads.insert(0, example_lead)
+
 if st.session_state.scored_leads:
-    st.subheader("Scored Leads")
 
     # Custom CSS for the score blocks, hover effects, and warning labels
     st.markdown(
@@ -493,8 +580,8 @@ if st.session_state.scored_leads:
         position: absolute;
         z-index: 1000;
         bottom: 125%;
-        left: 50%;
-        margin-left: -200px;
+        left: 0;
+        margin-left: 0;
         opacity: 0;
         transition: opacity 0.3s;
         font-family: 'Courier New', monospace;
@@ -596,7 +683,7 @@ if st.session_state.scored_leads:
 
 else:
     st.info(
-        "No leads have been scored yet. Enter a lead description above to get started."
+        "Enter a lead description above to score it and see the results here."
     )
 
 # ─── SIDEBAR INFORMATION ───────────────────────────────────────────────────────────
@@ -634,9 +721,10 @@ with st.sidebar:
         """
     1. Enter a detailed lead description
     2. Click "Score Lead" to analyze
-    3. View results in the main panel
-    4. Click on any scored lead to see full analysis
-    5. **Border color** shows AI confidence in the analysis
+    3. **Hover over the loading circle** to see real-time processing logs
+    4. View results in the main panel
+    5. Click on any scored lead to see full analysis
+    6. **Border color** shows AI confidence in the analysis
     """
     )
 
@@ -661,5 +749,7 @@ with st.sidebar:
         st.text(f"File: {score_file}")
         
         if st.button("Save Current State"):
-            save_scored_leads(st.session_state.scored_leads)
-            st.success("Scores saved successfully!")
+            # Save only example leads
+            example_leads = [lead for lead in st.session_state.scored_leads if lead.get("is_example", False)]
+            save_example_lead(example_leads)
+            st.success("Example leads saved successfully!")

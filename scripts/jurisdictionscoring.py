@@ -37,6 +37,17 @@ class JurisdictionScoreManager:
         self.recency_weights = self.config.get("jurisdiction_scoring", {}).get(
             "recency_weights", {}
         )
+        
+        # Load outlier detection configuration
+        outlier_config = self.config.get("jurisdiction_scoring", {}).get("outlier_detection", {})
+        self.outlier_enabled = outlier_config.get("enabled", True)
+        self.outlier_methods = outlier_config.get("methods", ['iqr', 'zscore', 'modified_zscore'])
+        self.outlier_handling = outlier_config.get("handling_method", 'winsorize')
+        self.iqr_multiplier = outlier_config.get("iqr_multiplier", 1.5)
+        self.zscore_threshold = outlier_config.get("zscore_threshold", 3.0)
+        self.modified_zscore_threshold = outlier_config.get("modified_zscore_threshold", 3.5)
+        self.winsorize_percentiles = outlier_config.get("winsorize_percentiles", [5, 95])
+        self.cap_multiplier = outlier_config.get("cap_multiplier", 5.0)
 
     # ─── CORE SCORING METHODS ────────────────────────────────────────────────────────────
     def score_jurisdiction(self, jurisdiction_cases: list):

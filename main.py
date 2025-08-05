@@ -178,7 +178,7 @@ def jurisdiction_score_test():
 
     print(jurisdiction_manager.get_jurisdiction_modifier("Suffolk County"))
     print(jurisdiction_manager.get_jurisdiction_modifier("Nassau County"))
-    print(jurisdiction_manager.get_jurisdiction_modifier("Queen's County"))
+    print(jurisdiction_manager.get_jurisdiction_modifier("Queens County"))
 
 
 def run_ocr_on_folder(folder_path: str):
@@ -214,7 +214,7 @@ def settlement_value_test():
     print(values)
 
 def main():
-    jurisdiction_score_test()
+   
 
 if __name__ == "__main__":
     main()

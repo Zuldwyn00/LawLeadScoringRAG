@@ -6,10 +6,12 @@ This package provides a layered architecture for AI clients:
 - AzureClient: Azure OpenAI specific implementation
 - ChatClient: Azure chat functionality with tool support
 - Domain Agents: Specialized clients for specific tasks
+- Caching: Cache management for client operations
 
 Usage:
-    from scripts.clients import MetadataExtractionClient
-    client = MetadataExtractionClient()
+    from scripts.clients import LeadScoringClient, ClientCacheManager
+    client = LeadScoringClient()
+    cache_manager = ClientCacheManager()
 """
 
 # ── CORE ARCHITECTURE ─────────────────────────────────────────────────────
@@ -19,9 +21,12 @@ from .azure import AzureClient
 
 # ── DOMAIN AGENTS ─────────────────────────────────────────────────────────
 # Import specialized client agents for specific business tasks
-# from .agents.metadata import MetadataExtractionClient
 from .agents.scoring import LeadScoringClient
 from .agents.summarization import SummarizationClient
+
+# ── CACHING FUNCTIONALITY ─────────────────────────────────────────────────
+# Import caching classes for result storage and retrieval
+from .caching import ClientCacheManager, CacheEntry, SummaryCacheEntry
 
 # ── PACKAGE EXPORTS ───────────────────────────────────────────────────────
 # Define what gets imported with "from scripts.clients import *"
@@ -30,7 +35,10 @@ __all__ = [
     "BaseClient",
     "AzureClient",
     # Domain agents (for actual usage)
-    "MetadataExtractionClient",
     "LeadScoringClient",
     "SummarizationClient",
+    # Caching functionality
+    "ClientCacheManager",
+    "CacheEntry",
+    "SummaryCacheEntry",
 ]

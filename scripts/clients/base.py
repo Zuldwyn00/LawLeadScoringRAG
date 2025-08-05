@@ -11,6 +11,7 @@ from langchain_core.messages import (
 )
 
 from utils import *
+from .caching.cachemanager import ClientCacheManager
 
 
 class BaseClient(ABC):
@@ -37,6 +38,7 @@ class BaseClient(ABC):
 
         self.config = load_config()
         self.logger = setup_logger(self.__class__.__name__, self.config)
+        self.cache_manager = ClientCacheManager()
         # self.metrics = metrics
         # self.rate_limiter = rate_limiter
         self.message_history = message_history

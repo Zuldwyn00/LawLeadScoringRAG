@@ -10,7 +10,6 @@ from .scoring import LeadScoringClient
 from .summarization import SummarizationClient
 
 __all__ = [
-    "MetadataExtractionClient",
     "LeadScoringClient",
     "SummarizationClient",
 ]

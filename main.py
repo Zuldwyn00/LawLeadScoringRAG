@@ -22,6 +22,8 @@
 
 #TODO: The jurisdiction scoring is inflated i believe, as it adds together all the duplicated values of the settlement values to get the average, rather than just the unique values.
 
+#TODO: Implement limit for lead-score so it doesnt go over 100 after modifiers
+
 from numpy import save
 import qdrant_client
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
@@ -31,6 +33,7 @@ from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
 from utils import *
 
+from scripts.clients.utils.chatlog import dump_chat_log
 from scripts.clients import SummarizationClient, LeadScoringClient, AzureClient
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
@@ -109,27 +112,35 @@ def score_test():
     scorer = LeadScoringClient(AzureClient(client_config="gpt-4.1"), temperature=0.0, summarizer=summarizer)
     
     new_lead_description = (
-    "Potential client – Suffolk County slip-and-fall. A 28-year-old tenant was "
-    "walking on the paved sidewalk that cuts across the landscaped courtyard of "
-    "his apartment complex at about 7 p.m. when he stepped on what he describes "
-    "as a 'moss-covered, partially collapsed brick' that was hidden by overgrown "
-    "ground-cover plants. He lost footing, rolled his right ankle hard, and fell "
-    "onto the adjacent flowerbed. He was able to limp back to his unit and iced "
-    "the ankle overnight. Next morning the ankle was markedly swollen; he "
-    "presented to an urgent-care clinic two days post-incident where an x-ray "
-    "was read as negative for fracture and he was given an air-cast and crutches. "
-    "Because pain and clicking persisted, he followed up with an orthopedist six "
-    "days later; repeat imaging showed a small, already-healing avulsion fracture "
-    "at the lateral malleolus. He has been in PT since week 3, but at the "
-    "10-week mark still has intermittent swelling, instability on uneven ground, "
-    "and a persistent click when descending stairs. MRI is scheduled for August "
-    "12 (insurance-delayed) to rule out ligament tear. He has notified the "
-    "property manager in writing and has photos of the displaced brick and "
-    "overgrown vegetation taken the day after the fall. Two possible soft spots: "
-    "(1) he admits he had consumed 'a beer or two' at a neighbor's barbecue "
-    "about an hour before the incident, and (2) he continued to attend his "
-    "flag-football league games in weeks 2–4 against medical advice, which the "
-    "defense will argue aggravated the injury."
+     "Potential client – Nassau County slip-and-fall. A 52-year-old office "
+    "manager was attending a corporate holiday party at the Marriott Hotel "
+    "in Garden City on December 15th at approximately 8:30 PM. The event "
+    "was held in the hotel's main ballroom, which had been decorated with "
+    "holiday lights and garlands. The plaintiff alleges she slipped on a "
+    "wet spot near the bar area and fell, sustaining a fractured left "
+    "wrist and torn rotator cuff in her right shoulder. She was taken by "
+    "ambulance to Nassau University Medical Center where she underwent "
+    "surgery to repair the wrist fracture with internal fixation. The "
+    "shoulder injury required arthroscopic surgery three weeks later. "
+    "She was out of work for 8 weeks and has ongoing physical therapy. "
+    "The plaintiff claims the hotel failed to properly maintain the floor "
+    "and should have had warning signs or mats in the bar area. However, "
+    "security camera footage shows the plaintiff had consumed several "
+    "cocktails over the course of the evening, and witnesses reported "
+    "she appeared to be unsteady on her feet before the fall. The hotel "
+    "maintains they had proper floor maintenance protocols in place, "
+    "including regular inspections every 30 minutes, and that the wet "
+    "spot was created by other patrons' spilled drinks, not by hotel "
+    "negligence. The plaintiff's blood alcohol content was 0.12% when "
+    "tested at the hospital. Additionally, the plaintiff was wearing "
+    "high-heeled shoes with smooth soles, which the defense will argue "
+    "contributed to the fall. The hotel has offered a $25,000 settlement, "
+    "but the plaintiff's attorney believes the case is worth $150,000 "
+    "given the surgeries and lost wages. The case hinges on whether the "
+    "hotel had constructive notice of the dangerous condition and whether "
+    "the plaintiff's own negligence was a substantial factor in causing "
+    "her injuries."
+    "You are required to make at least 1 tool call and you will include the entire summary of what that tool call contained."
     )
     question_vector = embedding_client.get_embeddings(new_lead_description)
     search_results = qdrant_client.search_vectors(
@@ -144,6 +155,7 @@ def score_test():
     final_analysis = scorer.score_lead(
         new_lead_description=new_lead_description, historical_context=historical_context
     )
+    dump_chat_log(scorer.client.message_history)
     print(final_analysis)
 
 
@@ -214,7 +226,7 @@ def settlement_value_test():
     print(values)
 
 def main():
-   
+   score_test()
 
 if __name__ == "__main__":
     main()

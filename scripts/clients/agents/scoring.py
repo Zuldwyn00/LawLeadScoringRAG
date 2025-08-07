@@ -31,8 +31,11 @@ class LeadScoringClient:
         self.client = client
         self.prompt = load_prompt('lead_scoring')
         self.tool_manager = ToolManager(tools=[get_file_context])
+        # Extract summarizer from kwargs and register it globally for use across the application
         self.summarizer = kwargs.pop('summarizer', None)
         if self.summarizer is not None:
+            # Register the summarizer's summarize_text method in the global registry (summarization_registry.py)
+            # so other components can access it without passing it through every function call
             set_summarizer(self.summarizer.summarize_text)
 
         self.logger = setup_logger(self.__class__.__name__, load_config())
@@ -57,8 +60,6 @@ class LeadScoringClient:
             str: The response from the language model with jurisdiction-modified score.
         """
         # Reset tool call count for this new lead scoring session
-        self.tool_manager.tool_call_count = 0
-        self.logger.debug("Reset tool call count for new lead scoring session")
         
         system_prompt_content = load_prompt("lead_scoring")
         self.logger.debug(
@@ -78,7 +79,10 @@ class LeadScoringClient:
 
         try:
             self.logger.debug("Attempting to score lead, sending messages to client...")
-            response = self.get_response_with_tools(messages_to_send)
+            
+            # Add the messages to message_history first, then call with None to use message_history
+            self.client.message_history.extend(messages_to_send)
+            response = self.get_response_with_tools(None)
 
             # Extract the original score from the response
             original_score = extract_score_from_response(response)
@@ -134,7 +138,7 @@ class LeadScoringClient:
             str: The content of the model's response.
         """
         self.logger.debug(f"Getting response with tool access...")
-        messages_to_send = messages if messages is not None else self.message_history
+        messages_to_send = messages if messages is not None else self.client.message_history
 
         # Calculate total token count for all messages
         total_tokens = 0
@@ -149,7 +153,7 @@ class LeadScoringClient:
             response = self.client.invoke(messages_to_send)
             
             if messages is None:
-                self.message_history.append(
+                self.client.message_history.append(
                     response
                 )  # if no messages are provided, add the response to the message history
             else:
@@ -180,13 +184,18 @@ class LeadScoringClient:
 
             self.logger.info(f"Model made {len(response.tool_calls)} tool calls.")
 
+            # Add tool calls to message history when using instance history
+            if messages is None:
+                for tool_call in response.tool_calls:
+                    self.client.message_history.append(response)
+
             for tool_call in response.tool_calls:
                 tool_output = self.tool_manager.call_tool(tool_call)
                 tool_message = ToolMessage(
                     content=str(tool_output), tool_call_id=tool_call["id"]
                 )
                 if messages is None:
-                    self.message_history.append(tool_message)
+                    self.client.message_history.append(tool_message)
                 else:
                     messages_to_send.append(tool_message)
 

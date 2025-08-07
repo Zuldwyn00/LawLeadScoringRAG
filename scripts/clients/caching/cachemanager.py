@@ -5,8 +5,8 @@ from .cacheschema import *
 
 class ClientCacheManager:
     def __init__(self):
-        self.logger = setup_logger(name = 'CacheManager')
         self.config = load_config()
+        self.logger = setup_logger(name = 'CacheManager', config=self.config)
         self.cache_paths = {
             'summary_cache': 'summary_cache.json',
         }

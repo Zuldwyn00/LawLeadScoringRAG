@@ -33,6 +33,36 @@ This project is an AI-powered lead scoring system that analyzes new leads agains
 - `tiktoken`
 - `python-dotenv`
 
+## Architecture
+
+### Client Architecture
+The system uses a layered client architecture for AI interactions:
+
+```
+BaseClient (Abstract) → AzureClient → LeadScoringClient/SummarizationClient
+```
+
+- **BaseClient**: Abstract interface defining the contract for all AI clients
+- **AzureClient**: Concrete implementation for Azure OpenAI services with message history management
+- **Domain Clients**: Specialized clients (LeadScoringClient, SummarizationClient) that wrap the base client with domain-specific functionality
+
+### Message History Management
+Each client maintains a complete conversation history that includes:
+- **System Messages**: Initial instructions and prompts
+- **User Messages**: Input queries and lead descriptions
+- **AI Responses**: Model-generated responses
+- **Tool Calls**: AI requests to use external tools
+- **Tool Outputs**: Results from tool executions
+
+The message history is automatically populated during conversations and can be exported to JSON for analysis or debugging:
+
+```python
+from scripts.clients.utils.chatlog import dump_chat_log
+
+# Export complete conversation history
+dump_chat_log(client.message_history, "conversation_log.json")
+```
+
 ## Setup and Installation
 
 1.  **Clone the repository:**

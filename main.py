@@ -1,8 +1,4 @@
 # TODO:
-# Include case_id in the metadata so we can link the chunks to the case, source only links the chunk to the one source file
-# Currently all I did was add a case_id field, but no logic to connect the chunks to the case.
-
-# get rid of or streamline DataChunk, it's pointless. Or we could use a pydantic model for it to give it some use for data validation.
 
 # Overall we need a better way to handle the metadata. We could temporalily remove a lot of the metadata fields and just use the case_id to link the chunks to the case and maybe
 # the source file and other mandatory fields.
@@ -23,6 +19,8 @@
 #TODO: The jurisdiction scoring is inflated i believe, as it adds together all the duplicated values of the settlement values to get the average, rather than just the unique values.
 
 #TODO: Implement limit for lead-score so it doesnt go over 100 after modifiers
+
+
 
 from numpy import save
 import qdrant_client
@@ -108,39 +106,37 @@ def embedding_test(filepath: str, case_id: int):
 def score_test():
     qdrant_client = QdrantManager()
     embedding_client = AzureClient(client_config='text_embedding_3_small')
-    summarizer = SummarizationClient(AzureClient(client_config="gpt-o4-mini"))
-    scorer = LeadScoringClient(AzureClient(client_config="gpt-4.1"), temperature=0.0, summarizer=summarizer)
+    # Create separate clients to avoid message history conflicts
+    summarizer_client = AzureClient(client_config="gpt-o4-mini")
+    scorer_client = AzureClient(client_config="gpt-o4-mini")
+    
+    summarizer = SummarizationClient(summarizer_client)
+    scorer = LeadScoringClient(scorer_client, summarizer=summarizer)
     
     new_lead_description = (
-     "Potential client – Nassau County slip-and-fall. A 52-year-old office "
-    "manager was attending a corporate holiday party at the Marriott Hotel "
-    "in Garden City on December 15th at approximately 8:30 PM. The event "
-    "was held in the hotel's main ballroom, which had been decorated with "
-    "holiday lights and garlands. The plaintiff alleges she slipped on a "
-    "wet spot near the bar area and fell, sustaining a fractured left "
-    "wrist and torn rotator cuff in her right shoulder. She was taken by "
-    "ambulance to Nassau University Medical Center where she underwent "
-    "surgery to repair the wrist fracture with internal fixation. The "
-    "shoulder injury required arthroscopic surgery three weeks later. "
-    "She was out of work for 8 weeks and has ongoing physical therapy. "
-    "The plaintiff claims the hotel failed to properly maintain the floor "
-    "and should have had warning signs or mats in the bar area. However, "
-    "security camera footage shows the plaintiff had consumed several "
-    "cocktails over the course of the evening, and witnesses reported "
-    "she appeared to be unsteady on her feet before the fall. The hotel "
-    "maintains they had proper floor maintenance protocols in place, "
-    "including regular inspections every 30 minutes, and that the wet "
-    "spot was created by other patrons' spilled drinks, not by hotel "
-    "negligence. The plaintiff's blood alcohol content was 0.12% when "
-    "tested at the hospital. Additionally, the plaintiff was wearing "
-    "high-heeled shoes with smooth soles, which the defense will argue "
-    "contributed to the fall. The hotel has offered a $25,000 settlement, "
-    "but the plaintiff's attorney believes the case is worth $150,000 "
-    "given the surgeries and lost wages. The case hinges on whether the "
-    "hotel had constructive notice of the dangerous condition and whether "
-    "the plaintiff's own negligence was a substantial factor in causing "
-    "her injuries."
-    "You are required to make at least 1 tool call and you will include the entire summary of what that tool call contained."
+            "Slip and fall at commercial property - liability facts sharply disputed. "
+             "Client, a 45-year-old delivery driver, reports falling on a wet floor inside the vestibule "
+             "of a strip-mall pharmacy in Suffolk County on a rainy afternoon "
+             "three weeks ago (exact date unclear). Client claims the store failed to place warning signs "
+             "or mats near the entrance during inclement weather. "
+             "Incident resulted in immediate pain in lower back and left knee. Client drove self to urgent care "
+             "where X-rays showed no fractures but noted 'soft tissue strain.' Follow-up with primary doctor "
+             "recommended MRI but client has not yet scheduled due to insurance delays. "
+             "Store manager provided incident report number but refused copy to client. Security camera footage "
+             "allegedly exists but store claims it 'doesn't show the fall clearly' and won't release without subpoena. "
+             "One witness - another customer - told client they 'saw water on the floor' but left before giving contact info. "
+             "claiming client 'failed to watch where they were walking' and that 'rainy day procedures were in place.' "
+             "Client has photos of the area taken day after incident showing wet floor signs now present, "
+             "but no photos from actual incident time. "
+             "Medical bills to date: $1,800 urgent care + ongoing physical therapy estimated $3,000-5,000. "
+             "Two weeks lost work as delivery driver - income loss approximately $2,400. "
+             "Client's shoes were rubber-soled work boots - store might argue they should have provided better traction. "
+             "Client admits they were carrying a package and might not have been looking directly at floor. "
+             "Store's maintenance logs for that day have not been provided despite request. "
+             "Weather service confirms steady rain that afternoon, creating questions about reasonable care standards. "
+             "No prior complaints about wet floors found in online reviews, but similar incident reported at "
+             "different location of same pharmacy chain last year."
+             "Your confidence should begin at a maximum score of 20 before tool calls"
     )
     question_vector = embedding_client.get_embeddings(new_lead_description)
     search_results = qdrant_client.search_vectors(

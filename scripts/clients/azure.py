@@ -35,8 +35,6 @@ class AzureClient(BaseClient):
 
         self.client_config = self.load_client_config(client_config)
         self.client_type = client_config
-        self.deployment_name = self.client_config["deployment_name"]
-        self.api_version = self.client_config["api_version"]
 
         # Determine the LangChain client class based on the section
         section = self.client_config.get("_section", "")
@@ -51,8 +49,8 @@ class AzureClient(BaseClient):
     def _initialize_client(self):
         """Initialize the appropriate LangChain client based on configuration."""
         params = {
-            "azure_deployment": self.deployment_name,
-            "openai_api_version": self.api_version,
+            "azure_deployment": self.client_config.get('deployment_name'),
+            "openai_api_version": self.client_config.get('api_version'),
             "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
             "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
         }
@@ -60,7 +58,7 @@ class AzureClient(BaseClient):
         client = self.langchain_client_class(**params)
 
         self.logger.info(
-            f"Initialized {self.langchain_client_class.__name__} with deployment '{self.deployment_name}'"
+            f"Initialized {self.langchain_client_class.__name__} with deployment '{self.client_config.get('deployment_name')}'"
         )
         return client
 

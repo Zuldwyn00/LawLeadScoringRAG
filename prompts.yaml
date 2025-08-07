@@ -160,6 +160,7 @@ lead_scoring:
        - If confidence reaches 80+ OR you've made 5 tool calls: Proceed to final analysis
     
     **CONFIDENCE SCORING REFERENCE:**
+    ** A minimum of 1 tool call must be made regardless of confidence.
     * **20-40**: Insufficient evidence, major gaps - **MANDATORY tool usage**
     * **41-69**: Adequate but incomplete evidence - **MANDATORY tool usage** 
     * **70-79**: Moderate evidence with some distinct gaps - **MANDATORY tool usage**

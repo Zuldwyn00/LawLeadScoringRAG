@@ -16,10 +16,11 @@ class ToolCallLimitReached(Exception):
     pass
 
 class ToolManager:
-    def __init__(self, tools: List[Callable]):
+    def __init__(self, tools: List[Callable], tool_call_limit: int = 5):
         self.tools = tools
         self.tool_map = {tool.name: tool for tool in self.tools}
         self.tool_call_count = 0
+        self.tool_call_limit = tool_call_limit
 
     def call_tool(self, tool_call: dict) -> ToolMessage:
         """
@@ -36,8 +37,8 @@ class ToolManager:
         Returns:
             ToolMessage: A properly formatted tool message with content and optional metadata
         """
-        if self.tool_call_count == 5:
-            raise ToolCallLimitReached('Tool call limit reached, cannot use more tools.')
+        if self.tool_call_count >= self.tool_call_limit:
+            raise ToolCallLimitReached(f'Tool call limit ({self.tool_call_limit}) reached, cannot use more tools.')
         tool_name = tool_call.get("name")
         tool_args = tool_call.get("args", {})
 

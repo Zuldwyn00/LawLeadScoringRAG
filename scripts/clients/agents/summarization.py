@@ -62,6 +62,9 @@ class SummarizationClient:
         try:
             self.logger.info("Summarizing text with LLM...")
 
+            # Clear message history to avoid conflicts with tool calling
+            self.client.clear_history()
+
             # Create messages
             system_message = SystemMessage(content=self.prompt)
             user_message = HumanMessage(content=text)

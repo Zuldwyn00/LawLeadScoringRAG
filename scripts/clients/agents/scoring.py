@@ -5,7 +5,7 @@ import re
 from ..base import BaseClient
 from utils import load_prompt, count_tokens, setup_logger, load_config
 from scripts.jurisdictionscoring import JurisdictionScoreManager
-from ..tools import get_file_context, ToolManager
+from ..tools import get_file_context, ToolManager, ToolCallLimitReached
 from .utils.summarization_registry import set_summarizer
 
 
@@ -60,31 +60,30 @@ class LeadScoringClient:
         Returns:
             str: The response from the language model with jurisdiction-modified score.
         """
-        # Reset tool call count for this new lead scoring session
+        # Reset tool call count and message history for this new lead scoring session
         self.tool_manager.tool_call_count = 0
+        self.client.clear_history()
         
         system_prompt_content = load_prompt("lead_scoring")
         self.logger.debug(
             f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}"
         )
+        
+        # Create system message with the main prompt
         system_message = SystemMessage(content=system_prompt_content)
+        
+        # Create historical context as a separate system message
+        historical_context_message = SystemMessage(
+            content=f"**Historical Case Summaries for Reference:**\n{historical_context}"
+        )
 
-        user_message_content = f"""
-        **New Lead:**
-        {new_lead_description}
-
-        **Historical Case Summaries:**
-        {historical_context}
-        """
-        user_message = HumanMessage(content=user_message_content)
-        messages_to_send = [system_message, user_message]
+        # Create user message with only the new lead description
+        user_message = HumanMessage(content=new_lead_description)
+        messages_to_send = [system_message, historical_context_message, user_message]
 
         try:
             self.logger.debug("Attempting to score lead, sending messages to client...")
-            
-            # Add the messages to message_history first, then call with None to use message_history
-            self.client.message_history.extend(messages_to_send)
-            response = self.get_response_with_tools(None)
+            response = self.get_response_with_tools(messages_to_send)
 
             # Extract the original score from the response
             original_score = extract_score_from_response(response)
@@ -131,125 +130,91 @@ class LeadScoringClient:
     def get_response_with_tools(self, messages: list = None) -> str:
         """
         Gets a response from the chat model, handling tool calls automatically.
-        
-        This method implements an iterative tool-calling process where:
-        1. AI scores a lead and returns response with confidence score
-        2. Check if tool_call_count exceeded limit (5) or confidence >= 80
-        3. If criteria not met, instruct AI to continue with tool calls
-        4. Process tool calls and restart until criteria fulfilled
 
         Args:
-            messages (list, optional): Initial messages (system prompt + user message).
+            messages (list, optional): A list of messages to send to the model.
                  If not provided, the instance's message history will be used.
 
         Returns:
-            str: The content of the model's final response.
+            str: The content of the model's response.
         """
         self.logger.debug(f"Getting response with tool access...")
-        
-        # Initialize clean message history with initial messages
-        if messages is not None:
-            # Start with clean message history containing only initial messages
-            self.client.message_history = messages.copy()
-        
-        # Calculate initial token count
-        total_tokens = sum(
-            count_tokens(str(message.content)) 
-            for message in self.client.message_history 
-            if hasattr(message, "content") and message.content
-        )
-        self.logger.debug(f"Initial token count: {total_tokens}")
+        messages_to_send = messages if messages is not None else self.client.message_history
+
+        # Calculate total token count for all messages
+        total_tokens = 0
+        for message in messages_to_send:
+            if hasattr(message, "content") and message.content:
+                total_tokens += count_tokens(str(message.content))
+        self.logger.debug(f"Total token count: {total_tokens}")
 
         while True:
-            # Step 1: Get AI response
-            response = self._get_ai_response()
-            
-            # Step 2: Check if AI wants to use tools
+            response = self.client.invoke(messages_to_send)
+
+            if messages is None:
+                self.client.message_history.append(response)
+            else:
+                messages_to_send.append(response)
+
             if not response.tool_calls:
                 return response.content
-            
-            # Step 3: Process tool calls
-            self._process_tool_calls(response.tool_calls)
-            
-            # Step 4: Check if we should continue or stop
-            if self._should_stop_tool_usage(response.content):
-                return self._get_final_response(response.content)
-            
-            # Step 5: Continue with more tool calls
-            self._instruct_continue_tool_calls()
 
-    def _get_ai_response(self):
-        """Get response from AI and add to message history."""
-        response = self.client.invoke(self.client.message_history)
-        self.logger.debug(f"AI Response: {response.content}")
-        self.logger.debug(f"Tool calls in response: {response.tool_calls}")
-        self.client.message_history.append(response)
-        return response
+            self.logger.info(f"Model made {len(response.tool_calls)} tool calls.")
 
-    def _process_tool_calls(self, tool_calls):
-        """Process tool calls and add responses to message history."""
-        self.logger.info(f"Processing {len(tool_calls)} tool calls...")
-        
-        for tool_call in tool_calls:
-            tool_message = self.tool_manager.call_tool(tool_call)
-            self.client.message_history.append(tool_message)
+            # Process tool calls (tool call limit is checked inside call_tool)
+            for tool_call in response.tool_calls:
+                try:
+                    tool_message = self.tool_manager.call_tool(tool_call)
+                    if messages is None:
+                        self.client.message_history.append(tool_message)
+                    else:
+                        messages_to_send.append(tool_message)
+                except ToolCallLimitReached:
+                    self.logger.info(f"Tool call limit ({self.tool_manager.tool_call_limit}) reached. Stopping tool usage.")
+                    # Add instruction to continue without tools
+                    instruction_message = SystemMessage(
+                        content=f'You have reached the maximum of {self.tool_manager.tool_call_limit} tool calls. Proceed to provide your final analysis without additional tool calls.'
+                    )
+                    if messages is None:
+                        self.client.message_history.append(instruction_message)
+                    else:
+                        messages_to_send.append(instruction_message)
+                    
+                    # Get final response without tools
+                    final_response = self.client.invoke(messages_to_send if messages is not None else self.client.message_history)
+                    return final_response.content
 
-    def _should_stop_tool_usage(self, response_content: str) -> bool:
-        """
-        Check if tool usage should stop based on confidence score or tool call limit.
-        
-        Args:
-            response_content (str): The AI's response content
+            # After processing tool calls, check if the model wants to continue or has high confidence
+            # Get the next response to see if it wants to make more tool calls
+            next_response = self.client.invoke(messages_to_send)
             
-        Returns:
-            bool: True if tool usage should stop, False otherwise
-        """
-        # Check tool call limit
-        if self.tool_manager.tool_call_count >= self.tool_manager.tool_call_limit:
-            self.logger.info(f"Tool call limit ({self.tool_manager.tool_call_limit}) reached. Stopping tool usage.")
-            return True
-        
-        # Check confidence score
-        confidence_score = extract_confidence_from_response(response_content)
-        if confidence_score >= 80:
-            self.logger.info(f"Confidence score {confidence_score} >= 80, stopping tool usage")
-            return True
-        
-        return False
+            if messages is None:
+                self.client.message_history.append(next_response)
+            else:
+                messages_to_send.append(next_response)
 
-    def _instruct_continue_tool_calls(self):
-        """Add instruction to continue making tool calls."""
-        instruction_message = SystemMessage(
-            content=f"Continue making tool calls to gather more information. You have made {self.tool_manager.tool_call_count} tool calls so far."
-        )
-        self.client.message_history.append(instruction_message)
-
-    def _get_final_response(self, last_response_content: str) -> str:
-        """
-        Get final response from AI after stopping tool usage.
-        
-        Args:
-            last_response_content (str): Content of the last AI response
+            # Check confidence score from the response after tool calls
+            confidence_score = extract_confidence_from_response(next_response.content)
+            self.logger.debug("confidence score after tool calls = '%i'", confidence_score)
             
-        Returns:
-            str: Final AI response without tool calls
-        """
-        # Determine reason for stopping
-        if self.tool_manager.tool_call_count >= self.tool_manager.tool_call_limit:
-            reason = f'You have reached the maximum of {self.tool_manager.tool_call_limit} tool calls.'
-        else:
-            confidence_score = extract_confidence_from_response(last_response_content)
-            reason = f'Your confidence score of {confidence_score} is >= 80, which meets the threshold for high confidence.'
-        
-        # Add instruction to continue without tools
-        instruction_message = SystemMessage(
-            content=f'{reason} Proceed to provide your final analysis without additional tool calls.'
-        )
-        self.client.message_history.append(instruction_message)
-        
-        # Get final response
-        final_response = self.client.invoke(self.client.message_history)
-        return final_response.content
+            if confidence_score >= 80:
+                self.logger.info(f"Confidence score {confidence_score} >= 80, stopping tool usage")
+                # Add instruction to continue without tools
+                instruction_message = SystemMessage(
+                    content=f'Your confidence score of {confidence_score} is >= 80, which meets the threshold for high confidence. Proceed to provide your final analysis without additional tool calls.'
+                )
+                if messages is None:
+                    self.client.message_history.append(instruction_message)
+                else:
+                    messages_to_send.append(instruction_message)
+                
+                # Get final response without tools
+                final_response = self.client.invoke(messages_to_send if messages is not None else self.client.message_history)
+                return final_response.content
+
+            # If no tool calls in the next response, return it
+            if not next_response.tool_calls:
+                return next_response.content
 
 
 def extract_score_from_response(response: str) -> int:

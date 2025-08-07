@@ -3,11 +3,13 @@
     "gpt-o4-mini": {
       "deployment_name": "o4-mini",
       "api_version": "2025-01-01-preview",
+      "supports_tools": true,
       "description": "gpt-o4-mini standard deployment for general tasks"
     },
     "gpt-4.1": {
       "deployment_name": "gpt-4.1",
       "api_version": "2025-01-01-preview",
+      "supports_tools": false,
       "description": "gpt-4.1 standard deployment for general tasks, higher costs than gpt-o4-mini"
     }
   },

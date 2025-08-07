@@ -6,6 +6,7 @@ from scripts.filemanagement import get_text_from_file
 from .agents.utils.summarization_registry import set_summarizer, get_summarizer
 
 from langchain_core.tools import tool
+from langchain_core.messages import ToolMessage
 
 config = load_config()
 logger = setup_logger(__name__, config)
@@ -20,9 +21,20 @@ class ToolManager:
         self.tool_map = {tool.name: tool for tool in self.tools}
         self.tool_call_count = 0
 
-    def call_tool(self, tool_call: dict) -> str:
+    def call_tool(self, tool_call: dict) -> ToolMessage:
         """
-        Calls a tool with the given arguments.
+        Calls a tool with the given arguments and returns a ToolMessage.
+        
+        Handles different return types intelligently:
+        - For tuple returns (content, token_count): Returns ToolMessage with content as the first element
+          and token_count stored in metadata for usage tracking
+        - For other types: Returns ToolMessage with str(output) as content
+        
+        Args:
+            tool_call (dict): Tool call dictionary containing 'name', 'args', and 'id'
+            
+        Returns:
+            ToolMessage: A properly formatted tool message with content and optional metadata
         """
         if self.tool_call_count == 5:
             raise ToolCallLimitReached('Tool call limit reached, cannot use more tools.')
@@ -30,20 +42,42 @@ class ToolManager:
         tool_args = tool_call.get("args", {})
 
         if not tool_name:
-            return "Error: Tool call must have a 'name'."
+            return ToolMessage(
+                content="Error: Tool call must have a 'name'.",
+                tool_call_id=tool_call.get("id", "unknown")
+            )
 
         tool_to_call = self.tool_map.get(tool_name)
         if not tool_to_call:
-            return f"Error: Tool '{tool_name}' not found."
+            return ToolMessage(
+                content=f"Error: Tool '{tool_name}' not found.",
+                tool_call_id=tool_call.get("id", "unknown")
+            )
 
         try:
             logger.debug(f"Calling tool '{tool_name}' with args: {tool_args}")
             output = tool_to_call.invoke(tool_args)
             self.tool_call_count += 1
-            return str(output)
+            
+            # Handle tuple returns (content, token_count) for get_file_context
+            if isinstance(output, tuple) and len(output) == 2 and isinstance(output[1], int):
+                content, token_count = output
+                return ToolMessage(
+                    content=content,
+                    tool_call_id=tool_call.get("id", "unknown"),
+                    metadata={"token_count": token_count}
+                )
+            else:
+                return ToolMessage(
+                    content=str(output),
+                    tool_call_id=tool_call.get("id", "unknown")
+                )
         except Exception as e:
             logger.error(f"Error calling tool '{tool_name}': {e}")
-            return f"Error executing tool '{tool_name}': {e}"
+            return ToolMessage(
+                content=f"Error executing tool '{tool_name}': {e}",
+                tool_call_id=tool_call.get("id", "unknown")
+            )
 
 
 @tool

@@ -5,9 +5,7 @@ import re
 from ..base import BaseClient
 from utils import load_prompt, count_tokens, setup_logger, load_config
 from scripts.jurisdictionscoring import JurisdictionScoreManager
-from ..tools import get_file_context, ToolManager
-from .utils.summarization_registry import set_summarizer
-
+from ..tools import get_file_content, ToolManager
 
 
 class LeadScoringClient:
@@ -19,7 +17,6 @@ class LeadScoringClient:
         Args:
             client (BaseClient): The underlying AI client.
             summarizer (SummarizationClient, optional, in kwargs): Summarization agent for file content tool.
-            temperature (float, optional): Temperature setting for the model. Will be passed to the client.
         """
         # Prevent using the abstract BaseClient class directly
         if client.__class__ == BaseClient:
@@ -29,23 +26,14 @@ class LeadScoringClient:
             )
 
         self.client = client
-        self.prompt = load_prompt('lead_scoring')
-        self.tool_manager = ToolManager(tools=[get_file_context])
-        # Extract summarizer from kwargs and register it globally for use across the application
-        self.summarizer = kwargs.pop('summarizer', None)
-        if self.summarizer is not None:
-            # Register the summarizer's summarize_text method in the global registry (summarization_registry.py)
-            # so other components can access it without passing it through every function call
-            set_summarizer(self.summarizer.summarize_text)
-
+        self.prompt = load_prompt("lead_scoring")
+        self.summarizer = kwargs.get('summarizer', None) 
+        self.tool_manager = ToolManager(tools=[get_file_content])
         self.logger = setup_logger(self.__class__.__name__, load_config())
         self.logger.info(
             "Initialized %s with %s", self.__class__.__name__, client.__class__.__name__
         )
-        if 'temperature' in kwargs:
-            self.client.client.temperature = kwargs['temperature']
 
-        #bind tools to underlying langchain client    
         self.client.client = self.client.client.bind_tools(self.tool_manager.tools)
 
     def score_lead(self, new_lead_description: str, historical_context: str) -> str:
@@ -59,8 +47,6 @@ class LeadScoringClient:
         Returns:
             str: The response from the language model with jurisdiction-modified score.
         """
-        # Reset tool call count for this new lead scoring session
-        
         system_prompt_content = load_prompt("lead_scoring")
         self.logger.debug(
             f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}"
@@ -79,10 +65,7 @@ class LeadScoringClient:
 
         try:
             self.logger.debug("Attempting to score lead, sending messages to client...")
-            
-            # Add the messages to message_history first, then call with None to use message_history
-            self.client.message_history.extend(messages_to_send)
-            response = self.get_response_with_tools(None)
+            response = self.get_response_with_tools(messages_to_send)
 
             # Extract the original score from the response
             original_score = extract_score_from_response(response)
@@ -127,7 +110,7 @@ class LeadScoringClient:
             return f"An error occurred while scoring the lead: {e}"
         
     def get_response_with_tools(self, messages: list = None) -> str:
-        """     
+        """
         Gets a response from the chat model, handling tool calls automatically.
 
         Args:
@@ -138,7 +121,7 @@ class LeadScoringClient:
             str: The content of the model's response.
         """
         self.logger.debug(f"Getting response with tool access...")
-        messages_to_send = messages if messages is not None else self.client.message_history
+        messages_to_send = messages if messages is not None else self.message_history
 
         # Calculate total token count for all messages
         total_tokens = 0
@@ -147,13 +130,11 @@ class LeadScoringClient:
                 total_tokens += count_tokens(str(message.content))
         self.logger.debug(f"Total token count: {total_tokens}")
 
-        tool_call_count = 0
         while True:
-            
             response = self.client.invoke(messages_to_send)
-            
+
             if messages is None:
-                self.client.message_history.append(
+                self.message_history.append(
                     response
                 )  # if no messages are provided, add the response to the message history
             else:
@@ -165,34 +146,16 @@ class LeadScoringClient:
                 return (
                     response.content
                 )  # if there are no tool calls, return the response content
-            
-            # Check confidence from the AI response to decide if we should continue with tools
-            confidence_score = extract_confidence_from_response(response.content)
-            if confidence_score >= 80 or tool_call_count >= 5:
-                # Determine the reason for stopping tool usage
-                if confidence_score >= 80:
-                    reason = f'Your confidence score of {confidence_score} is >= 80, which meets the threshold for high confidence.'
-                else:
-                    reason = f'You have reached the maximum of 5 tool calls.'
-                
-                # Add instruction explaining why we're stopping tool usage
-                instruction_message = SystemMessage(content=f'{reason} Proceed to provide your final analysis without additional tool calls.')
-                messages_to_send.append(instruction_message)
-                return self.client.invoke(messages_to_send).content
-            
-            tool_call_count += len(response.tool_calls)
 
             self.logger.info(f"Model made {len(response.tool_calls)} tool calls.")
 
-            # Add tool calls to message history when using instance history
-            if messages is None:
-                for tool_call in response.tool_calls:
-                    self.client.message_history.append(response)
-
             for tool_call in response.tool_calls:
-                tool_message = self.tool_manager.call_tool(tool_call)
+                tool_output = self.tool_manager.call_tool(tool_call)
+                tool_message = ToolMessage(
+                    content=str(tool_output), tool_call_id=tool_call["id"]
+                )
                 if messages is None:
-                    self.client.message_history.append(tool_message)
+                    self.message_history.append(tool_message)
                 else:
                     messages_to_send.append(tool_message)
 
@@ -249,43 +212,3 @@ def extract_jurisdiction_from_response(response: str) -> str:
         return match.group(1).strip()
 
     return ""
-
-def extract_confidence_from_response(response: str) -> int:
-    """
-    Extract the numerical confidence score from the AI response.
-
-    Args:
-        response (str): The AI response containing the confidence score
-
-    Returns:
-        int: The extracted confidence (1-100), or 50 if not found
-    """
-    # Look for "Confidence Score: X/100" pattern (primary format from prompt)
-    pattern = r"Confidence Score:\s*(\d+)/100"
-    match = re.search(pattern, response, re.IGNORECASE)
-
-    if match:
-        return int(match.group(1))
-
-    # Look for "Confidence: X/100" pattern
-    pattern = r"Confidence:\s*(\d+)/100"
-    match = re.search(pattern, response, re.IGNORECASE)
-
-    if match:
-        return int(match.group(1))
-
-    # Look for "Confidence Level: X%" pattern
-    pattern = r"Confidence Level:\s*(\d+)%"
-    match = re.search(pattern, response, re.IGNORECASE)
-
-    if match:
-        return int(match.group(1))
-
-    # Look for "Confidence: X%" pattern
-    pattern = r"Confidence:\s*(\d+)%"
-    match = re.search(pattern, response, re.IGNORECASE)
-
-    if match:
-        return int(match.group(1))
-
-    return 0  # Default to 0 confidence if not found

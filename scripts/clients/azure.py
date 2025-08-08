@@ -76,12 +76,12 @@ class AzureClient(BaseClient):
             messages = self.message_history
 
         try:
-            self.logger.info("Invoking message for %s.", self.client_type)
+            self.logger.info("Invoking message for '%s'.", self.client_type)
             response = self.client.invoke(messages)
             self.message_history.append(response)
             return response
         except Exception as e:
-            self.logger.error("Failed to invoke client %s: %s", self.client_type, e)
+            self.logger.error("Failed to invoke client '%s': '%s'", self.client_type, e)
             raise
 
     def get_embeddings(self, text: str) -> List[float]:

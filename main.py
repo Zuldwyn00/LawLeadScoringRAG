@@ -136,7 +136,6 @@ def score_test():
              "Weather service confirms steady rain that afternoon, creating questions about reasonable care standards. "
              "No prior complaints about wet floors found in online reviews, but similar incident reported at "
              "different location of same pharmacy chain last year."
-             "Your confidence should begin at a maximum score of 20 before tool calls"
     )
     question_vector = embedding_client.get_embeddings(new_lead_description)
     search_results = qdrant_client.search_vectors(

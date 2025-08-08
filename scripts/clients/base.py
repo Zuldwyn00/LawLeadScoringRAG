@@ -92,7 +92,7 @@ class BaseClient(ABC):
         raise KeyError(error_msg)
 
     @abstractmethod
-    def invoke(self) -> str:
+    def invoke(self, messages=None) -> AIMessage:
         """Send messages and get response"""
         pass
 

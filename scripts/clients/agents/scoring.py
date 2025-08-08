@@ -30,7 +30,7 @@ class LeadScoringClient:
 
         self.client = client
         self.prompt = load_prompt('lead_scoring')
-        self.tool_manager = ToolManager(tools=[get_file_context], tool_call_limit=5)
+        self.tool_manager = ToolManager(tools=[get_file_context])
         # Extract summarizer from kwargs and register it globally for use across the application
         self.summarizer = kwargs.pop('summarizer', None)
         if self.summarizer is not None:
@@ -161,60 +161,15 @@ class LeadScoringClient:
 
             self.logger.info(f"Model made {len(response.tool_calls)} tool calls.")
 
-            # Process tool calls (tool call limit is checked inside call_tool)
             for tool_call in response.tool_calls:
-                try:
-                    tool_message = self.tool_manager.call_tool(tool_call)
-                    if messages is None:
-                        self.client.message_history.append(tool_message)
-                    else:
-                        messages_to_send.append(tool_message)
-                except ToolCallLimitReached:
-                    self.logger.info(f"Tool call limit ({self.tool_manager.tool_call_limit}) reached. Stopping tool usage.")
-                    # Add instruction to continue without tools
-                    instruction_message = SystemMessage(
-                        content=f'You have reached the maximum of {self.tool_manager.tool_call_limit} tool calls. Proceed to provide your final analysis without additional tool calls.'
-                    )
-                    if messages is None:
-                        self.client.message_history.append(instruction_message)
-                    else:
-                        messages_to_send.append(instruction_message)
-                    
-                    # Get final response without tools
-                    final_response = self.client.invoke(messages_to_send if messages is not None else self.client.message_history)
-                    return final_response.content
-
-            # After processing tool calls, check if the model wants to continue or has high confidence
-            # Get the next response to see if it wants to make more tool calls
-            next_response = self.client.invoke(messages_to_send)
-            
-            if messages is None:
-                self.client.message_history.append(next_response)
-            else:
-                messages_to_send.append(next_response)
-
-            # Check confidence score from the response after tool calls
-            confidence_score = extract_confidence_from_response(next_response.content)
-            self.logger.debug("confidence score after tool calls = '%i'", confidence_score)
-            
-            if confidence_score >= 80:
-                self.logger.info(f"Confidence score {confidence_score} >= 80, stopping tool usage")
-                # Add instruction to continue without tools
-                instruction_message = SystemMessage(
-                    content=f'Your confidence score of {confidence_score} is >= 80, which meets the threshold for high confidence. Proceed to provide your final analysis without additional tool calls.'
+                tool_output = self.tool_manager.call_tool(tool_call)
+                tool_message = ToolMessage(
+                    content=str(tool_output), tool_call_id=tool_call["id"]
                 )
                 if messages is None:
-                    self.client.message_history.append(instruction_message)
+                    self.client.message_history.append(tool_message)
                 else:
-                    messages_to_send.append(instruction_message)
-                
-                # Get final response without tools
-                final_response = self.client.invoke(messages_to_send if messages is not None else self.client.message_history)
-                return final_response.content
-
-            # If no tool calls in the next response, return it
-            if not next_response.tool_calls:
-                return next_response.content
+                    messages_to_send.append(tool_message)
 
 
 def extract_score_from_response(response: str) -> int:
@@ -269,6 +224,7 @@ def extract_jurisdiction_from_response(response: str) -> str:
         return match.group(1).strip()
 
     return ""
+
 
 def extract_confidence_from_response(response: str) -> int:
     """

@@ -65,6 +65,7 @@ class AzureClient(BaseClient):
     def invoke(self, messages=None) -> AIMessage:
         """
         Send messages and get response from the Azure client.
+        Adds messages to message_history.
 
         Args:
             messages: List of messages to send to the client (optional)
@@ -74,11 +75,17 @@ class AzureClient(BaseClient):
         """
         if messages is None:
             messages = self.message_history
+        else:
+            # When custom messages are provided, add any new ones to message_history
+            # to maintain complete conversation context for chat logs
+            for msg in messages:
+                if msg not in self.message_history:
+                    self.message_history.append(msg)
 
         try:
             self.logger.info("Invoking message for '%s'.", self.client_type)
             response = self.client.invoke(messages)
-            self.message_history.append(response)
+            self.add_message(response)
             return response
         except Exception as e:
             self.logger.error("Failed to invoke client '%s': '%s'", self.client_type, e)

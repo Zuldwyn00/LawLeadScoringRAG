@@ -37,8 +37,8 @@ class ToolManager:
         Returns:
             ToolMessage: A properly formatted tool message with content and optional metadata
         """
-        if self.tool_call_count >= self.tool_call_limit:
-            raise ToolCallLimitReached(f'Tool call limit ({self.tool_call_limit}) reached, cannot use more tools.')
+        #if self.tool_call_count >= self.tool_call_limit: #TODO: Should call_tool handle the limiting, or should the agent
+           # return ToolCallLimitReached(f'Tool call limit ({self.tool_call_limit}) reached, cannot use more tools.')
         tool_name = tool_call.get("name")
         tool_args = tool_call.get("args", {})
 
@@ -80,7 +80,15 @@ class ToolManager:
                 tool_call_id=tool_call.get("id", "unknown")
             )
 
-
+            
+    def batch_tool_call(self, tool_calls_batch: List[Callable]) -> List:
+        logger.info("Batch tool call for '%i' tools.", len(tool_calls_batch))
+        tool_calls_data = []
+        for tool_call in tool_calls_batch:
+            tool_output = self.call_tool(tool_call)
+            tool_calls_data.append(tool_output)
+        return tool_calls_data
+    
 @tool
 def get_file_context(filepath: str, token_threshold: int = 4000) -> tuple:
     """

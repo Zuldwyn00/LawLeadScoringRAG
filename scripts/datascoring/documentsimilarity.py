@@ -1,5 +1,0 @@
-
-
-
-class LegalDocumentSimilarityScorer():
-    pass

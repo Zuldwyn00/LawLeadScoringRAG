@@ -2,6 +2,7 @@ directories:
   data: "scripts/data" #relative to script directory
   jsons: "scripts/data/jsons" #relative to script directory
   logs: "logs"
+  chat_logs: "scripts/data/chat_logs"
 
 logger:
   level: "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)

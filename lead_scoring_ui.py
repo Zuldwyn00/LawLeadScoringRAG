@@ -78,9 +78,18 @@ def initialize_managers():
     embedding_client = AzureClient("text_embedding_3_small")
     chat_client = AzureClient("gpt-o4-mini")
 
+    # Use a separate chat client for summarization so its clear_history() doesn't
+    # interfere with the lead scoring tool loop conversation state.
+    summarizer_client = AzureClient("gpt-o4-mini")
+
     # Initialize agents
-    summarization_client = SummarizationClient(chat_client)
-    lead_scoring_client = LeadScoringClient(chat_client, summarizer=summarization_client)
+    summarization_client = SummarizationClient(summarizer_client)
+    # Use non-tool final model for the last scoring pass (per client_configs.json)
+    lead_scoring_client = LeadScoringClient(
+        chat_client,
+        summarizer=summarization_client,
+        final_model="gpt-4.1",
+    )
 
     return qdrant_manager, lead_scoring_client, embedding_client
 

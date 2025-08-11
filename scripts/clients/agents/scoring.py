@@ -119,6 +119,13 @@ class LeadScoringClient:
         
         # Create system message with the main prompt
         system_message = SystemMessage(content=system_prompt_content)
+
+        # Build an initial tool-usage system message so the model knows its starting budget
+        initial_tool_usage_text = (
+            f"Your tool usage count is at '{self.tool_manager.tool_call_count} out of "
+            f"{self.tool_manager.tool_call_limit} maximum tool calls'."
+        )
+        initial_tool_usage_message = SystemMessage(content=initial_tool_usage_text)
         
         # Create historical context as a separate system message
         historical_context_message = SystemMessage(
@@ -127,12 +134,15 @@ class LeadScoringClient:
 
         # Create user message with only the new lead description
         user_message = HumanMessage(content=new_lead_description)
-        messages_to_send = [system_message, historical_context_message, user_message]
+        messages_to_send = [system_message, initial_tool_usage_message, historical_context_message, user_message]
 
         # Add all initial messages to message history so they appear in chat logs
-        self.client.add_message(system_message)
-        self.client.add_message(historical_context_message)
-        self.client.add_message(user_message)
+        self.client.add_message([
+            system_message,
+            initial_tool_usage_message,
+            historical_context_message,
+            user_message,
+        ])
 
         try:
             self.logger.debug("Attempting to score lead, sending messages to client...")
@@ -373,7 +383,6 @@ class LeadScoringClient:
         else:
             final_lead = self.client.invoke(messages_to_send)
         return final_lead
-
 
 
 def extract_score_from_response(response: str) -> int:

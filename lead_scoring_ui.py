@@ -210,9 +210,9 @@ def score_lead_process(lead_description: str) -> tuple[int, int, str]:
         return 0, 50, f"Error: {str(e)}"
 
 
-def score_lead_process_with_hover_tooltip(lead_description: str) -> tuple[int, int, str]:
+def score_lead_process_with_progress(lead_description: str) -> tuple[int, int, str]:
     """
-    Run the complete lead scoring process with hover tooltip showing real-time logs.
+    Run the complete lead scoring process with progress indicator and step-by-step status.
 
     Args:
         lead_description (str): The lead description to score
@@ -221,117 +221,69 @@ def score_lead_process_with_hover_tooltip(lead_description: str) -> tuple[int, i
         tuple[int, int, str]: (score, confidence, full_response)
     """
     try:
-        # Create a placeholder for the hover tooltip
-        tooltip_placeholder = st.empty()
+        # Create progress bar and status text
+        progress_bar = st.progress(0)
+        status_text = st.empty()
         
-        # Record the start time for this processing session
-        import datetime
-        session_start_time = datetime.datetime.now()
-        
-        def get_info_logs_from_file() -> str:
-            """Get all INFO logs from the pdf_scraper.log file that occurred after session start."""
-            try:
-                log_file = Path("logs/pdf_scraper.log")
-                if not log_file.exists():
-                    return "No log file found..."
-                
-                with open(log_file, 'r', encoding='utf-8') as f:
-                    lines = f.readlines()
-                
-                # Filter for INFO logs that occurred after session start
-                info_logs = []
-                for line in lines:
-                    if " - INFO - " in line:
-                        # Extract timestamp and message
-                        parts = line.split(" - INFO - ")
-                        if len(parts) == 2:
-                            timestamp_str = parts[0].split(" - ")[0]  # Get just the timestamp
-                            message = parts[1].strip()
-                            
-                            # Parse the timestamp
-                            try:
-                                log_time = datetime.datetime.strptime(timestamp_str, "%Y-%m-%d %H:%M:%S")
-                                # Only include logs that occurred after session start
-                                if log_time >= session_start_time:
-                                    # Extract just the time part (HH:MM:SS)
-                                    time_only = log_time.strftime("%H:%M:%S")
-                                    info_logs.append(f"{time_only}: {message}")
-                            except ValueError:
-                                # If timestamp parsing fails, skip this line
-                                continue
-                
-                # Return the logs (most recent first, limit to last 10)
-                return "\n".join(info_logs[-10:])
-            except Exception as e:
-                return f"Error reading log file: {str(e)}"
-        
-        def update_tooltip():
-            """Helper function to update the tooltip with current logs."""
-            with tooltip_placeholder.container():
-                st.markdown(
-                    f"""
-                    <div class="log-tooltip">
-                        <div class="tooltip-content">
-                            <strong>Current Processing Logs:</strong><br><br>
-                            {get_info_logs_from_file()}
-                        </div>
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div style="width: 20px; height: 20px; border: 2px solid #f3f3f3; border-top: 2px solid #3498db; border-radius: 50%; animation: spin 1s linear infinite;"></div>
-                            <span style="font-weight: 500; color: #2c3e50;">Analyzing lead...</span>
-                        </div>
-                    </div>
-                    <style>
-                    @keyframes spin {{
-                        0% {{ transform: rotate(0deg); }}
-                        100% {{ transform: rotate(360deg); }}
-                    }}
-                    </style>
-                    """,
-                    unsafe_allow_html=True
-                )
-        
-        # Show initial tooltip
-        update_tooltip()
-        
-        # Run each step individually and update tooltip after each
-        # Initialize managers
+        # Step 1: Initialize managers
+        status_text.text("🔧 Initializing AI clients and managers...")
+        progress_bar.progress(10)
+        add_processing_log("Initializing AI clients and managers...")
         qdrant_manager, lead_scoring_client, embedding_client = initialize_managers()
-        update_tooltip()
         
-        # Generate embeddings
+        # Step 2: Generate embeddings
+        status_text.text("🧠 Generating embeddings for lead description...")
+        progress_bar.progress(25)
+        add_processing_log("Generating embeddings for lead description...")
         question_vector = embedding_client.get_embeddings(lead_description)
-        update_tooltip()
         
-        # Search for similar cases
+        # Step 3: Search for similar cases
+        status_text.text("🔍 Searching for similar historical cases...")
+        progress_bar.progress(45)
+        add_processing_log("Searching for similar historical cases...")
         search_results = qdrant_manager.search_vectors(
             collection_name="case_files",
             query_vector=question_vector,
             vector_name="chunk",
             limit=10,
         )
-        update_tooltip()
         
-        # Get historical context
+        # Step 4: Get historical context
+        status_text.text("📚 Retrieving historical context...")
+        progress_bar.progress(60)
+        add_processing_log("Retrieving historical context...")
         historical_context = qdrant_manager.get_context(search_results)
-        update_tooltip()
         
-        # Score the lead
+        # Step 5: Score the lead
+        status_text.text("⚖️ Analyzing lead with AI scoring system...")
+        progress_bar.progress(80)
+        add_processing_log("Analyzing lead with AI scoring system...")
         final_analysis = lead_scoring_client.score_lead(
             new_lead_description=lead_description, historical_context=historical_context
         )
-        update_tooltip()
         
-        # Extract metrics
+        # Step 6: Extract metrics
+        status_text.text("📊 Extracting score and confidence metrics...")
+        progress_bar.progress(95)
+        add_processing_log("Extracting score and confidence metrics...")
         score = extract_score_from_response(final_analysis)
         confidence = extract_confidence_from_response(final_analysis)
-        update_tooltip()
         
-        # Final update with all logs
-        update_tooltip()
+        # Step 7: Complete
+        status_text.text("✅ Lead scoring completed successfully!")
+        progress_bar.progress(100)
+        add_processing_log("Lead scoring completed successfully!")
+        
+        # Clear progress indicators after a brief pause
+        import time
+        time.sleep(1)
+        progress_bar.empty()
+        status_text.empty()
         
         return score, confidence, final_analysis
 
     except Exception as e:
+        add_processing_log(f"Error occurred: {str(e)}")
         st.error(f"Error processing lead: {str(e)}")
         return 0, 50, f"Error: {str(e)}"
 
@@ -455,9 +407,21 @@ with st.container():
                 # Start processing session
                 start_processing_session()
                 
-                # Process the lead scoring with hover tooltip and real-time logs
+                # Process the lead scoring with progress indicator
                 cleaned_lead_text = lead_text.strip().replace('"', '').replace("'", '')
-                score, confidence, analysis = score_lead_process_with_hover_tooltip(cleaned_lead_text)
+                score, confidence, analysis = score_lead_process_with_progress(cleaned_lead_text)
+                
+                # Show processing logs if available
+                if st.session_state.processing_logs:
+                    with st.expander("📋 View Processing Logs", expanded=False):
+                        log_text = get_current_processing_logs()
+                        st.text_area(
+                            "Processing Steps",
+                            value=log_text,
+                            height=200,
+                            disabled=True,
+                            key="processing_logs_display"
+                        )
                 
                 # End processing session and clear logs
                 end_processing_session()
@@ -573,52 +537,7 @@ if st.session_state.scored_leads:
         font-size: 14px;
     }
     
-    .log-tooltip {
-        position: relative;
-        display: inline-block;
-    }
-    
-    .log-tooltip .tooltip-content {
-        visibility: hidden;
-        width: 400px;
-        background-color: #2c3e50;
-        color: #ecf0f1;
-        text-align: left;
-        border-radius: 8px;
-        padding: 12px;
-        position: absolute;
-        z-index: 1000;
-        bottom: 125%;
-        left: 0;
-        margin-left: 0;
-        opacity: 0;
-        transition: opacity 0.3s;
-        font-family: 'Courier New', monospace;
-        font-size: 11px;
-        line-height: 1.4;
-        max-height: 300px;
-        overflow-y: auto;
-        white-space: pre-wrap;
-        word-wrap: break-word;
-        border: 2px solid #34495e;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.3);
-    }
-    
-    .log-tooltip .tooltip-content::after {
-        content: "";
-        position: absolute;
-        top: 100%;
-        left: 50%;
-        margin-left: -5px;
-        border-width: 5px;
-        border-style: solid;
-        border-color: #2c3e50 transparent transparent transparent;
-    }
-    
-    .log-tooltip:hover .tooltip-content {
-        visibility: visible;
-        opacity: 1;
-    }
+
     </style>
     """,
         unsafe_allow_html=True,
@@ -730,10 +649,11 @@ with st.sidebar:
         """
     1. Enter a detailed lead description
     2. Click "Score Lead" to analyze
-    3. **Hover over the loading circle** to see real-time processing logs
-    4. View results in the main panel
-    5. Click on any scored lead to see full analysis
-    6. **Border color** shows AI confidence in the analysis
+    3. **Watch the progress bar** and status updates during processing
+    4. **View processing logs** in the expandable section after completion
+    5. View results in the main panel
+    6. Click on any scored lead to see full analysis
+    7. **Border color** shows AI confidence in the analysis
     """
     )
 

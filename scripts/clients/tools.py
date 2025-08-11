@@ -105,7 +105,6 @@ def get_file_context(filepath: str, token_threshold: int = 4000) -> tuple:
                - token_count (int): Number of tokens in the content
     """
     try:
-        logger.info(f"Tool 'get_file_context' called for: {filepath}")
         parsed = get_text_from_file(filepath)
         if not parsed or 'content' not in parsed:
             return f"Warning: No content found in file: {filepath}"

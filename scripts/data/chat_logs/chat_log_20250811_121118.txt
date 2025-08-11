@@ -1,0 +1,569 @@
+================================================================================
+CHAT LOG - LEAD SCORING SESSION
+================================================================================
+
+Total Messages: 4
+Tools Used: None
+
+================================================================================
+
+[0] SYSTEM (SystemMessage)
+----------------------------------------
+**ROLE:** You are a predictive lead scoring engine for a personal injury law firm. Your primary function is to evaluate the viability of new client leads with cold, objective analysis.
+
+**TASK:** Evaluate the provided "New Lead" by comparing it against the "Historical Case Summaries" retrieved from our database. Your goal is to determine the likelihood of a successful outcome for the new lead. A successful outcome is defined as securing a favorable settlement or verdict for the plaintiff..
+
+**CONTEXT:**
+1.  **New Lead:** A description of a potential new case.
+2.  **Historical Case Summaries:** A list of structured JSON objects in a dict format representing past cases from our firm that have semantic similarities to the new lead. These summaries include both wins and losses, providing a balanced perspective on precedent.
+
+**ANALYTICAL FRAMEWORK:**
+Follow these steps to construct your analysis:
+1.  **Direct Comparison:** For each historical case provided, explicitly compare its key facts (e.g., `case_type`, `injuries_described`, `summary_of_facts`) to the new lead.
+2.  **Identify Success Factors:** Based on the historical *wins*, identify the factors in the new lead that align with those successful outcomes. (e.g., "The clear assignment of fault in the police report mirrors Case-A, which was a strong win.").
+3.  **Identify Risk Factors:** Based on the historical *losses* (or complicating factors in wins), identify the elements of the new lead that present risks. (e.g., "The client's pre-existing condition is a major risk, similar to the issue that caused us to lose Case-B.").
+4.  **Evaluate Evidence Strength:** Assess the apparent strength of the evidence mentioned in the new lead compared to what was critical in past cases (e.g., `critical_evidence`, `witnesses_mentioned`).
+5.  **Assess Geographic Influence:** Consider the jurisdiction of the new lead. Using the historical case summaries and your general knowledge of the United States jurisdiction injury case settlement values on average, assess the average $ value of cases in this jurisdiction for this type of case. If no jurisdiction is mentioned, use the average $ value of cases in the state of New York, Long Island.
+
+**MANDATORY ITERATIVE TOOL USAGE PROCESS:**
+
+**YOU MUST FOLLOW THIS EXACT WORKFLOW:**
+
+1. **Initial Assessment**: Evaluate the provided historical context and determine if you need additional information from case files to provide a thorough analysis
+
+2. **Tool Call Execution**: 
+** CRITICAL: YOUR INITIAL RESPONSE MUST INCLUDE AT LEAST 2 TOOL CALLS SIMULTANEOUSLY. THIS IS MANDATORY FOR PROPER ANALYSIS.
+   - **MULTIPLE TOOL CALLS REQUIRED**: You MUST make 2-3 tool calls in your first response. This is not optional.
+   - **PARALLEL INVESTIGATION**: Call multiple relevant case files simultaneously to gather comprehensive evidence
+   - **INTELLIGENT BATCHING**: You can make MULTIPLE tool calls in a single response when they serve related analysis goals
+   - **STRATEGIC APPROACH**: Batch calls when you need complementary information (e.g., similar cases + jurisdiction precedents), but use sequential calls when one result will inform what to investigate next
+   - Do NOT make a tool call to the same file multiple times, only once per file.
+   - Make tool calls to gather additional information from case files
+   - Target specific case files using the exact "source" field paths from historical context
+   - **EXAMPLES**: Batch 2-3 similar outcome cases together, OR make 1 call to understand a complex case before deciding what other files to examine
+   - **SYSTEM TOOL USAGE MESSAGES**: You will receive system messages indicating how many tool calls you have used and how many remain (e.g., "X out of Y"). Use this information to decide an appropriate batch size for your next round and track your usage based on these messages.
+
+3. **Continue or Finalize**: 
+   - **CONTINUE INVESTIGATING**: If you need more information, make additional tool calls using intelligent batching
+   - **SYSTEM WILL GUIDE YOU**: The system will tell you when to provide your final analysis - respond to those instructions immediately
+   - **TOOL USAGE REMINDERS**: System messages may state your current tool usage (e.g., "your tool usage count is at X out of Y"). Use these reminders to plan subsequent batches; do not maintain your own counters.
+   - **RESPOND TO SYSTEM MESSAGES**: When you receive a system message instructing you to finalize, provide your complete analysis
+
+**GOOD TOOL CALL TARGETS:**
+* Case files with relevant outcomes (wins/losses) similar to your lead
+* Cases from the same jurisdiction with settlement data
+* Cases with similar injury types or liability scenarios
+* Files that contain contradictory information needing clarification
+* **SMART BATCHING STRATEGY**: 
+  - Batch complementary files (e.g., 2-3 similar successful cases from same jurisdiction)
+  - Use sequential calls when one result will guide your next investigation
+  - Make thoughtful decisions about how many files to investigate in each round
+
+
+**REQUIRED OUTPUT FORMAT:**
+Provide your response as a single, complete analysis. Do not output any other text. Your response must follow this structure exactly:
+
+---
+**Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as: "Lead Score: 0/100"
+**Confidence Score:** [Provide a numerical confidence score from 1 to 100 indicating how confident you are in your lead score assessment] format it as: "Confidence Score: 0/100"
+**Jurisdiction:** [Provide the jurisdiction/county for this case] format it as: "Jurisdiction: [County Name]"
+**Recommendation:** [Provide a one-sentence summary of your recommendation. These are just some examples, you can be more creative with your recommendation. e.g., "High-potential case, recommend immediate follow-up.", "Medium-potential case with significant risks requiring further investigation.", or "Low-potential case, recommend declining."]
+
+**Executive Summary:**
+[Provide a brief, one-paragraph summary of your overall analysis and the primary reasons for your recommendation.]
+
+**Detailed Rationale:**
+
+**1. Positive Indicators (Alignment with Past Successes):**
+*   [List specific factors in the new lead that are similar to successful historical cases. Reference the `case_id` when possible. Example: "- The clear, immediate medical diagnosis of a torn meniscus aligns with the successful outcome in Case-2022-042."]
+
+**2. Negative Indicators & Risk Factors (Alignment with Past Losses/Challenges):**
+*   [List specific factors in the new lead that are similar to historical losses or present known challenges. Reference the `case_id` when possible. Example: "- The client's pre-existing arthritis is a significant hurdle, mirroring the primary defense argument that led to a loss in Case-2021-015."]
+
+**3. Strength of Precedent:**
+[Provide a concluding sentence on how strong and relevant the provided historical cases are as precedents for this new lead.]
+
+**4. Geographic & Jurisdictional Analysis:**
+*   [Provide an analysis of the Jurisdiction. Based on your general training data, comment on whether this jurisdiction is favorable or unfavorable to plaintiffs and provide a number range for the average $ amount value of these kinds of cases in this jurisdiction.]
+
+**5. Case ID of cases given in the context:**
+*   [List the `Case ID` of the historical cases that were provided in the given context provided in the 'case_id' field. Example: "ID:1050076, ID:3444110"]
+
+**6. Analysis Depth & Tool Usage:**
+*   **Tool Calls Made:** [List any tools used with your reasoning: "Round 1: get_file_context(case_file_x.pdf, case_file_y.pdf) - Seeking similar outcome cases; Round 2: get_file_context(case_file_z.pdf) - Following up on jurisdiction question"] Look in your message history to understand what tool calls were made throughout the lead-scoring process.
+*   **Information Gained:** [Explain how each tool call or batch enhanced your understanding and analysis]
+*   **Overall Evidence Strength:** [Rate your confidence in the evidence base: Low/Moderate/High/Very High]
+
+
+================================================================================
+
+[1] SYSTEM (SystemMessage)
+----------------------------------------
+Your tool usage count is at '0 out of 5 maximum tool calls'. REMEMBER: You MUST make at least 2 tool calls in your first response to gather comprehensive evidence. 
+
+================================================================================
+
+[2] SYSTEM (SystemMessage)
+----------------------------------------
+**Historical Case Summaries for Reference:**
+[
+    {
+        "case_id": 997000,
+        "jurisdiction": "Suffolk County",
+        "case_type": "Premises",
+        "incident_date": "2021-01-23",
+        "incident_location": "Coram, NY",
+        "mentioned_locations": [
+            "Coram, NY",
+            "Connecticut, CT",
+            "Syosset, NY",
+            "Centereach, NY",
+            "St. James, NY",
+            "Great Neck, NY",
+            "Medford, NY",
+            "Garden City, NY"
+        ],
+        "injuries_described": [
+            "fractured right ankle"
+        ],
+        "medical_treatment_mentioned": [
+            "xrays",
+            "surgery",
+            "casting",
+            "boot",
+            "physical_therapy",
+            "MRI"
+        ],
+        "employment_impact_mentioned": [
+            "missed_work_days"
+        ],
+        "property_damage_mentioned": [],
+        "entities_mentioned": [
+            "US Legal",
+            "Milber Makris",
+            "Boces",
+            "Bev Fitness",
+            "Planet Fitness",
+            "LI Community Hospital",
+            "Provident PT",
+            "Zwanger Pesiri",
+            "Tru Salon",
+            "VS1 Salon"
+        ],
+        "insurance_mentioned": true,
+        "witnesses_mentioned": true,
+        "prior_legal_representation_mentioned": true,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "other",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs9\\997000 02-14-2024.docx",
+        "key_phrases": [
+            "Claimant was carrying empty cat bowls in both hands.",
+            "Claimant's right ankle rolled on the last step.",
+            "Claimant was taken to LI Community Hospital where xrays showed a fractured ankle.",
+            "Claimant had surgery on 2021-01-30 with screws and a plate placed.",
+            "Claimant missed one week of work as a result of the accident."
+        ],
+        "summary": "Claimant was descending the outside steps of her basement apartment in Coram, NY on 2021-01-23 when her right ankle rolled on a defective step and landing. She was taken by ambulance to LI Community Hospital where xrays revealed a fractured ankle requiring surgery with hardware and subsequent casting, boot usage, and physical therapy. Claimant missed one week of work and has ongoing swelling and stiffness in her right ankle, adjusting her salon work duties accordingly."
+    },
+    {
+        "case_id": 2211830,
+        "jurisdiction": "Suffolk County",
+        "case_type": "Premises",
+        "incident_date": "2024-08-05",
+        "incident_location": "Mt. Sinai, NY",
+        "mentioned_locations": [
+            "Mt. Sinai, NY",
+            "Farmingville, NY",
+            "Melville, NY",
+            "South Coram, NY",
+            "Hauppauge, NY"
+        ],
+        "injuries_described": [
+            "fractured pelvis",
+            "pain on right hip",
+            "pain on left hip"
+        ],
+        "medical_treatment_mentioned": [],
+        "employment_impact_mentioned": [],
+        "property_damage_mentioned": [],
+        "entities_mentioned": [
+            "Town of Brookhaven",
+            "County of Suffolk",
+            "Odierno Law Firm, P.C."
+        ],
+        "insurance_mentioned": false,
+        "witnesses_mentioned": true,
+        "prior_legal_representation_mentioned": false,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "mail",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs2\\2211830 12-30-2024.pdf",
+        "key_phrases": [
+            "The subject incident occurred on August 5, 2024, at approximately 12:30 pm at the Rose Caracappa Senior Center ... while the Claimant was ... walking ..., Claimant was caused to trip and fall on a raised, uneven, unlevel portion of floor causing Claimant to sustain serious personal injuries.",
+            "Multiple injuries including but not limited to fractured pelvis, pain on right and left hip, which cannot be expressed in dollar amounts pursuant to the General Municipal Laws of the State of New York.",
+            "Said occurrence and the injuries sustained by Claimant were due to the negligence, carelessness and recklessness of the Town of Brookhaven and County of Suffolk.",
+            "Respondents ... failed to provide proper barricades, cones and/or signage to warn, give notice and/or prevent members of the public, including the Claimant, from entering onto or from coming into contact with the dangerous and defective condition.",
+            "You are hereby notified that unless it is adjusted and paid within the time provided by law from the date of presentation to you, the Claimant intends to commence an action on this claim."
+        ],
+        "summary": "Claimant alleges that on August 5, 2024, while lawfully walking in the \u201cSing-A-long\u201d room of the Rose Caracappa Senior Center in Mt. Sinai, NY, she tripped and fell on a raised, uneven portion of floor, sustaining serious personal injuries including a fractured pelvis and hip pain. The notice claims the Town of Brookhaven and County of Suffolk were negligent in maintaining the premises, failing to warn of the defect or provide adequate barricades or signage. Claimant demands adjustment and payment of damages within the statutory period or intends to commence litigation."
+    },
+    {
+        "case_id": 2369954,
+        "jurisdiction": "Nassau County",
+        "case_type": "Premises Municipal",
+        "incident_date": "2024-05-11",
+        "incident_location": "North Massapequa, NY",
+        "mentioned_locations": [
+            "North Massapequa, NY",
+            "Oyster Bay, NY",
+            "Mineola, NY",
+            "Farmingdale, NY",
+            "Brooklyn, NY"
+        ],
+        "injuries_described": [
+            "fractured ankle"
+        ],
+        "medical_treatment_mentioned": [
+            "medical_attention"
+        ],
+        "employment_impact_mentioned": [],
+        "property_damage_mentioned": [],
+        "entities_mentioned": [
+            "Town of Oyster Bay",
+            "County of Nassau",
+            "Goldstein & Goldstein, P.C."
+        ],
+        "insurance_mentioned": false,
+        "witnesses_mentioned": false,
+        "prior_legal_representation_mentioned": false,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "mail",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs7\\2369954 Notice of Claim 11-04-2024.pdf",
+        "key_phrases": [
+            "On May 11, 2024, at approximately 7:30am, while Claimant was a lawful pedestrian on the sidewalk in front of 414 North Bleecker Drive, Claimant was caused to trip and fall and be injured by reason of the negligence...",
+            "Claimant sustained multiple bodily injuries including, but not limited to, a fractured ankle, which has caused Claimant severe pain and to incur and continue to incur expenses for medical attention and treatment.",
+            "by reason of the negligence, recklessness and carelessness of The Town of Oyster Bay and the County of Nassau, its agents, servants, employees and/or licensees...",
+            "the sidewalk at the aforementioned location to be, become and remain in a dangerous and hazardous condition, constituting a trap, nuisance and hazard.",
+            "unless said claim is adjusted and paid within the time provided by law from the date of presentation to you, the Claimant intends to commence an action on this claim."
+        ],
+        "summary": "A notice of claim was filed by Claimant against municipal entities after Claimant, while lawfully walking on a sidewalk in North Massapequa, NY, tripped over an alleged hazardous elevation in the sidewalk maintained by the Town of Oyster Bay and County of Nassau. Claimant suffered a fractured ankle and incurred ongoing medical expenses, and now seeks damages for personal injuries, pain and suffering, and related losses."
+    },
+    {
+        "case_id": 2211830,
+        "jurisdiction": "Suffolk County",
+        "case_type": "Premises Municipal",
+        "incident_date": "2024-08-05",
+        "incident_location": "Mt. Sinai, NY",
+        "mentioned_locations": [
+            "Hauppauge, NY",
+            "Islip, NY",
+            "Mt. Sinai, NY",
+            "Coram, NY",
+            "Melville, NY"
+        ],
+        "injuries_described": [
+            "fractured pelvis",
+            "pain to right hip",
+            "pain to left hip"
+        ],
+        "medical_treatment_mentioned": [],
+        "employment_impact_mentioned": [],
+        "property_damage_mentioned": [],
+        "entities_mentioned": [
+            "County of Suffolk",
+            "Town of Islip",
+            "Odierno Law Firm, P.C.",
+            "Rose Caracappa Senior Center"
+        ],
+        "insurance_mentioned": false,
+        "witnesses_mentioned": false,
+        "prior_legal_representation_mentioned": false,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "other",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs2\\2211830 Notice of Claim 09-16-2024.docx",
+        "key_phrases": [
+            "Claimant was caused to trip and fall on a raised, cracked, uneven portion of walkway causing Claimant to sustain serious personal injuries.",
+            "Multiple injuries including but not limited to fractured pelvis, pain to right and left hip",
+            "Said incident occurred on August 5, 2024, at approximately 12:30 pm at the common area... Rose Caracappa Senior Center, 739 NY-25A, Mt. Sinai, New York 11766, County of Suffolk, State of New York",
+            "This incident occurred as a result of the negligence, carelessness, recklessness, and gross negligence of the County of Suffolk and Town of Islip",
+            "Respondents... were negligent, careless and/or reckless in failing to provide proper barricades, cones and/or signage to warn"
+        ],
+        "summary": "The Claimant asserts that on August 5, 2024, while lawfully walking in a common area at Rose Caracappa Senior Center in Mt. Sinai, NY, she tripped and fell on a raised, cracked walkway defect maintained by the County of Suffolk and Town of Islip, sustaining serious personal injuries including a fractured pelvis and hip pain. The Notice of Claim alleges negligence and failure to warn or repair the hazard and demands adjustment and payment under General Municipal Law."
+    },
+    {
+        "case_id": 1821438,
+        "jurisdiction": "Suffolk County",
+        "case_type": "Auto Accident",
+        "incident_date": "unknown",
+        "incident_location": "Patchogue, NY",
+        "mentioned_locations": [
+            "Patchogue, NY",
+            "Kings Park, NY"
+        ],
+        "injuries_described": [
+            "concussion",
+            "neck pain",
+            "neck stiffness",
+            "back stiffness",
+            "post-concussion symptoms"
+        ],
+        "medical_treatment_mentioned": [
+            "ice",
+            "ibuprofen",
+            "physical_therapy",
+            "vestibular_therapy",
+            "MRI"
+        ],
+        "employment_impact_mentioned": [],
+        "property_damage_mentioned": [
+            "bumper",
+            "taillight",
+            "vehicle"
+        ],
+        "entities_mentioned": [
+            "Parker Waichman Alonso LLP",
+            "Aldi",
+            "St. Charles PT",
+            "Zwanger",
+            "Iona College"
+        ],
+        "insurance_mentioned": true,
+        "witnesses_mentioned": false,
+        "prior_legal_representation_mentioned": false,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "other",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs15\\1821438 Forms Other The Odierno Law Firm, P.C. 03-03-2025.docx",
+        "key_phrases": [
+            "He was driving a 2014 BMW.",
+            "He was seat belted.",
+            "The impact was heavy.",
+            "He moved forward 5-10 feet as a result of the impact.",
+            "He complained that his neck and back were stiff and that he had some post-concussion symptoms."
+        ],
+        "summary": "The Claimant was rear-ended while stopped at a red light on Waverly Avenue in Patchogue, NY, driving a 2014 BMW. He was seat belted and sustained neck and back stiffness, as well as post-concussion symptoms. He received treatment including ice, ibuprofen, physical therapy, and vestibular therapy through No Fault and private insurance and has continued to see a specialist. Property damage to his vehicle included a damaged bumper and broken taillight, repaired for approximately $1,200."
+    },
+    {
+        "case_id": 997000,
+        "jurisdiction": "Suffolk County",
+        "case_type": "Premises",
+        "incident_date": "2021-01-23",
+        "incident_location": "Coram, NY",
+        "mentioned_locations": [
+            "Coram, NY",
+            "Melville, NY",
+            "Suffolk County, NY"
+        ],
+        "injuries_described": [
+            "severe personal injuries",
+            "soreness",
+            "lameness",
+            "disability"
+        ],
+        "medical_treatment_mentioned": [
+            "medical treatment",
+            "medical care"
+        ],
+        "employment_impact_mentioned": [],
+        "property_damage_mentioned": [],
+        "entities_mentioned": [
+            "The Odierno Law Firm, P.C."
+        ],
+        "insurance_mentioned": false,
+        "witnesses_mentioned": false,
+        "prior_legal_representation_mentioned": false,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "other",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs9\\997000 03-09-2022.docx",
+        "key_phrases": [
+            "on the 23rd day of January 2021, while Claimant was lawfully and properly entering her apartment at the subject premises, she was caused to trip and fall and be precipitated to the ground with great force sustaining severe personal injuries",
+            "Claimant was caused to fall due to defective, dangerous, and broken tiles located at the entrance of her apartment",
+            "Defendant negligently maintained, managed, operated, constructed and modified the subject tiles; in that Defendant carelessly and negligently allowed the tiles to become cracked, separated, uneven and loose; causing a nuisance and danger to those lawfully upon said premises, including the Claimant",
+            "Claimant did suffer painful and serious injury to diverse parts of her body and limbs, causing her to become sick, sore, lame, and disabled for a period of time",
+            "Claimant was compelled to seek medical care, attention, and treatment in an effort to be cured of her injuries"
+        ],
+        "summary": "The Claimant, a lawful tenant at an apartment in Coram, NY, alleges that on January 23, 2021, she tripped and fell due to defective and broken tiles at the entrance of her unit, resulting in severe personal injuries. She contends that the Defendant, as owner and manager of the premises, negligently designed, maintained, and repaired the tiles, allowing them to become hazardous. The Claimant reports sustaining various injuries that rendered her disabled and requiring medical treatment. She seeks damages for her injuries and related losses."
+    },
+    {
+        "case_id": 2211830,
+        "jurisdiction": "Suffolk County",
+        "case_type": "Premises Municipal",
+        "incident_date": "2024-08-05",
+        "incident_location": "Mt. Sinai, NY",
+        "mentioned_locations": [
+            "Farmingdale, NY",
+            "Hauppauge, NY",
+            "Mt. Sinai, NY",
+            "Coram, NY",
+            "Melville, NY"
+        ],
+        "injuries_described": [
+            "fractured pelvis",
+            "pain on right hip",
+            "pain on left hip"
+        ],
+        "medical_treatment_mentioned": [],
+        "employment_impact_mentioned": [],
+        "property_damage_mentioned": [],
+        "entities_mentioned": [
+            "Town of Brookhaven",
+            "County of Suffolk",
+            "Rose Caracappa Senior Center",
+            "Odierno Law Firm P.C."
+        ],
+        "insurance_mentioned": false,
+        "witnesses_mentioned": false,
+        "prior_legal_representation_mentioned": false,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "other",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs2\\2211830 Notice of Claim 10-16-2024.docx",
+        "key_phrases": [
+            "Claimant was caused to trip and fall on a raised, uneven, unlevel portion of floor",
+            "Claimant was lawfully, carefully and properly walking at the above-mentioned location",
+            "Multiple injuries including but not limited to fractured pelvis, pain on right and left hip",
+            "the negligence, carelessness and recklessness of the Town of Brookhaven and County of Suffolk",
+            "more than 15 days have transpired since the receipt of said notice"
+        ],
+        "summary": "Claimant filed a notice of claim alleging that on 2024-08-05 at the Rose Caracappa Senior Center in Mt. Sinai, NY, she tripped and fell on an uneven floor, sustaining a fractured pelvis and hip pain. The claim alleges negligence, recklessness, and failure to warn by the Town of Brookhaven and County of Suffolk. No treatment or insurance information is stated, and the matter is pending."
+    },
+    {
+        "case_id": 997000,
+        "jurisdiction": "Suffolk County",
+        "case_type": "Negligence",
+        "incident_date": "unknown",
+        "incident_location": null,
+        "mentioned_locations": [],
+        "injuries_described": [],
+        "medical_treatment_mentioned": [
+            "bed_rest",
+            "home_confinement",
+            "hospitalization"
+        ],
+        "employment_impact_mentioned": [
+            "missed_work_days",
+            "lost_wages"
+        ],
+        "property_damage_mentioned": [],
+        "entities_mentioned": [
+            "Suffolk Foot and Ankle",
+            "Healthfirst",
+            "Medicaid",
+            "True Salon"
+        ],
+        "insurance_mentioned": true,
+        "witnesses_mentioned": false,
+        "prior_legal_representation_mentioned": false,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "web_form",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs9\\997000 10-19-2022.docx",
+        "key_phrases": [
+            "Missing Suffolk Foot and Ankle",
+            "Yes \u2013 missed time from work is ongoing.",
+            "Working 22 hours a week.",
+            "Earning appx. $700/Week",
+            "Confined to Home? Approximately 3 months"
+        ],
+        "summary": "The Claimant reports that they have Medicaid coverage through an insurance provider and no prior accidents. The Claimant has ongoing missed time from their part-time hairdressing job at an employer, working 22 hours per week with earnings of approximately $700 per week. The Claimant was confined to bed for about two weeks, to home for about three months, and was hospitalized and discharged. The Claimant was not a student at the time of the accident."
+    },
+    {
+        "case_id": 2090398,
+        "jurisdiction": "Suffolk County",
+        "case_type": "Auto Accident",
+        "incident_date": "2024-04-16",
+        "incident_location": "Mastic, NY",
+        "mentioned_locations": [
+            "Mastic, NY",
+            "Center Moriches, NY",
+            "Mineola, NY",
+            "Holtsville, NY"
+        ],
+        "injuries_described": [
+            "neck pain",
+            "back pain",
+            "leg pain",
+            "bilateral shoulder pain",
+            "left shoulder pain"
+        ],
+        "medical_treatment_mentioned": [
+            "emergency_room",
+            "chiropractic_treatment",
+            "pain_management_injections",
+            "physical_therapy",
+            "MRI",
+            "electro_neurodiagnostic_testing",
+            "lumbar_brace",
+            "arthroscopy"
+        ],
+        "employment_impact_mentioned": [
+            "missed_work_days"
+        ],
+        "property_damage_mentioned": [],
+        "entities_mentioned": [
+            "Media Referral Inc.",
+            "LICH Emergency Room",
+            "Holtsville Chiropractic",
+            "Community Medical Wellness",
+            "RCK Medical Services"
+        ],
+        "insurance_mentioned": false,
+        "witnesses_mentioned": false,
+        "prior_legal_representation_mentioned": false,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "other",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs13\\2090398 01-30-2025.pdf",
+        "key_phrases": [
+            "Claimant is the restrained driver involved in a motor vehicle accident in Mastic, NY on 4/16/24.",
+            "Claimant went to the LICH Emergency Room the next day complaining of neck, back and leg pain where she was examined and released.",
+            "Claimant began chiropractic treatment 3x per week which continues at present.",
+            "Claimant had left shoulder arthroscopy on 8/7/24.",
+            "Claimant stopped working after the accident, returning on 6/15/24, and has not yet returned to work post-surgery."
+        ],
+        "summary": "Claimant underwent an independent chiropractic re-examination on 09/30/2024 following a motor vehicle accident in Mastic, NY on 04/16/2024. The report notes initial emergency room evaluation, ongoing chiropractic treatment, pain management injections, physical therapy, MRI imaging and left shoulder arthroscopy. The claimant experienced neck, back, bilateral shoulder and leg pain, leading to temporary work stoppage. The examiner found resolved cervical, thoracic and lumbar sprain/strains, noted no objective correlation for continuing chiropractic care, and concluded further chiropractic treatment is no longer medically necessary."
+    },
+    {
+        "case_id": 997000,
+        "jurisdiction": "Suffolk County",
+        "case_type": "Premises",
+        "incident_date": "2021-01-23",
+        "incident_location": "Coram, NY",
+        "mentioned_locations": [
+            "Coram, NY"
+        ],
+        "injuries_described": [],
+        "medical_treatment_mentioned": [],
+        "employment_impact_mentioned": [],
+        "property_damage_mentioned": [],
+        "entities_mentioned": [],
+        "insurance_mentioned": false,
+        "witnesses_mentioned": false,
+        "prior_legal_representation_mentioned": false,
+        "case_outcome": null,
+        "settlement_value": null,
+        "communication_channel": "other",
+        "source": "C:\\Users\\Justin\\Desktop\\testdocsmain\\testdocs9\\997000 12-18-2024.docx",
+        "key_phrases": [
+            "The rear entrance has 3 steps that go down to a white brick tile landing.",
+            "I never did any repairs to the steps prior to the accident.",
+            "I never received complaints about the steps.",
+            "I found out about the accident when I received papers from Defendant's counsel.",
+            "I could not recall when I was last at the premises prior to the incident."
+        ],
+        "summary": "Defendant, owner of a Coram, NY property, testified that she purchased the home in 2019, installed the rear entrance steps but never repaired or inspected them prior to a January 23, 2021 accident, had no tenant complaints about the steps, rented separate units without permits, and only learned of the incident after receiving litigation papers."
+    }
+]
+
+================================================================================
+
+[3] USER (HumanMessage)
+----------------------------------------
+Potential client – Nassau County slip-and-fall. A 52-year-old office manager was attending a corporate holiday party at the Marriott Hotel in Garden City on December 15th at approximately 8:30 PM. The event was held in the hotel's main ballroom, which had been decorated with holiday lights and garlands. The plaintiff alleges she slipped on a wet spot near the bar area and fell, sustaining a fractured left wrist and torn rotator cuff in her right shoulder. She was taken by ambulance to Nassau University Medical Center where she underwent surgery to repair the wrist fracture with internal fixation. The shoulder injury required arthroscopic surgery three weeks later. She was out of work for 8 weeks and has ongoing physical therapy. The plaintiff claims the hotel failed to properly maintain the floor and should have had warning signs or mats in the bar area. However, security camera footage shows the plaintiff had consumed several cocktails over the course of the evening, and witnesses reported she appeared to be unsteady on her feet before the fall. The hotel maintains they had proper floor maintenance protocols in place, including regular inspections every 30 minutes, and that the wet spot was created by other patrons' spilled drinks, not by hotel negligence. The plaintiff's blood alcohol content was 0.12% when tested at the hospital. Additionally, the plaintiff was wearing high-heeled shoes with smooth soles, which the defense will argue contributed to the fall. The hotel has offered a $25,000 settlement, but the plaintiff's attorney believes the case is worth $150,000 given the surgeries and lost wages. The case hinges on whether the hotel had constructive notice of the dangerous condition and whether the plaintiff's own negligence was a substantial factor in causing her injuries.
+
+================================================================================
+

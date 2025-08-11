@@ -18,6 +18,8 @@
 
 #TODO: Finish Caching system
 
+#TODO: Tool batch calling does not work, seems to be a limitation from the client we are using, langchain seems to support it from what I can tell.
+
 
 from numpy import save
 import qdrant_client

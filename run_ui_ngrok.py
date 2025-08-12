@@ -16,7 +16,21 @@ from pathlib import Path
 import threading
 import signal
 import os
+import argparse
+from datetime import datetime, timedelta
+from dotenv import load_dotenv, find_dotenv
+import smtplib
+from email.message import EmailMessage
 
+# Load environment variables from .env as early as possible so subprocesses inherit them
+try:
+    dotenv_path = find_dotenv(usecwd=True)
+    if dotenv_path:
+        load_dotenv(dotenv_path=dotenv_path)
+    else:
+        load_dotenv()
+except Exception as _e:
+    print(f"⚠️  Could not load .env automatically: {_e}")
 
 
 
@@ -148,8 +162,109 @@ def start_ngrok_tunnel(port, ngrok_path):
         return None, None
 
 
+def restart_ngrok_tunnel(ngrok_process, port, ngrok_path):
+    """Restart the ngrok tunnel while keeping Streamlit running."""
+    try:
+        print("🔄 Restarting ngrok tunnel (2-hour session limit)...")
+        
+        # Close current tunnel
+        if ngrok_process:
+            ngrok_process.terminate()
+            try:
+                ngrok_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                ngrok_process.kill()
+            print("✅ Old tunnel closed")
+        
+        # Wait a moment before starting new tunnel
+        time.sleep(2)
+        
+        # Start new tunnel
+        return start_ngrok_tunnel(port, ngrok_path)
+        
+    except Exception as e:
+        print(f"Error restarting ngrok tunnel: {e}")
+        return None, None
+
+
+def format_time_remaining(seconds):
+    """Format seconds into a human-readable time string."""
+    if seconds == float('inf'):
+        return "∞"
+    
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    
+    if hours > 0:
+        return f"{hours}h {minutes}m"
+    else:
+        return f"{minutes}m"
+
+
+def send_instance_email(ngrok_url: str) -> bool:
+    """Send an email with the new instance link and password via Gmail SMTP.
+
+    Args:
+        ngrok_url (str): The public ngrok URL for the running instance.
+ 
+    Returns:
+        bool: True if the email was sent successfully, False otherwise.
+    """
+    # Read credentials and target from the environment
+    user_email = os.getenv("USER_EMAIL")
+    user_email_send = ['justin@o2law.com', 'hsevak@o2law.com']
+    user_email_password = os.getenv("USER_EMAIL_PASSWORD")
+    streamlit_password = os.getenv("STREAMLIT_PASSWORD")
+
+    if not user_email or not user_email_password:
+        print("⚠️  USER_EMAIL or USER_EMAIL_PASSWORD not set; skipping email notification.")
+        return False
+
+    subject = "LEAD SCORE - NEW INSTANCE"
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+    body = (
+        "A new Lead Scoring UI instance is available.\n\n"
+        f"URL: {ngrok_url}\n"
+        f"Password: {streamlit_password}\n\n"
+        f"Time Started: {timestamp}\n"
+    )
+
+    message = EmailMessage()
+    message["From"] = user_email
+    message["To"] = ", ".join(user_email_send)  # Join list into comma-separated string
+    message["Subject"] = subject
+    message.set_content(body)
+
+    try:
+        # Gmail SMTP settings
+        with smtplib.SMTP("smtp.gmail.com", 587, timeout=30) as smtp:
+            smtp.ehlo()
+            smtp.starttls()
+            smtp.ehlo()
+            smtp.login(user_email, user_email_password)
+            smtp.send_message(message)
+        print(f"✉️  Email notification sent to {', '.join(user_email_send)}")
+        return True
+    except Exception as exc:
+        print(f"❌ Failed to send email notification: {exc}")
+        return False
+
+
 def main():
     """Launch the Streamlit UI with ngrok ephemeral tunnel."""
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(
+        description="Launch Lead Scoring UI with ngrok tunnel and automatic session management"
+    )
+    parser.add_argument(
+        "--total-hours",
+        type=float,
+        default=float('inf'),
+        help="Total hours to run the service (default: infinite). Use decimals for fractional hours (e.g., 1.5 for 90 minutes)"
+    )
+    args = parser.parse_args()
+    
     ui_file = Path(__file__).parent / "lead_scoring_ui.py"
 
     if not ui_file.exists():
@@ -171,20 +286,29 @@ def main():
     local_ip = get_local_ip()
     port = 3000
 
+    # Session and runtime management
+    session_duration_hours = 2  # Restart tunnel every 2 hours
+    total_start_time = time.time()
+    session_start_time = total_start_time
+    
+    total_runtime_str = format_time_remaining(args.total_hours * 3600) if args.total_hours != float('inf') else "∞"
+
     print("🚀 Starting Lead Scoring UI with ngrok tunnel...")
-    print("📝 This is for TEMPORARY TESTING only - URL will change each time!")
+    print("📝 Features: Automatic tunnel restart every 2 hours for free ngrok accounts")
+    print(f"⏱️  Total runtime: {total_runtime_str}")
     print(f"📱 Local Access:")
     print(f"   Local: http://localhost:{port}")
     print(f"   Network: http://{local_ip}:{port}")
-    print("\n🔄 To restart just Streamlit with code updates:")
-    print("   1. Press Ctrl+C to stop Streamlit")
-    print("   2. Run: python -m streamlit run lead_scoring_ui.py --server.address 0.0.0.0 --server.port 3000")
-    print("   3. Ngrok URL will remain the same!")
+    print("\n🔄 Session Management:")
+    print("   • Ngrok tunnel restarts automatically every 2 hours")
+    print("   • Streamlit stays running during tunnel restarts")
+    print("   • New public URL will be displayed after each restart")
     
     print("\nPress Ctrl+C to stop the server.")
 
     # Store processes for cleanup
     processes = []
+    ngrok_process = None  # Initialize for cleanup function
     
     def cleanup(signum=None, frame=None):
         """Clean up processes on exit."""
@@ -209,6 +333,19 @@ def main():
     try:
         # Start Streamlit FIRST
         print("🚀 Starting Streamlit server...")
+        # Prepare environment for the Streamlit subprocess so the UI can render timers
+        # based on the overall service start time, session (ngrok) duration, and total end time.
+        env = os.environ.copy()
+        env["SERVICE_START_EPOCH"] = str(int(total_start_time))
+        env["SESSION_DURATION_SECONDS"] = str(int(session_duration_hours * 3600))
+        if args.total_hours != float('inf'):
+            total_end_epoch = int(total_start_time + (args.total_hours * 3600))
+            env["TOTAL_END_EPOCH"] = str(total_end_epoch)
+            env["TOTAL_HOURS"] = str(args.total_hours)
+        else:
+            env["TOTAL_END_EPOCH"] = "inf"
+            env["TOTAL_HOURS"] = "inf"
+
         streamlit_process = subprocess.Popen(
             [
                 sys.executable,
@@ -224,7 +361,8 @@ def main():
                 local_ip,
                 "--browser.serverPort",
                 str(port),
-            ]
+            ],
+            env=env,
         )
         processes.append(streamlit_process)
         
@@ -244,20 +382,65 @@ def main():
             print("⚠️  WARNING: This URL will change when you restart!")
             print("📝 Perfect for quick demos and temporary sharing")
             print("="*60 + "\n")
+            # Send email on initial creation
+            send_instance_email(ngrok_url)
         else:
             print("⚠️  Running without ngrok tunnel (local access only)")
         
-        # Keep the main process running
+        # Keep the main process running with session management
+        last_status_time = time.time()
+        status_interval = 300  # Show status every 5 minutes
+        
         while True:
+            current_time = time.time()
+            
+            # Check total runtime limit
+            total_elapsed_hours = (current_time - total_start_time) / 3600
+            if total_elapsed_hours >= args.total_hours:
+                print(f"\n⏰ Reached total runtime limit of {args.total_hours} hours")
+                print("🛑 Shutting down gracefully...")
+                break
+            
+            # Check session time for tunnel restart
+            session_elapsed_hours = (current_time - session_start_time) / 3600
+            if session_elapsed_hours >= session_duration_hours and ngrok_process:
+                print(f"\n⏰ Session has been running for {session_duration_hours} hours")
+                ngrok_process, ngrok_url = restart_ngrok_tunnel(ngrok_process, port, ngrok_path)
+                session_start_time = current_time  # Reset session timer
+                
+                if ngrok_url:
+                    print(f"🌍 New Public Access: {ngrok_url}")
+                    print("✅ Tunnel restart complete\n")
+                    # Send email on restart
+                    send_instance_email(ngrok_url)
+                else:
+                    print("⚠️  Failed to restart tunnel - continuing with local access only\n")
+            
+            # Show periodic status updates
+            if current_time - last_status_time >= status_interval:
+                session_remaining = (session_duration_hours * 3600) - (current_time - session_start_time)
+                total_remaining = (args.total_hours * 3600) - (current_time - total_start_time) if args.total_hours != float('inf') else float('inf')
+                
+                print(f"📊 Status: Session restart in {format_time_remaining(session_remaining)}, Total runtime remaining: {format_time_remaining(total_remaining)}")
+                last_status_time = current_time
+            
             # Check if Streamlit is still running
             if streamlit_process.poll() is not None:
                 print("❌ Streamlit process stopped unexpectedly")
                 break
             
-            # Check if ngrok is still running
+            # Check if ngrok is still running (only if we expect it to be)
             if ngrok_process and ngrok_process.poll() is not None:
-                print("❌ Ngrok process stopped unexpectedly")
-                break
+                print("⚠️  Ngrok process stopped unexpectedly - attempting restart...")
+                ngrok_process, ngrok_url = restart_ngrok_tunnel(None, port, ngrok_path)
+                session_start_time = current_time  # Reset session timer
+                
+                if ngrok_url:
+                    print(f"🌍 Tunnel restarted: {ngrok_url}")
+                    # Send email on unexpected restart as well
+                    send_instance_email(ngrok_url)
+                else:
+                    print("❌ Failed to restart tunnel - continuing with local access only")
             
             time.sleep(1)
             

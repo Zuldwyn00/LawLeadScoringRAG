@@ -148,8 +148,9 @@ class LeadScoringClient:
         Returns:
             str: The response from the language model with jurisdiction-modified score.
         """
-        # Reset tool call count and message history for this new lead scoring session
+        # Reset tool call count, history, and message history for this new lead scoring session
         self.tool_manager.tool_call_count = 0
+        self.tool_manager.tool_call_history = []
         self.client.clear_history()
         
         system_prompt_content = load_prompt("lead_scoring")
@@ -405,12 +406,19 @@ class LeadScoringClient:
             # Record tool messages in history
             self.client.add_message(tool_call_responses)
 
+        # Create a detailed tool usage summary message for the AI to reference in its final response
+        tool_usage_details = self.tool_manager.get_tool_usage_summary()
+        tool_usage_summary_msg = SystemMessage(
+            content=f"Tool Usage Summary: You made {self.tool_manager.tool_call_count} tool calls out of {self.tool_manager.tool_call_limit} maximum. "
+                   f"{tool_usage_details}. Please include this exact information in your '**6. Analysis Depth & Tool Usage:**' section."
+        )
+
         messages_to_send = self._assemble_messages(
             base_messages,
             last_response=self.current_lead_score,
             tool_call_responses=tool_call_responses,
             tool_context_msg=tool_context_msg,
-            extra_messages=[validation_msg],
+            extra_messages=[validation_msg, tool_usage_summary_msg],
         )
         
         # Calculate and log token count for final lead scoring

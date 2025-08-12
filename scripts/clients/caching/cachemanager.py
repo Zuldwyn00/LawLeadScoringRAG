@@ -1,4 +1,5 @@
 
+import hashlib
 from utils import *
 from .cacheschema import *
 
@@ -7,9 +8,33 @@ class ClientCacheManager:
     def __init__(self):
         self.config = load_config()
         self.logger = setup_logger(name = 'CacheManager', config=self.config)
-        self.cache_paths = {
-            'summary_cache': 'summary_cache.json',
-        }
+        self.cache_paths = self.config.get('caching', {}).get('directories', {})
+
+    def _get_cache_filepath(self, cache_type: type[CacheEntry]) -> str | None:
+        """
+        Get the filepath for a given CacheEntry type.
+        
+        Args:
+            cache_type (type[CacheEntry]): The CacheEntry subclass type
+            
+        Returns:
+            str | None: The filepath for the cache type, or None if invalid/unsupported
+        """
+        # Validate cache_type
+        if not (isinstance(cache_type, type) and issubclass(cache_type, CacheEntry)):
+            self.logger.error("cache_type must be a subclass of CacheEntry, got: %s", cache_type)
+            return None
+            
+        self.logger.debug("Finding cache filepath for CacheEntry type '%s'", cache_type.__name__)
+        
+        # Map cache type to filepath
+        if cache_type == SummaryCacheEntry:
+            filepath = self.cache_paths.get('summary_cache')
+            self.logger.debug("Mapped %s to filepath: '%s'", cache_type.__name__, filepath)
+            return filepath
+        else:
+            self.logger.error("Unsupported cache type: %s", cache_type.__name__)
+            return None
 
     def cache_entry(self, data: CacheEntry):
         """
@@ -27,22 +52,15 @@ class ClientCacheManager:
         Raises:
             TypeError: If the data type is not a recognized cache entry type.
         """
-        def _validate_type_filepath(self, data) -> str:
-            if isinstance(data, SummaryCacheEntry):
-                filepath = self.cache_paths.get('summary_cache')
-                self.logger.debug("Caching as type '%s' to '%s'.", type(data).__name__, filepath)
-                return filepath
-            
-            self.logger.error("Invalid type for cache entry, undefined cache entry type: '%s'", type(data).__name__)
+        filepath = self._get_cache_filepath(type(data))
+        if not filepath:
             raise TypeError("Invalid cache entry")
-        
-        filepath = _validate_type_filepath(self, data)
         
         # Load existing cache data as a dictionary
         try:
             cache_data = load_from_json(filepath) or {}
         except Exception as e:
-            self.logger.debug("Could not load existing cache, starting fresh: %s", e)
+            self.logger.warning("Could not load existing cache, starting fresh: %s", e)
             cache_data = {}
         
         # Create cache key from source_file and client
@@ -56,28 +74,27 @@ class ClientCacheManager:
         save_to_json(cache_data, filepath=filepath)
         self.logger.debug("Cached entry with key '%s'", cache_key)
 
-    def get_cached_data(self, filepath: str | CacheEntry):
+    def get_cached_data(self, filepath: str | type[CacheEntry]) -> dict | None:
         """
-        Retrieve cached data from JSON file.
+        Retrieve (ALL) cached data from JSON file.
         
         Automatically determines the correct cache file location by either:
         1. Using the provided filepath string directly, or
-        2. Inspecting the CacheEntry object's type and mapping it to the corresponding
+        2. Using the CacheEntry class type to map it to the corresponding
            cache path in self.cache_paths (e.g., SummaryCacheEntry -> 'summary_cache.json').
         
         Args:
-            filepath (str | CacheEntry): Either a direct filepath string or a CacheEntry
-                                        object whose type will be used to determine the
-                                        appropriate cache file location.
+            filepath (str | type[CacheEntry]): Either a direct filepath string or a CacheEntry
+                                              class type which will be used to determine the
+                                              appropriate cache file location.
         
         Returns:
             dict | None: The entire cached data dictionary, or None if loading fails.
         """
-        if isinstance(filepath, CacheEntry):
-            self.logger.debug("filepath given as a CacheEntry object, finding correct json filepath based on object type '%s'", type(filepath).__name__)
-            if isinstance(filepath, SummaryCacheEntry):
-                filepath = self.cache_paths.get('summary_cache')
-                self.logger.debug("Getting cache data from '%s'.", filepath)
+        if isinstance(filepath, type) and issubclass(filepath, CacheEntry):
+            filepath = self._get_cache_filepath(filepath)
+            if not filepath:
+                return None
 
         try:
             cached_data = load_from_json(filepath)
@@ -86,28 +103,4 @@ class ClientCacheManager:
             self.logger.error("Failed to load cached summary from %s: %s", filepath, str(e))
             return None
 
-    def get_cached_entry(self, source_file, client: str, cache_type: type = SummaryCacheEntry):
-        """
-        Retrieve a specific cached entry by source file and client.
-        
-        Args:
-            source_file: The source file path or signature (Path object or string)
-            client (str): The client identifier used for the cache entry
-            cache_type (type): The type of cache entry to look for (default: SummaryCacheEntry)
-        
-        Returns:
-            dict | None: The cached entry data, or None if not found.
-        """
-        if cache_type == SummaryCacheEntry:
-            filepath = self.cache_paths.get('summary_cache')
-        else:
-            self.logger.error("Unsupported cache type: %s", cache_type.__name__)
-            return None
-        
-        try:
-            cache_data = load_from_json(filepath) or {}
-            cache_key = f"{source_file}#{client}"
-            return cache_data.get(cache_key)
-        except Exception as e:
-            self.logger.error("Failed to get cached entry for key '%s#%s': %s", source_file, client, str(e))
-            return None
+    def get_cached_entry(self, client: Optional[str] , source_file: Path,  cache_type: type[CacheEntry]):

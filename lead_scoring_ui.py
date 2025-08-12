@@ -29,6 +29,355 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ─── BLACK & ORANGE THEME ──────────────────────────────────────────────────────────
+def apply_dark_mode():
+    """Apply professional black and orange styling to the Streamlit app."""
+    st.markdown(
+        """
+        <style>
+        /* Import Google Fonts for professional look */
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        /* Root variables for consistency */
+        :root {
+            --primary-black: #000000;
+            --secondary-black: #1a1a1a;
+            --tertiary-black: #2d2d2d;
+            --accent-orange: #ff6b35;
+            --accent-orange-hover: #ff5722;
+            --accent-orange-light: #ff8a65;
+            --text-white: #ffffff;
+            --text-gray: #e0e0e0;
+            --text-dim: #b0b0b0;
+            --border-gray: #404040;
+        }
+        
+        /* Main app styling */
+        .stApp {
+            background-color: var(--primary-black) !important;
+            color: var(--text-white) !important;
+            font-family: 'Inter', sans-serif !important;
+        }
+        
+        /* Header/toolbar area */
+        .stApp > header {
+            background-color: var(--primary-black) !important;
+        }
+        
+        /* Main content area */
+        .main .block-container {
+            background-color: var(--primary-black) !important;
+            padding-top: 2rem;
+            max-width: 1200px;
+        }
+        
+        /* Sidebar comprehensive styling */
+        .css-1d391kg, .css-1aumxhk, .css-1y4p8pa, .css-17eq0hr, 
+        section[data-testid="stSidebar"], .css-1lcbmhc, .css-1outpf7,
+        div[data-testid="stSidebar"] > div, .css-ng1t4o, .css-1cypcdb {
+            background-color: var(--secondary-black) !important;
+            border-right: 2px solid var(--accent-orange) !important;
+        }
+        
+        /* Sidebar content */
+        .css-1aumxhk .element-container, .css-1d391kg .element-container {
+            background-color: transparent !important;
+        }
+        
+        /* Top toolbar and menu */
+        .css-14xtw13, .css-1544g2n, .css-1v3fvcr {
+            background-color: var(--primary-black) !important;
+        }
+        
+        /* Menu button */
+        .css-14xtw13 .css-184tjsw {
+            color: var(--accent-orange) !important;
+        }
+        
+        /* Text areas and inputs */
+        .stTextArea textarea {
+            background-color: var(--tertiary-black) !important;
+            color: var(--text-white) !important;
+            border: 2px solid var(--border-gray) !important;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .stTextArea textarea:focus {
+            border-color: var(--accent-orange) !important;
+            box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2) !important;
+        }
+        
+        .stTextArea textarea::placeholder {
+            color: var(--text-dim) !important;
+        }
+        
+        .stTextArea textarea[disabled] {
+            background-color: var(--secondary-black) !important;
+            color: var(--text-white) !important;
+            opacity: 1 !important;
+            border: 2px solid var(--border-gray) !important;
+        }
+        
+        /* Specific styling for analysis text areas */
+        .stTextArea textarea[disabled]:not([value=""]) {
+            color: #ffffff !important;
+            background-color: #1a1a1a !important;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .stTextInput input {
+            background-color: var(--tertiary-black) !important;
+            color: var(--text-white) !important;
+            border: 2px solid var(--border-gray) !important;
+            border-radius: 8px;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        .stTextInput input:focus {
+            border-color: var(--accent-orange) !important;
+            box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.2) !important;
+        }
+        
+        .stTextInput input::placeholder {
+            color: var(--text-dim) !important;
+        }
+        
+        /* Labels and form text */
+        .stTextArea label, .stTextInput label, .stSelectbox label {
+            color: var(--text-white) !important;
+            font-weight: 500 !important;
+        }
+        
+        /* Help text */
+        .stTextArea .help, .stTextInput .help {
+            color: var(--text-gray) !important;
+        }
+        
+        /* Buttons */
+        .stButton button {
+            background-color: var(--tertiary-black) !important;
+            color: var(--text-white) !important;
+            border: 2px solid var(--border-gray) !important;
+            border-radius: 8px;
+            font-weight: 500;
+            font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease;
+        }
+        
+        .stButton button:hover {
+            background-color: var(--border-gray) !important;
+            border-color: var(--accent-orange) !important;
+            transform: translateY(-1px);
+        }
+        
+        .stButton button[kind="primary"] {
+            background-color: var(--accent-orange) !important;
+            color: var(--text-white) !important;
+            border: 2px solid var(--accent-orange) !important;
+            font-weight: 600;
+        }
+        
+        .stButton button[kind="primary"]:hover {
+            background-color: var(--accent-orange-hover) !important;
+            border-color: var(--accent-orange-hover) !important;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(255, 107, 53, 0.3);
+        }
+        
+        /* Metrics */
+        .css-1xarl3l, .css-1r6slb0 {
+            background-color: var(--tertiary-black) !important;
+            border: 1px solid var(--border-gray) !important;
+            border-radius: 12px !important;
+            padding: 1rem !important;
+        }
+        
+        .css-1xarl3l .css-1wivap2, .css-1r6slb0 .css-1wivap2 {
+            color: var(--text-white) !important;
+        }
+        
+        .css-1xarl3l .css-1wivap2 h1, .css-1r6slb0 .css-1wivap2 h1 {
+            color: var(--accent-orange) !important;
+        }
+        
+        /* Expanders */
+        .streamlit-expanderHeader, div[data-testid="stExpander"] > div > div {
+            background-color: var(--tertiary-black) !important;
+            color: var(--text-white) !important;
+            border: 1px solid var(--border-gray) !important;
+            border-radius: 8px;
+        }
+        
+        .streamlit-expanderContent {
+            background-color: var(--secondary-black) !important;
+            border: 1px solid var(--border-gray) !important;
+            border-top: none !important;
+            color: var(--text-white) !important;
+        }
+        
+        /* Ensure all text in expanderContent is white */
+        .streamlit-expanderContent * {
+            color: var(--text-white) !important;
+        }
+        
+        /* Progress bar */
+        .stProgress > div > div > div {
+            background-color: var(--accent-orange) !important;
+        }
+        
+        .stProgress > div > div {
+            background-color: var(--tertiary-black) !important;
+        }
+        
+        /* Info/success/error boxes */
+        .stSuccess {
+            background-color: #1a4d3a !important;
+            border: 2px solid #4ade80 !important;
+            color: var(--text-white) !important;
+            border-radius: 8px;
+        }
+        
+        .stInfo {
+            background-color: #1e293b !important;
+            border: 2px solid var(--accent-orange) !important;
+            color: var(--text-white) !important;
+            border-radius: 8px;
+        }
+        
+        .stError {
+            background-color: #4c1d1d !important;
+            border: 2px solid #ef4444 !important;
+            color: var(--text-white) !important;
+            border-radius: 8px;
+        }
+        
+        /* Headers and text */
+        h1, h2, h3, h4, h5, h6 {
+            color: var(--text-white) !important;
+            font-family: 'Inter', sans-serif !important;
+            font-weight: 600 !important;
+        }
+        
+        .stMarkdown {
+            color: var(--text-white) !important;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        /* Sidebar headers */
+        .css-1aumxhk h1, .css-1aumxhk h2, .css-1aumxhk h3,
+        .css-1d391kg h1, .css-1d391kg h2, .css-1d391kg h3,
+        section[data-testid="stSidebar"] h1, section[data-testid="stSidebar"] h2, section[data-testid="stSidebar"] h3 {
+            color: var(--text-white) !important;
+        }
+        
+        /* Sidebar text */
+        section[data-testid="stSidebar"] .stMarkdown,
+        .css-1aumxhk .stMarkdown, .css-1d391kg .stMarkdown {
+            color: var(--text-white) !important;
+        }
+        
+        /* Dataframe styling */
+        .dataframe {
+            background-color: var(--tertiary-black) !important;
+            color: var(--text-white) !important;
+            border: 1px solid var(--border-gray) !important;
+        }
+        
+        /* Select boxes and other inputs */
+        .stSelectbox div[data-baseweb="select"] > div {
+            background-color: var(--tertiary-black) !important;
+            border: 2px solid var(--border-gray) !important;
+            color: var(--text-white) !important;
+        }
+        
+        /* Checkbox and radio */
+        .stCheckbox, .stRadio {
+            color: var(--text-white) !important;
+        }
+        
+        /* File uploader */
+        .stFileUploader {
+            background-color: var(--tertiary-black) !important;
+            border: 2px solid var(--border-gray) !important;
+            border-radius: 8px;
+        }
+        
+        /* Code blocks */
+        .stCode {
+            background-color: var(--secondary-black) !important;
+            color: var(--text-white) !important;
+            border: 1px solid var(--border-gray) !important;
+            border-radius: 8px;
+        }
+        
+        /* Remove default padding/margins that cause white spaces */
+        .css-1544g2n {
+            padding: 0 !important;
+        }
+        
+        .css-1v3fvcr {
+            background-color: var(--primary-black) !important;
+        }
+        
+        /* Password input styling */
+        .stTextInput > div > div > input[type="password"] {
+            background-color: var(--tertiary-black) !important;
+            color: var(--text-white) !important;
+            border: 2px solid var(--border-gray) !important;
+        }
+        
+        /* Status and processing text */
+        .stStatus, .stSpinner {
+            color: var(--text-white) !important;
+        }
+        
+        /* Ensure all paragraph text is readable */
+        p, .stMarkdown p {
+            color: var(--text-white) !important;
+        }
+        
+        /* Fix any remaining dim text */
+        .element-container .stMarkdown {
+            color: var(--text-white) !important;
+        }
+        
+        /* Force white text in all text areas within expanders */
+        div[data-testid="stExpander"] .stTextArea textarea {
+            color: #ffffff !important;
+            background-color: #1a1a1a !important;
+        }
+        
+        /* Target analysis text areas specifically */
+        .stTextArea textarea[data-testid*="analysis"] {
+            color: #ffffff !important;
+            background-color: #1a1a1a !important;
+        }
+        
+        /* More specific targeting for analysis text areas */
+        textarea[id*="analysis"] {
+            color: #ffffff !important;
+            background-color: #1a1a1a !important;
+        }
+        
+        /* Force white text in all disabled text areas */
+        textarea[disabled] {
+            color: #ffffff !important;
+            background-color: #1a1a1a !important;
+        }
+        
+        /* Override any Streamlit default text colors */
+        .stTextArea textarea:disabled {
+            color: #ffffff !important;
+            -webkit-text-fill-color: #ffffff !important;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 # ─── PASSWORD AUTHENTICATION ───────────────────────────────────────────────────────
 import os
 
@@ -66,6 +415,9 @@ def check_password():
 # Check password before showing any content
 if not check_password():
     st.stop()  # Do not continue if not authenticated.
+
+# Apply black & orange theme
+apply_dark_mode()
 
 # ─── INITIALIZATION ─────────────────────────────────────────────────────────────────
 @st.cache_resource
@@ -212,7 +564,7 @@ def score_lead_process(lead_description: str) -> tuple[int, int, str]:
 
 def score_lead_process_with_progress(lead_description: str) -> tuple[int, int, str]:
     """
-    Run the complete lead scoring process with progress indicator and step-by-step status.
+    Run the complete lead scoring process with enhanced progress indicator and step-by-step status.
 
     Args:
         lead_description (str): The lead description to score
@@ -220,10 +572,17 @@ def score_lead_process_with_progress(lead_description: str) -> tuple[int, int, s
     Returns:
         tuple[int, int, str]: (score, confidence, full_response)
     """
+    import threading
+    import time
+    
     try:
         # Create progress bar and status text
         progress_bar = st.progress(0)
         status_text = st.empty()
+        timer_text = st.empty()
+        detail_text = st.empty()
+        
+        start_time = time.time()
         
         # Step 1: Initialize managers
         status_text.text("🔧 Initializing AI clients and managers...")
@@ -232,12 +591,16 @@ def score_lead_process_with_progress(lead_description: str) -> tuple[int, int, s
         qdrant_manager, lead_scoring_client, embedding_client = initialize_managers()
         
         # Step 2: Generate embeddings
+        elapsed = time.time() - start_time
+        timer_text.text(f"⏱️ Elapsed: {elapsed:.1f}s")
         status_text.text("🧠 Generating embeddings for lead description...")
         progress_bar.progress(25)
         add_processing_log("Generating embeddings for lead description...")
         question_vector = embedding_client.get_embeddings(lead_description)
         
         # Step 3: Search for similar cases
+        elapsed = time.time() - start_time
+        timer_text.text(f"⏱️ Elapsed: {elapsed:.1f}s")
         status_text.text("🔍 Searching for similar historical cases...")
         progress_bar.progress(45)
         add_processing_log("Searching for similar historical cases...")
@@ -249,40 +612,118 @@ def score_lead_process_with_progress(lead_description: str) -> tuple[int, int, s
         )
         
         # Step 4: Get historical context
+        elapsed = time.time() - start_time
+        timer_text.text(f"⏱️ Elapsed: {elapsed:.1f}s")
         status_text.text("📚 Retrieving historical context...")
         progress_bar.progress(60)
         add_processing_log("Retrieving historical context...")
         historical_context = qdrant_manager.get_context(search_results)
         
-        # Step 5: Score the lead
+        # Step 5: Enhanced AI scoring with animated progress
+        elapsed = time.time() - start_time
+        timer_text.text(f"⏱️ Elapsed: {elapsed:.1f}s")
         status_text.text("⚖️ Analyzing lead with AI scoring system...")
-        progress_bar.progress(80)
-        add_processing_log("Analyzing lead with AI scoring system...")
-        final_analysis = lead_scoring_client.score_lead(
-            new_lead_description=lead_description, historical_context=historical_context
-        )
+        detail_text.text("🤖 Starting AI analysis - this is the longest step (typically 3-5 minutes)...")
+        progress_bar.progress(65)
+        add_processing_log("Starting AI analysis - this is the longest step...")
+        
+        # Create animated progress during AI analysis
+        ai_start_time = time.time()
+        
+        def animate_ai_progress():
+            """Animate progress and update status during AI analysis."""
+            animation_chars = ["⚖️", "🧠", "📊", "🔍", "📝", "⚡"]
+            messages = [
+                "Analyzing case details and evidence strength...",
+                "Comparing with historical precedents...", 
+                "Evaluating liability factors...",
+                "Assessing damages potential...",
+                "Reviewing jurisdictional considerations...",
+                "Calculating confidence metrics...",
+                "Finalizing score and recommendations..."
+            ]
+            
+            char_idx = 0
+            msg_idx = 0
+            
+            while st.session_state.get("ai_analysis_running", False):
+                try:
+                    elapsed_ai = time.time() - ai_start_time
+                    total_elapsed = time.time() - start_time
+                    
+                    # Update animated character
+                    char = animation_chars[char_idx % len(animation_chars)]
+                    
+                    # Update message every 30 seconds
+                    current_msg = messages[msg_idx % len(messages)]
+                    if elapsed_ai > 30 * (msg_idx + 1):
+                        msg_idx += 1
+                    
+                    # Update status with animation
+                    status_text.text(f"{char} AI Analysis in Progress...")
+                    detail_text.text(f"🔄 {current_msg}")
+                    timer_text.text(f"⏱️ Total: {total_elapsed:.1f}s | AI Analysis: {elapsed_ai:.1f}s")
+                    
+                    # Gradually increase progress from 65% to 90% over 5 minutes
+                    estimated_duration = 300  # 5 minutes
+                    progress_increase = min(25, (elapsed_ai / estimated_duration) * 25)
+                    new_progress = min(90, 65 + progress_increase)
+                    progress_bar.progress(int(new_progress))
+                    
+                    char_idx += 1
+                    time.sleep(2)  # Update every 2 seconds
+                    
+                except Exception as e:
+                    # If there's an error updating UI, just continue
+                    time.sleep(2)
+        
+        # Start AI analysis in a separate thread
+        st.session_state.ai_analysis_running = True
+        
+        # Start animation thread
+        animation_thread = threading.Thread(target=animate_ai_progress, daemon=True)
+        animation_thread.start()
+        
+        try:
+            # This is the actual long-running AI analysis
+            final_analysis = lead_scoring_client.score_lead(
+                new_lead_description=lead_description, historical_context=historical_context
+            )
+        finally:
+            # Stop animation
+            st.session_state.ai_analysis_running = False
+            time.sleep(0.5)  # Give animation thread time to stop
         
         # Step 6: Extract metrics
+        elapsed = time.time() - start_time
+        timer_text.text(f"⏱️ Total elapsed: {elapsed:.1f}s")
         status_text.text("📊 Extracting score and confidence metrics...")
+        detail_text.text("🔢 Parsing AI response for numerical scores...")
         progress_bar.progress(95)
         add_processing_log("Extracting score and confidence metrics...")
         score = extract_score_from_response(final_analysis)
         confidence = extract_confidence_from_response(final_analysis)
         
         # Step 7: Complete
+        elapsed = time.time() - start_time
+        timer_text.text(f"⏱️ Total time: {elapsed:.1f}s")
         status_text.text("✅ Lead scoring completed successfully!")
+        detail_text.text(f"🎉 Analysis complete! Score: {score}/100, Confidence: {confidence}/100")
         progress_bar.progress(100)
         add_processing_log("Lead scoring completed successfully!")
         
         # Clear progress indicators after a brief pause
-        import time
-        time.sleep(1)
+        time.sleep(2)
         progress_bar.empty()
         status_text.empty()
+        timer_text.empty()
+        detail_text.empty()
         
         return score, confidence, final_analysis
 
     except Exception as e:
+        # Make sure to stop animation if there's an error
+        st.session_state.ai_analysis_running = False
         add_processing_log(f"Error occurred: {str(e)}")
         st.error(f"Error processing lead: {str(e)}")
         return 0, 50, f"Error: {str(e)}"
@@ -293,6 +734,161 @@ import json
 import os
 from pathlib import Path
 import time
+
+# ─── SESSION TIMERS ───────────────────────────────────────────────────────────────
+def render_session_timers() -> None:
+    """
+    Render live countdown timers in the sidebar for:
+    - Next ngrok link reset (every 2 hours by default)
+    - Total session end time based on the launcher-provided total hours
+
+    Reads timing information from environment variables set by the launcher:
+    SERVICE_START_EPOCH, SESSION_DURATION_SECONDS, TOTAL_END_EPOCH.
+
+    Fallbacks are provided if variables are missing (e.g., when running locally).
+
+    Returns:
+        None
+    """
+    # Defaults: session resets every 2 hours; total end is infinite.
+    service_start_epoch_env = os.getenv("SERVICE_START_EPOCH")
+    session_duration_seconds_env = os.getenv("SESSION_DURATION_SECONDS", "7200")
+    total_end_epoch_env = os.getenv("TOTAL_END_EPOCH", "inf")
+
+    try:
+        service_start_epoch = int(service_start_epoch_env) if service_start_epoch_env else int(time.time())
+    except ValueError:
+        service_start_epoch = int(time.time())
+
+    try:
+        session_duration_seconds = int(float(session_duration_seconds_env))
+    except ValueError:
+        session_duration_seconds = 7200
+
+    # JS needs null for infinite end
+    try:
+        total_end_epoch_js = str(int(float(total_end_epoch_env))) if total_end_epoch_env.lower() != "inf" else "null"
+    except Exception:
+        total_end_epoch_js = "null"
+
+    # Build HTML/JS for live updating timers without forcing Streamlit reruns
+    timer_html = f"""
+    <style>
+      .timer-container {{
+        display: flex;
+        gap: 20px;
+        margin-bottom: 25px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }}
+      .timer-card {{
+        background-color: #1a1a1a;
+        border: 2px solid #ff6b35;
+        border-radius: 12px;
+        padding: 20px 24px;
+        font-family: 'Inter', sans-serif;
+        color: #ffffff;
+        min-width: 280px;
+        text-align: center;
+        box-shadow: 0 4px 12px rgba(255, 107, 53, 0.2);
+        transition: all 0.3s ease;
+      }}
+      .timer-card:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.3);
+      }}
+      .timer-title {{
+        color: #ff6b35;
+        font-weight: 700;
+        margin: 0 0 10px 0;
+        font-size: 16px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }}
+      .timer-value {{
+        font-size: 28px;
+        font-weight: 700;
+        color: #ffffff;
+        margin-bottom: 8px;
+        font-family: 'Courier New', monospace;
+      }}
+      .timer-sub {{
+        font-size: 13px;
+        color: #e0e0e0;
+        margin-top: 4px;
+        opacity: 0.8;
+      }}
+    </style>
+    <div class="timer-container">
+      <div class="timer-card">
+        <div class="timer-title">Next Link Reset</div>
+        <div id="nextResetCountdown" class="timer-value">--:--:--</div>
+        <div id="nextResetAt" class="timer-sub">Resets at: --</div>
+      </div>
+      <div class="timer-card">
+        <div class="timer-title">Total Session</div>
+        <div id="totalRemaining" class="timer-value">∞</div>
+        <div id="totalEndsAt" class="timer-sub">Ends at: ∞</div>
+      </div>
+    </div>
+    <script>
+      const serviceStartEpoch = {service_start_epoch};
+      const sessionDurationSeconds = {session_duration_seconds};
+      const totalEndEpoch = {total_end_epoch_js};
+
+      function pad(num) {{ return String(num).padStart(2, '0'); }}
+
+      function formatHMS(seconds) {{
+        if (!isFinite(seconds)) return '∞';
+        seconds = Math.max(0, Math.floor(seconds));
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = seconds % 60;
+        return `${{pad(h)}}:${{pad(m)}}:${{pad(s)}}`;
+      }}
+
+      function updateTimers() {{
+        const now = Date.now() / 1000;
+
+        // Next reset computation using periodic 2-hour windows from service start
+        const elapsed = Math.max(0, now - serviceStartEpoch);
+        const periodIndex = Math.floor(elapsed / sessionDurationSeconds);
+        const nextResetEpoch = serviceStartEpoch + (periodIndex + 1) * sessionDurationSeconds;
+        const nextResetRemaining = nextResetEpoch - now;
+
+        const nextResetEl = document.getElementById('nextResetCountdown');
+        const nextResetAtEl = document.getElementById('nextResetAt');
+        if (nextResetEl && nextResetAtEl) {{
+          nextResetEl.textContent = formatHMS(nextResetRemaining);
+          nextResetAtEl.textContent = 'Resets at: ' + new Date(nextResetEpoch * 1000).toLocaleString();
+        }}
+
+        const totalRemainingEl = document.getElementById('totalRemaining');
+        const totalEndsAtEl = document.getElementById('totalEndsAt');
+        if (totalEndEpoch && isFinite(totalEndEpoch)) {{
+          const totalRemaining = Math.max(0, totalEndEpoch - now);
+          totalRemainingEl.textContent = formatHMS(totalRemaining);
+          totalEndsAtEl.textContent = 'Ends at: ' + new Date(totalEndEpoch * 1000).toLocaleString();
+        }} else {{
+          totalRemainingEl.textContent = '∞';
+          totalEndsAtEl.textContent = 'Ends at: ∞';
+        }}
+      }}
+
+      updateTimers();
+      setInterval(updateTimers, 1000);
+    </script>
+    """
+
+    # Use components to allow JS execution for smooth updates
+    try:
+        import streamlit.components.v1 as components
+        components.html(timer_html, height=140, scrolling=False)
+    except Exception:
+        # Fallback: static labels if components are unavailable
+        st.markdown("### Session Timers")
+        st.write("Timer component unavailable in this environment.")
+
 
 def get_example_lead():
     """Get the example lead data."""
@@ -385,8 +981,18 @@ if "processing_start_time" not in st.session_state:
     st.session_state.processing_start_time = None
 
 # ─── MAIN UI ────────────────────────────────────────────────────────────────────────
-st.title("⚖️ Lead Scoring System")
-st.markdown("Enter a lead description to score its potential for success.")
+st.markdown("""
+<h1 style='text-align: center; color: #ff6b35; margin-bottom: 0.5rem; font-family: Inter, sans-serif; font-weight: 700;'>
+    ⚖️ Lead Scoring System
+</h1>
+<p style='text-align: center; color: #e0e0e0; font-size: 1.1rem; margin-bottom: 2rem; font-family: Inter, sans-serif;'>
+    Enter a lead description to score its potential for success.
+</p>
+""", unsafe_allow_html=True)
+
+# ─── SESSION TIMERS (MAIN DISPLAY) ─────────────────────────────────────────────────
+st.markdown("### 🕒 Session Timers")
+render_session_timers()
 
 # Input section
 with st.container():
@@ -463,7 +1069,7 @@ if not example_exists:
 
 if st.session_state.scored_leads:
 
-    # Custom CSS for the score blocks, hover effects, and warning labels
+    # Custom CSS for black & orange theme score blocks, hover effects, and warning labels
     st.markdown(
         """
     <style>
@@ -471,30 +1077,38 @@ if st.session_state.scored_leads:
         display: inline-block;
         width: 60px;
         height: 60px;
-        border-radius: 8px;
+        border-radius: 12px;
         text-align: center;
         line-height: 60px;
-        font-weight: bold;
+        font-weight: 700;
         font-size: 18px;
         color: white;
         margin-right: 15px;
         vertical-align: top;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+        border: 2px solid #404040;
+        font-family: 'Inter', sans-serif;
     }
     
     .lead-item {
         display: flex;
         align-items: flex-start;
-        padding: 15px;
-        margin: 10px 0;
-        border: 1px solid #e0e0e0;
-        border-radius: 8px;
-        background-color: #fafafa;
-        transition: background-color 0.3s ease;
+        padding: 20px;
+        margin: 15px 0;
+        border: 2px solid #404040;
+        border-radius: 12px;
+        background-color: #2d2d2d;
+        transition: all 0.3s ease;
+        color: #ffffff;
+        font-family: 'Inter', sans-serif;
     }
     
     .lead-item:hover {
-        background-color: #f0f0f0;
+        background-color: #404040;
         cursor: pointer;
+        border-color: #ff6b35;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(255, 107, 53, 0.2);
     }
     
     .lead-content {
@@ -504,39 +1118,77 @@ if st.session_state.scored_leads:
     .lead-description {
         font-size: 16px;
         margin-bottom: 8px;
-        line-height: 1.4;
+        line-height: 1.5;
+        color: #ffffff;
+        font-weight: 400;
     }
     
     .lead-timestamp {
         font-size: 12px;
-        color: #666;
+        color: #ffffff;
         margin-bottom: 8px;
+        font-weight: 500;
     }
     
     .lead-preview {
         font-size: 14px;
-        color: #888;
+        color: #e0e0e0;
         font-style: italic;
     }
     
     .warning-label {
         background: repeating-linear-gradient(
             45deg,
-            rgba(255, 193, 7, 0.3),
-            rgba(255, 193, 7, 0.3) 10px,
-            rgba(255, 193, 7, 0.1) 10px,
-            rgba(255, 193, 7, 0.1) 20px
+            rgba(255, 107, 53, 0.2),
+            rgba(255, 107, 53, 0.2) 10px,
+            rgba(255, 107, 53, 0.1) 10px,
+            rgba(255, 107, 53, 0.1) 20px
         );
-        border: 2px solid #ffc107;
-        border-radius: 6px;
-        padding: 8px 12px;
-        margin: 5px 0;
-        font-weight: bold;
-        color: #856404;
+        border: 2px solid #ff6b35;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin: 10px 0;
+        font-weight: 600;
+        color: #ff8a65;
         text-align: center;
         font-size: 14px;
+        background-color: rgba(255, 107, 53, 0.15);
+        font-family: 'Inter', sans-serif;
     }
     
+    /* Black & orange expander styling */
+    div[data-testid="stExpander"] {
+        background-color: #2d2d2d;
+        border-radius: 12px;
+        border: 2px solid #404040;
+        margin: 10px 0;
+        transition: all 0.3s ease;
+    }
+    
+    div[data-testid="stExpander"]:hover {
+        border-color: #ff6b35;
+    }
+    
+    div[data-testid="stExpander"] > div[data-testid="stExpanderDetails"] {
+        background-color: #1a1a1a;
+        color: #ffffff;
+        border-top: 2px solid #404040;
+    }
+    
+    div[data-testid="stExpander"] > div[data-testid="stExpanderDetails"] * {
+        color: #ffffff !important;
+    }
+    
+    div[data-testid="stExpander"] summary {
+        background-color: #2d2d2d;
+        color: #ffffff;
+        font-weight: 500;
+        font-family: 'Inter', sans-serif;
+    }
+    
+    div[data-testid="stExpander"] summary:hover {
+        background-color: #404040;
+    }
 
     </style>
     """,
@@ -595,19 +1247,33 @@ if st.session_state.scored_leads:
                     f"Score: {lead['score']}/100 | Confidence: {lead.get('confidence', 50)}/100 - {lead['timestamp']}",
                     expanded=False,
                 ):
-                    # Lead description
-                    st.markdown("**Lead Description:**")
-                    st.write(lead["description"])
-
-                    # Show analysis details
-                    st.markdown("**Analysis Details:**")
+                    # Show AI analysis first - this is the primary content
+                    st.markdown("""
+                    <h3 style='color: #ff6b35; font-family: Inter, sans-serif; margin-bottom: 15px; border-bottom: 2px solid #ff6b35; padding-bottom: 8px;'>
+                        AI Analysis & Recommendation
+                    </h3>
+                    """, unsafe_allow_html=True)
+                    
                     st.text_area(
-                        label="Full Analysis",
+                        label="",
                         value=lead["analysis"],
-                        height=400,
+                        height=450,
                         disabled=True,
                         key=f"analysis_{i}",
+                        help="Comprehensive AI analysis of lead potential, risks, and recommendations"
                     )
+
+                    # Show lead description second - smaller and less prominent
+                    st.markdown("<br>", unsafe_allow_html=True)  # Add some spacing
+                    
+                    with st.expander("📋 View Original Lead Description", expanded=False):
+                        st.markdown(f"""
+                        <div style='background-color: #1a1a1a; padding: 15px; border-radius: 8px; border-left: 3px solid #404040;'>
+                            <p style='color: #e0e0e0; font-size: 14px; line-height: 1.5; margin: 0; font-family: Inter, sans-serif;'>
+                                {lead['description']}
+                            </p>
+                        </div>
+                        """, unsafe_allow_html=True)
 
 else:
     st.info(
@@ -649,11 +1315,37 @@ with st.sidebar:
         """
     1. Enter a detailed lead description
     2. Click "Score Lead" to analyze
-    3. **Watch the progress bar** and status updates during processing
-    4. **View processing logs** in the expandable section after completion
-    5. View results in the main panel
-    6. Click on any scored lead to see full analysis
-    7. **Border color** shows AI confidence in the analysis
+    3. **Watch the progress bar** and animated status updates
+    4. **AI Analysis Phase** (3-5 minutes):
+       - The longest step with animated progress
+       - Shows current analysis task
+       - Displays elapsed time
+       - Progress bar gradually fills during analysis
+    5. **View processing logs** in the expandable section after completion
+    6. View results in the main panel
+    7. Click on any scored lead to see full analysis
+    8. **Border color** shows AI confidence in the analysis
+    """
+    )
+
+    st.markdown("### AI Analysis Details")
+    st.markdown(
+        """
+    During the **AI Analysis** phase, the system:
+    
+    🧠 **Analyzes** case details and evidence strength
+    
+    📚 **Compares** with historical precedents
+    
+    ⚖️ **Evaluates** liability factors and damages
+    
+    🔍 **Reviews** jurisdictional considerations
+    
+    📊 **Calculates** confidence and final scores
+    
+    ⏱️ **Typical Duration**: 3-5 minutes
+    
+    💡 **Tip**: The animated icons and changing messages indicate the system is actively processing your lead.
     """
     )
 
@@ -670,15 +1362,3 @@ with st.sidebar:
         st.metric("Total Leads", len(st.session_state.scored_leads))
         st.metric("Average Score", f"{avg_score:.1f}")
         st.metric("Average Confidence", f"{avg_confidence:.1f}")
-        
-        # Show file location and save button
-        st.markdown("### Data Persistence")
-        home_dir = Path.home()
-        score_file = home_dir / "score_tests.json"
-        st.text(f"File: {score_file}")
-        
-        if st.button("Save Current State"):
-            # Save only example leads
-            example_leads = [lead for lead in st.session_state.scored_leads if lead.get("is_example", False)]
-            save_example_lead(example_leads)
-            st.success("Example leads saved successfully!")

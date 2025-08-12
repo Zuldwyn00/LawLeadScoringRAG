@@ -21,6 +21,7 @@ class ToolManager:
         self.tool_map = {tool.name: tool for tool in self.tools}
         self.tool_call_count = 0
         self.tool_call_limit = tool_call_limit
+        self.tool_call_history = []  # Track which tools were called
 
     def call_tool(self, tool_call: dict) -> ToolMessage:
         """
@@ -60,6 +61,13 @@ class ToolManager:
             output = tool_to_call.invoke(tool_args)
             self.tool_call_count += 1
             
+            # Track the tool call in history
+            self.tool_call_history.append({
+                "tool_name": tool_name,
+                "args": tool_args,
+                "call_id": tool_call.get("id", "unknown")
+            })
+            
             # Handle tuple returns (content, token_count) for get_file_context
             if isinstance(output, tuple) and len(output) == 2 and isinstance(output[1], int):
                 content, token_count = output
@@ -88,6 +96,32 @@ class ToolManager:
             tool_output = self.call_tool(tool_call)
             tool_calls_data.append(tool_output)
         return tool_calls_data
+    
+    def get_tool_usage_summary(self) -> str:
+        """
+        Generate a summary of tool usage for reporting.
+        
+        Returns:
+            str: A formatted summary of which tools were used and how many times.
+        """
+        if not self.tool_call_history:
+            return "No tool calls were made."
+        
+        # Count tool usage by name
+        tool_counts = {}
+        for call in self.tool_call_history:
+            tool_name = call["tool_name"]
+            tool_counts[tool_name] = tool_counts.get(tool_name, 0) + 1
+        
+        # Format the summary
+        tool_list = []
+        for tool_name, count in tool_counts.items():
+            if count == 1:
+                tool_list.append(f"{tool_name} (1 time)")
+            else:
+                tool_list.append(f"{tool_name} ({count} times)")
+        
+        return f"Tools used: {', '.join(tool_list)}"
     
 @tool
 def get_file_context(filepath: str, token_threshold: int = 4000) -> tuple:

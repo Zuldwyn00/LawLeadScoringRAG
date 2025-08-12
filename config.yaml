@@ -38,4 +38,6 @@ jurisdiction_scoring:
     summary: 0.0,
   }
 
-    
+caching:
+  directories:
+    summary_cache: "scripts/data/caching/summary_cache"

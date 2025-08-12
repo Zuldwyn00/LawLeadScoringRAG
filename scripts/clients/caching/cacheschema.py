@@ -55,8 +55,8 @@ class CacheEntry(ABC):
             dict: Dictionary with base fields (created_at, source_file, client, tokens)
         """
         return {
-            'created_at': self.created_at,
-            'source_file': self.source_file,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'source_file': str(self.source_file),
             'client': self.client,
             'tokens': self.tokens,
         }
@@ -71,7 +71,6 @@ class SummaryCacheEntry(CacheEntry):
     metadata about when it was created and the source text.
     """
     summary: str = "" #have to set a default to avoid initializing blank value after defined values in parent class CacheEntry
-    cache_dir: str = field(default="data/caches")
 
     def __post_init__(self):
         super().__post_init__()
@@ -88,6 +87,6 @@ class SummaryCacheEntry(CacheEntry):
         Returns:
             dict: Dictionary representation of the cache entry with all fields
         """
-        result = self._get_base_dict()
+        result = super()._get_base_dict()
         result['summary'] = self.summary
         return result

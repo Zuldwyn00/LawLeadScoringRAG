@@ -1,4 +1,5 @@
 
+from pathlib import Path
 from utils import *
 from .cacheschema import *
 from .hashing import get_partition_path
@@ -11,6 +12,8 @@ class ClientCacheManager:
         self.cache_paths = self.config.get('caching', {}).get('directories', {})
         self.partition_count = 50  # Number of partition files to create
 
+        ensure_directories([Path(path) for path in self.cache_paths.values()])
+        
     def get_cache_directory(self, cache_type: type[CacheEntry]) -> str | None:
         """
         Get the filepath for a given CacheEntry type.

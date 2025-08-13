@@ -2,9 +2,12 @@
 A client that gets a summarization of a given text.
 """
 
+from pathlib import Path
+from typing import Optional
 from langchain_core.messages import SystemMessage, HumanMessage
 
 from ..base import BaseClient
+from ..caching.cacheschema import SummaryCacheEntry
 from utils import load_prompt, count_tokens, setup_logger, load_config
 
 
@@ -41,13 +44,14 @@ class SummarizationClient:
             f"Initialized SummarizationClient with {client.__class__.__name__}"
         )
 
-    def summarize_text(self, text: str, max_tokens: int = 18000) -> str:
+    def summarize_text(self, text: str, max_tokens: int = 15000, source_file: Optional[str] = None) -> str:
         """
-        Summarizes the given text using the language model.
+        Summarizes the given text using the language model with caching support.
 
         Args:
             text (str): The text to summarize
             max_tokens (int): Maximum tokens allowed before summarization is skipped
+            source_file (Optional[str]): Path to the source file being summarized (for caching)
 
         Returns:
             str: The summarized text, or error message if summarization fails
@@ -58,6 +62,18 @@ class SummarizationClient:
                 f"Text is too long to summarize ({count_tokens(text)} tokens > {max_tokens})"
             )
             return "The text is too long to summarize, returning first 4000 characters\n\n" + text[:4000]
+        
+        # Cache lookup: if we already summarized this file with this client, reuse it
+        # Reason: Avoids redundant LLM calls to reduce latency and cost
+        if source_file and hasattr(self.client, 'cache_manager') and hasattr(self.client, 'client_type'):
+            source_path = Path(source_file)
+            cached_entry = self.client.cache_manager.get_cached_entry(
+                client=self.client.client_type,
+                source_file=str(source_path),
+                cache_type=SummaryCacheEntry
+            )
+            if cached_entry:
+                return cached_entry.summary
             
         try:
             self.logger.info("Summarizing text with LLM...")
@@ -73,6 +89,27 @@ class SummarizationClient:
             # Get response from the client
             response = self.client.invoke(messages)
             summary = response.content
+            
+            # Cache write: persist the newly generated summary for future reuse
+            # Reason: Ensures subsequent requests for the same (file, client) load from cache
+            if source_file and hasattr(self.client, 'cache_manager') and hasattr(self.client, 'client_type'):
+                try:
+                    source_path = Path(source_file)
+                    token_count = count_tokens(summary)
+                    
+                    cache_entry = SummaryCacheEntry(
+                        source_file=source_path,
+                        client=self.client.client_type,
+                        summary=summary,
+                        tokens=token_count
+                    )
+                    
+                    self.client.cache_manager.cache_entry(cache_entry)
+                    self.logger.info(f"Cached summarization result for '{source_file}' with client '{self.client.client_type}'")
+                    
+                except Exception as e:
+                    self.logger.warning(f"Error caching result for '{source_file}': {e}")
+                    # Continue normally if caching fails
 
             self.logger.debug(f"Generated summary: {summary}")
             return summary

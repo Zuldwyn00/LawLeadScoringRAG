@@ -110,7 +110,7 @@ def score_test():
     summarizer = SummarizationClient(AzureClient(client_config="gpt-o4-mini"))
     
     scorer_kwargs = {'confidence_threshold': 80, 'final_model': 'gpt-4.1', 'final_model_temperature': 0.0}
-    scorer = LeadScoringClient(AzureClient(client_config="gpt-o4-mini"), sumarizer=summarizer, **scorer_kwargs)
+    scorer = LeadScoringClient(AzureClient(client_config="gpt-o4-mini"), summarizer=summarizer, **scorer_kwargs)
     
     new_lead_description = (
      "Potential client – Nassau County slip-and-fall. A 52-year-old office "

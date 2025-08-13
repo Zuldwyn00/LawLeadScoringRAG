@@ -1,32 +1,26 @@
 from typing import Optional, Callable
 
 # ─── GLOBAL SUMMARIZATION REGISTRY ──────────────────────────────────────────────────
-# This module implements a simple global registry pattern to store and retrieve
-# summarization functions across the application. This allows different parts of
-# the codebase to access the same summarization function without passing it
-# through every function call and avoiding a circular import issue.
+# Simple global registry to store the summarization client for use in tools
 
-# Global variable to store the current summarization function
-_summarizer: Optional[Callable[[str], str]] = None
+# Global variable to store the current summarization client
+_summarization_client = None
 
-def set_summarizer(fn: Callable[[str], str]):
+def set_summarization_client(client):
     """
-    Register a summarization function globally.
-    
-    This function stores a callable that takes a string and returns a summarized string.
-    Once set, any part of the application can retrieve and use this summarizer.
+    Register a SummarizationClient globally for use in tools.
     
     Args:
-        fn: A function that takes a string input and returns a summarized string
+        client: A SummarizationClient instance
     """
-    global _summarizer
-    _summarizer = fn
+    global _summarization_client
+    _summarization_client = client
 
-def get_summarizer() -> Optional[Callable[[str], str]]:
+def get_summarization_client():
     """
-    Retrieve the currently registered summarization function.
+    Retrieve the currently registered SummarizationClient.
     
     Returns:
-        The registered summarization function, or None if no function has been set
+        The registered SummarizationClient, or None if no client has been set
     """
-    return _summarizer
+    return _summarization_client

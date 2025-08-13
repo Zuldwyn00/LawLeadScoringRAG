@@ -1,9 +1,10 @@
 # ─── FILE CONTENT TOOL ──────────────────────────────────────────────────────────
-from calendar import c
-from typing import Optional, List, Callable
+
+from typing import List, Callable
 from utils import count_tokens, setup_logger, load_config
 from scripts.filemanagement import get_text_from_file
-from .agents.utils.summarization_registry import set_summarizer, get_summarizer
+from .agents.utils.summarization_registry import get_summarization_client
+from .caching import SummaryCacheEntry
 
 from langchain_core.tools import tool
 from langchain_core.messages import ToolMessage
@@ -124,7 +125,7 @@ class ToolManager:
         return f"Tools used: {', '.join(tool_list)}"
     
 @tool
-def get_file_context(filepath: str, token_threshold: int = 4000) -> tuple:
+def get_file_context(filepath: str, token_threshold: int = 1000) -> tuple:
     """
     Retrieves content from a file and returns it along with token count, summarizes the content
     if it surpasses token_threshold.
@@ -146,15 +147,21 @@ def get_file_context(filepath: str, token_threshold: int = 4000) -> tuple:
         content = parsed['content']
         original_tokens = count_tokens(content)
 
-        summarizer_fn = get_summarizer()
-        if summarizer_fn and original_tokens > token_threshold:
+        # Check if we need to summarize and have a summarization client
+        summarization_client = get_summarization_client()
+        
+        if summarization_client and original_tokens > token_threshold:
             logger.info("File '%s' has '%i' tokens > '%i'; summarising...", filepath, original_tokens, token_threshold)
-            content = summarizer_fn(content) 
+            
+            # Use summarization client with caching support
+            content = summarization_client.summarize_text(content, source_file=filepath)
             token_count = count_tokens(content)       
         else:
+            logger.info("File '%s' has '%i' tokens ≤ '%i'; summarization not required.", filepath, original_tokens, token_threshold)
             token_count = original_tokens
 
         return(content, token_count)
     except Exception as e:
         logger.error(f"Failed to read file '{filepath}': {type(e).__name__}: {str(e)}")
         return f"Error: Unable to read file {filepath}"
+

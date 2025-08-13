@@ -11,7 +11,7 @@ from ..azure import AzureClient
 from utils import load_prompt, count_tokens, setup_logger, load_config
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from ..tools import get_file_context, ToolManager
-from .utils.summarization_registry import set_summarizer
+from .utils.summarization_registry import set_summarization_client
 from ..caching.cacheschema import SummaryCacheEntry
 
 
@@ -45,49 +45,10 @@ class LeadScoringClient:
         self.tool_manager = ToolManager(tools=[get_file_context])
         self.current_lead_score = None
 
-        # Extract summarizer from kwargs and register it globally for use across the application
+        # Register summarizer globally for use in tools (with caching support)
         self.summarizer = summarizer
-        if self.summarizer is not None:
-            # Register the summarizer's summarize_text method with caching wrapper in the global registry
-            # so other components can access it without passing it through every function call
-            def _create_content_signature(text: str) -> Path:
-                """Create a content-based signature for cache keying."""
-                digest = hashlib.sha1(text.encode("utf-8")).hexdigest()
-                return Path(f"content://{digest}")
-
-            def summarize_with_cache(text: str) -> str:
-                """Wrapper that adds caching to summarization calls."""
-                cache_manager = self.summarizer.client.cache_manager
-                signature = _create_content_signature(text)
-                client_type = self.summarizer.client.client_type
-
-                # Try to get cached result
-                cached_entry = cache_manager.get_cached_entry(signature, client_type)
-                if cached_entry:
-                    self.logger.debug("Cache hit for content signature: %s", signature)
-                    return cached_entry['summary']
-
-                # Cache miss - perform summarization
-                self.logger.debug("Cache miss for content signature: %s", signature)
-                summary = self.summarizer.summarize_text(text)
-                
-                # Cache the result
-                try:
-                    entry = SummaryCacheEntry(
-                        source_file=signature,
-                        client=client_type,
-                        tokens=count_tokens(text),
-                        summary=summary,
-                    )
-                    cache_manager.cache_entry(entry)
-                    self.logger.debug("Cached summary for signature: %s", signature)
-                except Exception as e:
-                    # Don't let cache failures break the main flow
-                    self.logger.warning("Failed to cache summary: %s", e)
-                
-                return summary
-
-            set_summarizer(summarize_with_cache)
+        if self.summarizer:
+            set_summarization_client(self.summarizer)
 
         self.logger = setup_logger(self.__class__.__name__, load_config())
         self.logger.info(

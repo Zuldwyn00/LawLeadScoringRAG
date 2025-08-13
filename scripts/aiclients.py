@@ -12,7 +12,6 @@ from langchain_openai import AzureOpenAIEmbeddings, AzureChatOpenAI
 from langchain_core.rate_limiters import InMemoryRateLimiter
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage, AIMessage
 from typing import List, Callable
-from functools import wraps
 
 from utils import load_prompt, load_config, setup_logger, count_tokens
 from scripts.filemanagement import get_text_from_file

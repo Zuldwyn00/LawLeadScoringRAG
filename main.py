@@ -17,6 +17,7 @@
 #TODO: The jurisdiction scoring is inflated i believe, as it adds together all the duplicated values of the settlement values to get the average, rather than just the unique values.
 
 #TODO: Finish Caching system
+    #TODO: Allow caching system to look for first applicable filepath for a cache if the client is not given
 
 #TODO: Tool batch calling does not work, seems to be a limitation from the client we are using, langchain seems to support it from what I can tell.
 

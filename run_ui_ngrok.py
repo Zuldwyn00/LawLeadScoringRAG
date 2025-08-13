@@ -284,10 +284,10 @@ def main():
     print(f"✅ Found ngrok at: {ngrok_path}")
 
     local_ip = get_local_ip()
-    port = 3000
+    port = 8080
 
     # Session and runtime management
-    session_duration_hours = 2  # Restart tunnel every 2 hours
+    session_duration_hours = 6  # Restart tunnel every 6 hours (less aggressive)
     total_start_time = time.time()
     session_start_time = total_start_time
     

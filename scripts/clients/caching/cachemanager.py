@@ -1,7 +1,7 @@
 
-import hashlib
 from utils import *
 from .cacheschema import *
+from .hashing import get_partition_path
 
 
 class ClientCacheManager:
@@ -9,8 +9,9 @@ class ClientCacheManager:
         self.config = load_config()
         self.logger = setup_logger(name = 'CacheManager', config=self.config)
         self.cache_paths = self.config.get('caching', {}).get('directories', {})
+        self.partition_count = 50  # Number of partition files to create
 
-    def _get_cache_filepath(self, cache_type: type[CacheEntry]) -> str | None:
+    def get_cache_directory(self, cache_type: type[CacheEntry]) -> str | None:
         """
         Get the filepath for a given CacheEntry type.
         
@@ -29,7 +30,7 @@ class ClientCacheManager:
         
         # Map cache type to filepath
         if cache_type == SummaryCacheEntry:
-            filepath = self.cache_paths.get('summary_cache')
+            filepath = self.cache_paths.get('summary')
             self.logger.debug("Mapped %s to filepath: '%s'", cache_type.__name__, filepath)
             return filepath
         else:
@@ -37,70 +38,71 @@ class ClientCacheManager:
             return None
 
     def cache_entry(self, data: CacheEntry):
-        """
-        Cache a data entry to the appropriate JSON file based on its type.
-        
-        Automatically determines the correct cache file location by inspecting
-        the data object's type and mapping it to the corresponding cache path
-        in self.cache_paths. Stores entries in a keyed dictionary format where
-        keys are content signatures (source_file + client).
-        
-        Args:
-            data (CacheEntry): The cache entry object to store. Must be a subclass
-                              of CacheEntry (e.g., SummaryCacheEntry).
-        
-        Raises:
-            TypeError: If the data type is not a recognized cache entry type.
-        """
-        filepath = self._get_cache_filepath(type(data))
-        if not filepath:
-            raise TypeError("Invalid cache entry")
-        
-        # Load existing cache data as a dictionary
-        try:
-            cache_data = load_from_json(filepath) or {}
-        except Exception as e:
-            self.logger.warning("Could not load existing cache, starting fresh: %s", e)
-            cache_data = {}
-        
-        # Create cache key from source_file and client
         cache_key = f"{data.source_file}#{data.client}"
+        base_dir = self.get_cache_directory(type(data))
+        base_name = type(data).__name__.lower()
         
-        # Store the entry data
+        cache_path = get_partition_path(cache_key, base_dir, base_name)
+        try:
+            cache_data = load_from_json(cache_path)
+        except Exception as e:
+            self.logger.warning("No existing cache found at '%s', initializing new cache file: %s", cache_path, e)
+            cache_data = {}
+
         data_dict = data.to_dict()
         cache_data[cache_key] = data_dict
         
-        # Save back to file
-        save_to_json(cache_data, filepath=filepath)
-        self.logger.debug("Cached entry with key '%s'", cache_key)
+        save_to_json(cache_data, filepath=cache_path)
+        self.logger.debug("Cached entry with key '%s' into file '%s'.", cache_key, cache_path)
 
-    def get_cached_data(self, filepath: str | type[CacheEntry]) -> dict | None:
+    
+    def get_cached_entry(self, client: str, source_file: str, cache_type: type[CacheEntry]) -> CacheEntry | None:
         """
-        Retrieve (ALL) cached data from JSON file.
-        
-        Automatically determines the correct cache file location by either:
-        1. Using the provided filepath string directly, or
-        2. Using the CacheEntry class type to map it to the corresponding
-           cache path in self.cache_paths (e.g., SummaryCacheEntry -> 'summary_cache.json').
-        
+        Retrieves a cached entry for a specific client and source file combination.
+
+        Constructs a cache key from the source file and client, then attempts to load
+        and reconstruct the corresponding cache entry from the partitioned cache storage.
+        A None return value indicates the caller should generate fresh data for this entry.
+
         Args:
-            filepath (str | type[CacheEntry]): Either a direct filepath string or a CacheEntry
-                                              class type which will be used to determine the
-                                              appropriate cache file location.
-        
+            client (str): The client identifier used for cache key generation.
+            source_file (str): The source file path used for cache key generation.
+            cache_type (type[CacheEntry]): The specific cache entry type to reconstruct.
+                Used to determine the cache directory and for object reconstruction.
+
         Returns:
-            dict | None: The entire cached data dictionary, or None if loading fails.
+            CacheEntry | None: The reconstructed cache entry object if found and valid.
+                None indicates a cache miss (no existing entry) or reconstruction failure,
+                signaling the caller to process new data for this entry since it doesn't
+                exist in the cache. This is normal behavior, not an error condition.
+
+        Raises:
+            No exceptions are raised directly. All errors are caught and logged,
+            with None returned to indicate cache miss or failure.
         """
-        if isinstance(filepath, type) and issubclass(filepath, CacheEntry):
-            filepath = self._get_cache_filepath(filepath)
-            if not filepath:
-                return None
+        cache_key = f"{source_file}#{client}"
+        base_dir = self.get_cache_directory(cache_type)
+        base_name = cache_type.__name__.lower() 
+
+        cache_path = get_partition_path(cache_key, base_dir, base_name)
 
         try:
-            cached_data = load_from_json(filepath)
-            return cached_data
+            cache_data = load_from_json(cache_path)
         except Exception as e:
-            self.logger.error("Failed to load cached summary from %s: %s", filepath, str(e))
-            return None
+            self.logger.info("Cache file not found at '%s', returning None for cache miss. '%s'", cache_path, e)
+            return None  # Cache miss: no existing data found, caller will need to generate fresh content, this is expected behavior and is not indicative of an error
 
-    def get_cached_entry(self, client: Optional[str] , source_file: Path,  cache_type: type[CacheEntry]):
+        if cache_key in cache_data:
+            entry_dict = cache_data[cache_key]
+            self.logger.debug("Cache hit for key '%s', reconstructing %s object", cache_key, cache_type.__name__)
+
+            try:
+                cache_entry = cache_type.from_dict(entry_dict) #turn the entry_dict back into a cacheentry object
+                return cache_entry
+            except Exception as e:
+                self.logger.error("Failed to reconstruct '%s' from cached data: '%s'.", cache_type.__name__, e)
+                return None
+        
+        self.logger.debug("Cache miss for key '%s'", cache_key)
+        return None 
+    

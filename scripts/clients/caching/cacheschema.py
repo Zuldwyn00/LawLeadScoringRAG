@@ -39,20 +39,11 @@ class CacheEntry(ABC):
         """
         Convert the cache object to a dictionary.
         
-        Subclasses MUST override this method and call self._get_base_dict() 
-        to include base fields, then add their own fields.
+        Abstract method with base implementation - subclasses MUST override this
+        but can call super().to_dict() to get base fields.
         
         Returns:
-            dict: Dictionary representation of the cache entry with all fields
-        """
-        pass
-    
-    def _get_base_dict(self) -> dict:
-        """
-        Get the base dictionary with common fields.
-        
-        Returns:
-            dict: Dictionary with base fields (created_at, source_file, client, tokens)
+            dict: Dictionary representation of the cache entry with base fields
         """
         return {
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
@@ -61,6 +52,62 @@ class CacheEntry(ABC):
             'tokens': self.tokens,
         }
     
+    @classmethod
+    def from_dict(cls, data: dict):
+        """
+        Reconstruct a CacheEntry object from a dictionary.
+        
+        Base implementation handles conversion of ALL common fields:
+        - created_at: string -> datetime object
+        - source_file: string -> Path object  
+        - client: string (validated as present)
+        - tokens: string -> int or None (with validation)
+        
+        Subclasses should override this method to handle their specific fields
+        while calling this base implementation for common field conversion.
+        
+        Args:
+            data (dict): Dictionary containing cache entry data
+            
+        Returns:
+            CacheEntry: Reconstructed cache entry object with all base fields
+            
+        Raises:
+            ValueError: If required fields are missing, conversion fails, or data validation fails
+        """
+        # Create a copy to avoid modifying the original dict
+        converted_data = data.copy()
+        
+        # Convert string datetime back to datetime object
+        created_at_str = converted_data.get('created_at')
+        if created_at_str and isinstance(created_at_str, str):
+            try:
+                converted_data['created_at'] = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S')
+            except ValueError as e:
+                raise ValueError(f"Invalid datetime format for created_at: {created_at_str}") from e
+        
+        # Convert string path back to Path object
+        source_file_str = converted_data.get('source_file')
+        if source_file_str and isinstance(source_file_str, str):
+            converted_data['source_file'] = Path(source_file_str)
+        
+        # Handle tokens field (ensure it's int or None)
+        tokens = converted_data.get('tokens')
+        if tokens is not None:
+            if isinstance(tokens, str) and tokens.isdigit():
+                converted_data['tokens'] = int(tokens)
+            elif not isinstance(tokens, int):
+                raise ValueError(f"tokens field must be an integer or None, got: {type(tokens)}")
+        
+        # Validate that all required base fields are present
+        required_fields = ['source_file', 'client']
+        for field in required_fields:
+            if field not in converted_data:
+                raise ValueError(f"Required field '{field}' missing from cache data")
+        
+        # Create the object using the converted data
+        return cls(**converted_data)
+
 
 @dataclass
 class SummaryCacheEntry(CacheEntry):
@@ -84,9 +131,39 @@ class SummaryCacheEntry(CacheEntry):
         """
         Convert the SummaryCache object to a dictionary.
         
+        Calls parent to_dict for base fields, then adds summary field.
+        
         Returns:
             dict: Dictionary representation of the cache entry with all fields
         """
-        result = super()._get_base_dict()
+        result = super().to_dict()
         result['summary'] = self.summary
         return result
+    
+    @classmethod
+    def from_dict(cls, data: dict):
+        """
+        Reconstruct a SummaryCacheEntry object from a dictionary.
+        
+        Validates summary field, then calls parent from_dict for base field conversion.
+        
+        Args:
+            data (dict): Dictionary containing cache entry data including summary
+            
+        Returns:
+            SummaryCacheEntry: Reconstructed cache entry object with all fields
+            
+        Raises:
+            ValueError: If required fields are missing or conversion fails
+        """
+        # Validate that summary field is present
+        if 'summary' not in data:
+            raise ValueError("Required field 'summary' missing from cache data")
+        
+        # Validate summary is not empty
+        summary = data.get('summary', '')
+        if not isinstance(summary, str) or summary.strip() == '':
+            raise ValueError("Summary field must be a non-empty string")
+        
+        # Use parent class to handle all field conversion and object creation
+        return super().from_dict(data)

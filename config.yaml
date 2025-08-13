@@ -40,4 +40,4 @@ jurisdiction_scoring:
 
 caching:
   directories:
-    summary_cache: "scripts/data/caching/summary_cache"
+    summary: "scripts/data/caching/summary_cache"

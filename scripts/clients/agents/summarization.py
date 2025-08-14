@@ -115,7 +115,7 @@ class SummarizationClient:
                     self.logger.warning(f"Error caching result for '{source_file}': {e}")
                     # Continue normally if caching fails
 
-            self.logger.debug(f"Generated summary: {summary}")
+            self.logger.debug(f"Successfully generated summary.")
             return summary
 
         except Exception as e:

@@ -8,7 +8,7 @@ from datetime import datetime
 
 # Add the project root to the path to import utils
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", "..", "..", ".."))
-from utils import save_to_json, load_config
+from utils import load_config
 
 
 def _message_role(message: BaseMessage) -> str:
@@ -77,27 +77,6 @@ def _extract_tool_calls(message: AIMessage) -> List[Dict[str, Any]]:
             tool_calls.append({"id": call_id, "name": name, "args": args})
 
     return tool_calls
-
-
-def _truncate(text: str, max_chars: int) -> Tuple[str, bool]:
-    """
-    Return a truncated preview and whether it was truncated.
-
-    Args:
-        text (str): Original text.
-        max_chars (int): Max characters to keep.
-
-    Returns:
-        Tuple[str, bool]: (preview, truncated_flag)
-    """
-    if text is None:
-        return "", False
-    if len(text) <= max_chars:
-        return text, False
-    return text[:max_chars] + "…", True
-
-
-# (No helper: chat logs directory is read directly from config in dump_chat_log)
 
 
 def _unique_log_filename(base_filename: Optional[str] = None) -> str:

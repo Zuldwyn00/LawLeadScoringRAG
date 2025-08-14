@@ -348,43 +348,41 @@ class LeadScoringClient:
             # Use the most recent assistant message as the basis for tool handling.
             last_response: AIMessage = self.current_lead_score
 
-            # If the model requested tools, call them and send tool messages
-            # IMMEDIATELY after the assistant message with tool_calls.
+            # Build next messages once; if no tool calls, include a continue message
+            tool_call_responses = None
+            extra_messages = None
+            exclude_ids = set()
+
+            # If the model requested tools, call them and send tool messages IMMEDIATELY
             if getattr(last_response, "tool_calls", None):
                 tool_call_responses = self.tool_manager.batch_tool_call(last_response.tool_calls)
                 # Track tool messages in history for logging/debugging purposes
                 self.client.add_message(tool_call_responses)
-
-                current_ids = {tc["id"] for tc in last_response.tool_calls}
-                tool_context_msg = self._build_tool_context_message(exclude_ids=current_ids)
-
-                base_messages = messages  # [system, historical, user]
-                messages_to_send = self._assemble_messages(
-                    base_messages,
-                    last_response=last_response,
-                    tool_call_responses=tool_call_responses,
-                    tool_context_msg=tool_context_msg,
+                exclude_ids = set(map(lambda tc: tc["id"], last_response.tool_calls))
+            else:
+                # If no tools were requested but we haven't met the threshold, instruct the model to continue.
+                continue_message_text = (
+                    "You must continue using tools, your tool usage count is at "
+                    f"'{self.tool_manager.tool_call_count} out of {self.tool_manager.tool_call_limit} maximum tool calls, "
+                    "and confidence threshold had not been reached.'"
                 )
-                self.current_lead_score = self.client.invoke(messages_to_send)
-                return get_response_recursive()
+                # if no tool calls were found, inform the AI it needs to make more and give it the historical context again.
+                continue_message = SystemMessage(content=continue_message_text)
+                extra_messages = [continue_message]
 
-            # If no tools were requested but we haven't met the threshold, instruct the model to continue.
-            continue_message_text = (
-                "You must continue using tools, your tool usage count is at "
-                f"'{self.tool_manager.tool_call_count} out of {self.tool_manager.tool_call_limit} maximum tool calls, "
-                "and confidence threshold had not been reached.'"
-            )
+            tool_context_msg = self._build_tool_context_message(exclude_ids=exclude_ids)
 
-            #if no tool calls were found, inform the AI it needs to make more and give it the historical context again.
-            continue_message = SystemMessage(content=continue_message_text)
             base_messages = messages  # [system, historical, user]
-            tool_context_msg = self._build_tool_context_message(exclude_ids=set())
             messages_to_send = self._assemble_messages(
                 base_messages,
                 last_response=last_response,
+                tool_call_responses=tool_call_responses,
                 tool_context_msg=tool_context_msg,
-                extra_messages=[continue_message],
+                extra_messages=extra_messages,
             )
+            
+            current_lead_token_count = sum(map(lambda m: count_tokens(str(m.content)), messages_to_send))
+            self.logger.info(f"Lead scoring iteration - Token count: {current_lead_token_count}")
             self.current_lead_score = self.client.invoke(messages_to_send)
             return get_response_recursive()
 
@@ -429,7 +427,7 @@ class LeadScoringClient:
         )
         
         # Calculate and log token count for final lead scoring
-        total_tokens = sum(count_tokens(str(message.content)) for message in messages_to_send)
+        total_tokens = sum(map(lambda m: count_tokens(str(m.content)), messages_to_send))
         self.logger.info(f"Final lead scoring - Token count: {total_tokens}")
         
         # Use the final (no-tools) model for the last scoring pass

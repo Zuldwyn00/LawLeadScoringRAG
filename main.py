@@ -10,8 +10,6 @@
 # TODO: AI PROMPT CHANGE: Add steps for the scoring agent to perhaps score each section and then combine the scores to get a final score rather an one main arbitrary score. This might be better for the scoring agent.
 # give the AI a more consistent output by following more well-defined scoring rules.
 
-# TODO: Unit tests
-
 # TODO: Rest api integration for a function system.
 
 #TODO: The jurisdiction scoring is inflated i believe, as it adds together all the duplicated values of the settlement values to get the average, rather than just the unique values.
@@ -21,7 +19,9 @@
 
 #TODO: Tool batch calling does not work, seems to be a limitation from the client we are using, langchain seems to support it from what I can tell.
 
-#TODO: MOST IMPORTANT DO RIGHT NOW - AI IS CALLING SAME FILE MULTIPLE TIMES AFTER IMPLEMENTING CACHING, ARE WE EVER CANCELLING THE LLM CALL AFTER FINDING A CACHE?
+
+#TODO: IMPORTANT: Implement feature to always retrieve the settlement value/outcome of the cases given to the AI in its historical context, not all the data it gets contains this.
+
 from numpy import save
 import qdrant_client
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file

@@ -175,6 +175,7 @@ lead_scoring:
     * Cases from the same jurisdiction with settlement data
     * Cases with similar injury types or liability scenarios
     * Files that contain contradictory information needing clarification
+    * **If none of these are applicable, use your own reasoning to choose a tool call target.
 
 
     **REQUIRED OUTPUT FORMAT:**

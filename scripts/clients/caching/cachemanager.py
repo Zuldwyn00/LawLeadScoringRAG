@@ -97,7 +97,7 @@ class ClientCacheManager:
 
         if cache_key in cache_data:
             entry_dict = cache_data[cache_key]
-            self.logger.debug("Cache hit for key '%s', reconstructing %s object", cache_key, cache_type.__name__)
+            self.logger.debug("Cache hit for key '%s', reconstructing '%s' object", cache_key, cache_type.__name__)
 
             try:
                 cache_entry = cache_type.from_dict(entry_dict) #turn the entry_dict back into a cacheentry object

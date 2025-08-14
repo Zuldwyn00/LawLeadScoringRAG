@@ -208,9 +208,11 @@ lead_scoring:
     *   [List the `Case ID` of the historical cases that were provided in the given context provided in the 'case_id' field. Example: "ID:1050076, ID:3444110"]
 
     **6. Analysis Depth & Tool Usage:**
-    *   **Tool Calls Made:** [List any tools used: "Call 1: get_file_context(case_file_x.pdf) - Seeking: detailed settlement breakdown for similar premises case".]
-    *   **Confidence Impact:** [Explain how each tool call increased/decreased your confidence and why]
-    *   **Overall Evidence Strength:** [Rate your confidence in the evidence base: Low/Moderate/High/Very High]
+    *   **Tool Call Details (Lis any tools used in a bulleted list, one per call — DO NOT OMIT OR SUMMARIZE):**
+        - [Format each bullet exactly as:] Call [N]: [TOOL_NAME]([exact source/target from context]) - Purpose: [what you sought] - Result: [what the tool revealed in one short clause]
+        - [Example:] Call 1: get_file_context(cases/2023/premises_case_A.pdf) - Purpose: verify settlement details - Result: confirmed $250k settlement and clear liability
+    *   **Confidence Impact:** [Briefly summarize how the above tool calls changed your confidence and why]
+    *   **Overall Evidence Strength:** [Low/Moderate/High/Very High]
 
 summarize_text: 
   prompt: |

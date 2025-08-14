@@ -207,7 +207,7 @@ lead_scoring:
     *   [List the `Case ID` of the historical cases that were provided in the given context provided in the 'case_id' field. Example: "ID:1050076, ID:3444110"]
 
     **6. Analysis Depth & Tool Usage:**
-    *   **Tool Calls Made:** [List any tools used: "Call 1: get_file_context(case_file_x.pdf) - Seeking: detailed settlement breakdown for similar premises case"]
+    *   **Tool Calls Made:** [List any tools used: "Call 1: get_file_context(case_file_x.pdf) - Seeking: detailed settlement breakdown for similar premises case".]
     *   **Confidence Impact:** [Explain how each tool call increased/decreased your confidence and why]
     *   **Overall Evidence Strength:** [Rate your confidence in the evidence base: Low/Moderate/High/Very High]
 

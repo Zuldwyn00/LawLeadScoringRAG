@@ -194,29 +194,73 @@ class LeadScoringClient:
 
     def _build_tool_context_message(self, exclude_ids: set[str]) -> SystemMessage | None:
         """
-        Build a compact SystemMessage of prior tool outputs, excluding any
-        tool messages whose tool_call_id is in exclude_ids.
+        Build a compact SystemMessage containing:
+        - A summary list of all prior tool calls (tool name and args, e.g., filepaths)
+        - A concise aggregation of prior tool outputs (excluding tool_call_ids in exclude_ids)
+
+        This message is provided on every re-score to avoid re-sending the entire
+        conversation while still reminding the model which tools/files were already used.
 
         Args:
             exclude_ids (set[str]): Tool call IDs to exclude (typically the current turn).
 
         Returns:
-            SystemMessage | None: combined context or None if no prior tool messages.
+            SystemMessage | None: Combined context or None if there are no prior calls/outputs.
         """
+        # 1) Summarize prior tool calls (by name and args)
+        tool_history_lines: List[str] = []
+        if getattr(self.tool_manager, "tool_call_history", None):
+            # Filter out any calls that belong to the current turn (by call_id)
+            filtered_history = [
+                h for h in self.tool_manager.tool_call_history
+                if h.get("call_id") not in exclude_ids
+            ]
+            if filtered_history:
+                tool_history_lines.append("Tool Calls So Far:")
+                for idx, call in enumerate(filtered_history, start=1):
+                    tool_name = call.get("tool_name", "unknown_tool")
+                    args = call.get("args", {})
+                    # Render args succinctly; highlight filepath if present
+                    if isinstance(args, dict):
+                        filepath = args.get("filepath")
+                        if filepath:
+                            args_render = f"filepath='{filepath}'"
+                        else:
+                            # Compact key=value list for any other args
+                            kv_pairs = [f"{k}={v!r}" for k, v in args.items()]
+                            args_render = ", ".join(kv_pairs)
+                    else:
+                        args_render = str(args)
+                    call_id = call.get("call_id", "")
+                    tool_history_lines.append(
+                        f"- Call {idx}: {tool_name}({args_render}){f' [id={call_id}]' if call_id else ''}"
+                    )
+
+        # 2) Aggregate prior tool outputs (as before), excluding current-turn ids
         prior_tool_msgs = [
             m for m in self.client.message_history
             if isinstance(m, ToolMessage) and getattr(m, "tool_call_id", None) not in exclude_ids
         ]
-        if not prior_tool_msgs:
+
+        output_lines: List[str] = []
+        if prior_tool_msgs:
+            output_lines.append("Tool Context So Far:")
+            for msg in prior_tool_msgs:
+                content_snippet = msg.content  # keep full content; assume upstream truncation if needed
+                output_lines.append(f"- {content_snippet}")
+
+        # If neither history nor outputs exist, return None
+        if not tool_history_lines and not output_lines:
             return None
 
-        # Keep it concise; format as a bulleted list.
-        lines: List[str] = ["Tool Context So Far:"]
-        for msg in prior_tool_msgs:
-            content_snippet = msg.content #if len(msg.content) < 4000 else msg.content[:4000] + "..."
-            lines.append(f"- {content_snippet}")
+        content_parts: List[str] = []
+        if tool_history_lines:
+            content_parts.append("\n".join(tool_history_lines))
+        if output_lines:
+            # Separate sections with a blank line
+            content_parts.append("\n".join(output_lines))
 
-        content = "\n".join(lines)
+        content = "\n\n".join(content_parts)
         return SystemMessage(content=content)
 
     def _assemble_messages(
@@ -286,12 +330,14 @@ class LeadScoringClient:
                 if self.tool_manager.tool_call_limit == self.tool_manager.tool_call_count:
                     return SystemMessage(content="Tool call limit reached, provide your final lead score analysis.")
                 confidence_score = extract_confidence_from_response(self.current_lead_score.content)
-                if confidence_score >= self.confidence_threshold:
-                    return SystemMessage(content=(
-                        f"Confidence is {confidence_score} / {self.confidence_threshold} , "
-                        "threshold for confidence reached, provide your final lead score analysis "
-                    ))
-                return None
+
+                if confidence_score != 0:  # Skip confidence check when threshold is 0 (testing mode for full tool loops)
+                    if confidence_score >= self.confidence_threshold:
+                        return SystemMessage(content=(
+                            f"Confidence is {confidence_score} / {self.confidence_threshold} , "
+                            "threshold for confidence reached, provide your final lead score analysis "
+                        ))
+                    return None
 
             validation_msg = _validate_confidence_threshold_and_tool_limit()
 

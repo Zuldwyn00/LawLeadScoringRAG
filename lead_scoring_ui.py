@@ -1101,12 +1101,13 @@ if st.session_state.scored_leads:
                     """, unsafe_allow_html=True)
                     
                     st.text_area(
-                        label="",
+                        label="AI Analysis",
                         value=lead["analysis"],
                         height=450,
                         disabled=True,
                         key=f"analysis_{i}",
-                        help="Comprehensive AI analysis of lead potential, risks, and recommendations"
+                        help="Comprehensive AI analysis of lead potential, risks, and recommendations",
+                        label_visibility="collapsed"
                     )
 
                     # Show lead description second - smaller and less prominent

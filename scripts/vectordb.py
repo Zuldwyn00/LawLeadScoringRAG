@@ -144,7 +144,7 @@ class QdrantManager:
             collection_name (str): Name of the collection.
             query_vector (List[float]): The vector to search with.
             vector_name (str, optional): The name of the vector to search against. Defaults to "chunk".
-            limit (int, optional): The maximum number of results to return. Defaults to 5.
+            limit (int, optional): The maximum number of results to return.
 
         Returns:
             list: A list of search results.

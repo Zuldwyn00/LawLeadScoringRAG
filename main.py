@@ -23,8 +23,8 @@
 
 #TODO: IMPORTANT: Implement feature to always retrieve the settlement value/outcome of the cases given to the AI in its historical context, not all the data it gets contains this.
 
-from numpy import save
-import qdrant_client
+#TODO: case_id is sometimes a string and sometimes an int apparently in the vectorDB, we need to fix this to ensure more consistent data pulling so we dont need to always handle a string or an int.
+
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.aiclients import EmbeddingManager, ChatManager
 from scripts.vectordb import QdrantManager

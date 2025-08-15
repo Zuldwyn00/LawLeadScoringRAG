@@ -448,6 +448,13 @@ def extract_score_from_response(response: str) -> int:
     Returns:
         int: The extracted score (1-100), or 0 if not found
     """
+    # Look for "**Lead Score:** X/100" pattern (with markdown formatting)
+    pattern = r"\*\*Lead Score:\*\*\s*(\d+)/100"
+    match = re.search(pattern, response, re.IGNORECASE)
+
+    if match:
+        return int(match.group(1))
+
     # Look for "Lead Score: X/100" pattern
     pattern = r"Lead Score:\s*(\d+)/100"
     match = re.search(pattern, response, re.IGNORECASE)
@@ -495,6 +502,7 @@ def extract_jurisdiction_from_response(response: str) -> str:
 def extract_confidence_from_response(response: str) -> int:
     """
     Extract the numerical confidence score from the AI response.
+    Multiple pattern searches incase the LLM outputs the confidence_score slightly differently.
 
     Args:
         response (str): The AI response containing the confidence score
@@ -502,8 +510,22 @@ def extract_confidence_from_response(response: str) -> int:
     Returns:
         int: The extracted confidence (1-100), or 50 if not found
     """
+    # Look for "**Confidence Score:** X/100" pattern (with markdown formatting)
+    pattern = r"\*\*Confidence Score:\*\*\s*(\d+)/100"
+    match = re.search(pattern, response, re.IGNORECASE)
+
+    if match:
+        return int(match.group(1))
+
     # Look for "Confidence Score: X/100" pattern (primary format from prompt)
     pattern = r"Confidence Score:\s*(\d+)/100"
+    match = re.search(pattern, response, re.IGNORECASE)
+
+    if match:
+        return int(match.group(1))
+
+    # Look for "**Confidence:** X/100" pattern (with markdown formatting)
+    pattern = r"\*\*Confidence:\*\*\s*(\d+)/100"
     match = re.search(pattern, response, re.IGNORECASE)
 
     if match:
@@ -530,4 +552,4 @@ def extract_confidence_from_response(response: str) -> int:
     if match:
         return int(match.group(1))
 
-    return 0
+    return 50

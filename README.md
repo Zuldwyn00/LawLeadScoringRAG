@@ -182,12 +182,100 @@ This prints the full analysis to stdout and writes a chat log under `scripts/dat
 
 ## Jurisdiction Scoring
 
-`JurisdictionScoreManager` computes a jurisdiction modifier using weighted historical settlements:
-- Data completeness weighting driven by `jurisdiction_scoring.field_weights`
-- Recency multiplier and quality multiplier
-- Per-jurisdiction score is compared to the average to produce a bounded modifier applied to the lead score
+`JurisdictionScoreManager` computes jurisdiction modifiers using weighted historical settlements with **Bayesian shrinkage** to handle sample size bias. This prevents jurisdictions with few cases from having unreliably high or low scores.
 
-Utilities exist to fetch cases by jurisdiction and extract highest settlements from payloads.
+### The Sample Size Bias Problem
+
+Raw jurisdiction averages can be misleading:
+- **High-volume jurisdictions** (e.g., Suffolk County): Many cases, stable averages
+- **Low-volume jurisdictions** (e.g., Queens County): Few cases, potentially inflated/deflated averages
+- **Without adjustment**: Low-volume jurisdictions with lucky high settlements get unrealistically high modifiers
+
+### Bayesian Shrinkage Solution
+
+**Core Concept**: Pull unreliable estimates toward a global average based on confidence.
+
+**Mathematical Formula**:
+```
+confidence = case_count / (case_count + conservative_factor)
+adjusted_score = (confidence × raw_score) + ((1 - confidence) × global_average)
+```
+
+**Where**:
+- `case_count`: Number of cases for this jurisdiction
+- `conservative_factor`: How much shrinkage to apply (default: 10)
+- `raw_score`: Jurisdiction's weighted average settlement
+- `global_average`: Average across all jurisdictions
+
+### How It Works
+
+**High Case Count** (e.g., Suffolk County: 100 cases):
+- `confidence = 100 / (100 + 10) = 0.909` (91% confident)
+- `adjusted_score ≈ 0.91 × raw_score + 0.09 × global_average`
+- **Result**: Minimal shrinkage, trusts the local average
+
+**Low Case Count** (e.g., Queens County: 8 cases):
+- `confidence = 8 / (8 + 10) = 0.444` (44% confident)  
+- `adjusted_score ≈ 0.44 × raw_score + 0.56 × global_average`
+- **Result**: Heavy shrinkage toward global average
+
+### Implementation Steps
+
+1. **Calculate raw jurisdiction scores** using weighted settlements:
+   - Data completeness weighting (`jurisdiction_scoring.field_weights`)
+   - Recency multiplier (newer cases weighted higher)
+   - Quality multiplier (complete data weighted higher)
+
+2. **Apply Bayesian shrinkage**:
+   - Calculate global average across all jurisdictions
+   - For each jurisdiction: adjust raw score using shrinkage formula
+   - Save adjusted scores to `jurisdiction_scores.json`
+
+3. **Generate final modifiers**:
+   - Compare adjusted scores to adjusted average
+   - Apply modifier caps (0.8x to 1.15x)
+   - Use in lead scoring to modify AI-generated scores
+
+### Tuning Parameters
+
+**Conservative Factor** (`conservative_factor`):
+- **Lower values (5)**: Less shrinkage, trust local averages more
+- **Higher values (50)**: More shrinkage, pull toward global average more
+- **Default (10)**: Balanced approach
+
+**Field Weights** (`config.jurisdiction_scoring.field_weights`):
+```yaml
+jurisdiction_scoring:
+  field_weights:
+    settlement_value: 1.0
+    jurisdiction: 0.8
+    case_type: 0.6
+    # ... other metadata fields
+```
+
+### Example Impact
+
+**Before Bayesian Shrinkage**:
+- Suffolk County (100 cases): $124K → 1.20x modifier
+- Queens County (8 cases): $350K → 3.40x modifier ❌ *Unreliable*
+
+**After Bayesian Shrinkage** (conservative_factor=10):
+- Suffolk County: $124K → $119K → 1.15x modifier  
+- Queens County: $350K → $180K → 1.10x modifier ✅ *More realistic*
+
+**Testing Different Conservative Factors**:
+Run `python -m pytest tests/scripts/jurisdiction_scoring/test_jurisdictionscoring.py -v -s` to see how different conservative factors affect jurisdiction balance.
+
+### Usage in Lead Scoring
+
+The AI scoring system automatically uses Bayesian-adjusted jurisdiction modifiers:
+
+1. AI generates base score (1-100)
+2. AI extracts jurisdiction from case description  
+3. System applies jurisdiction modifier: `final_score = base_score × modifier`
+4. Final score is capped within bounds (1-100)
+
+This ensures that **sample size bias doesn't artificially inflate scores** for jurisdictions with limited historical data.
 
 ---
 

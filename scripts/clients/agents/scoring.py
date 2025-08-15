@@ -530,4 +530,4 @@ def extract_confidence_from_response(response: str) -> int:
     if match:
         return int(match.group(1))
 
-    return 0  # Default to 0 confidence if not found
+    return 0

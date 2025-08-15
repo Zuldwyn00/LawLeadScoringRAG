@@ -11,7 +11,7 @@ huggingface_hub
 # PDF Processing
 ocrmypdf==16.10.4
 PyMuPDF==1.26.3
-tika==2.6.0
+tika==3.1.0
 
 # Data Processing
 numpy==2.3.1
@@ -21,10 +21,10 @@ PyYAML==6.0.2
 python-dotenv==1.1.1
 
 # Web UI (for lead_scoring_ui.py)
-streamlit==1.41.1
+streamlit==1.47.0
 
 # Utilities
 requests==2.32.4
 
 # Testing
-pytest==8.2.2
+pytest==8.4.1

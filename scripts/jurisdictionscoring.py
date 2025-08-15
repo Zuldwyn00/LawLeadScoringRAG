@@ -3,7 +3,7 @@ from email.policy import default
 from utils import *
 import math
 import numpy
-from typing import override
+from typing import override, Dict
 
 config = load_config()
 
@@ -149,15 +149,10 @@ class JurisdictionScoreManager:
     # ─── JURISDICTION MODIFIER METHODS ───────────────────────────────────────────────────
     def calculate_modifier_jurisdiction(self) -> dict:
         """
-        Calculate and return jurisdiction modifiers based on average scores.
+        Calculate and return jurisdiction modifiers based on scores.
 
-        This method loads jurisdiction scores from a JSON file, computes the average score,
+        This method loads jurisdiction scores from JSON file, computes the average score,
         and then calculates a modifier for each jurisdiction as the ratio of its score to the average.
-
-        Must already have data for the jurisdictions in the json from using score_jurisdiction.
-
-        Args:
-            save_to_json (bool): Whether to save the calculated modifiers to a JSON file.
 
         Returns:
             dict: A dictionary mapping jurisdiction names to their modifier values.
@@ -166,7 +161,7 @@ class JurisdictionScoreManager:
         all_scores = load_from_json(default_filename="jurisdiction_scores.json")
 
         if not all_scores:
-            self.logger.warning("No scores found in '%s'.", "jurisdiction_scores.json")
+            self.logger.warning("No scores found in 'jurisdiction_scores.json'.")
             return {}
 
         scores_list = list(all_scores.values())
@@ -180,7 +175,7 @@ class JurisdictionScoreManager:
         modifiers = {}
         for jurisdiction, score in all_scores.items():
             modifier = score / average_score
-            modifier = max(0.8, min(1.15, modifier))
+            modifier = max(0.8, min(1.15, modifier))  # Cap modifiers between 0.8x and 1.15x
             modifiers[jurisdiction] = modifier
 
             self.logger.debug("%s: $%.2f -> %.3fx", jurisdiction, score, modifier)
@@ -190,7 +185,7 @@ class JurisdictionScoreManager:
     def get_jurisdiction_modifier(self, jurisdiction_name: str) -> float:
         """
         Get the modifier for a specific jurisdiction.
-
+git add
         Args:
             jurisdiction_name (str): Name of the jurisdiction
 
@@ -199,6 +194,73 @@ class JurisdictionScoreManager:
         """
         modifiers = self.calculate_modifier_jurisdiction()
         return modifiers.get(jurisdiction_name, 1.0)
+    
+
+    def bayesian_shrinkage(self, jurisdiction_case_counts: dict, conservative_factor: int = 50) -> dict:
+        """
+        Apply Bayesian shrinkage to jurisdiction scores to handle sample size bias.
+        
+        Args:
+            jurisdiction_case_counts: Dict mapping jurisdiction names to lists of case IDs
+            conservative_factor: Higher values = more conservative = more shrinkage toward global average
+            
+        Returns:
+            dict: Mapping of jurisdiction names to their Bayesian-adjusted scores
+        """
+        self.logger.info("Starting Bayesian shrinkage adjustment...")
+        
+        # Step 1: Load existing jurisdiction scores (raw averages)
+        raw_scores = load_from_json(default_filename="jurisdiction_scores.json")
+        if not raw_scores:
+            self.logger.warning("No existing jurisdiction scores found. Run score_jurisdiction first.")
+            return {}
+        
+        # Step 2: Calculate global average from raw scores
+        global_average = sum(raw_scores.values()) / len(raw_scores)
+        self.logger.info(f"Global average calculated: ${global_average:,.2f}")
+        
+        # Step 3: Apply Bayesian shrinkage to each jurisdiction
+        adjusted_scores = {}
+        shrinkage_details = {}
+        
+        for jurisdiction, case_list in jurisdiction_case_counts.items():
+            if jurisdiction not in raw_scores:
+                self.logger.warning(f"No raw score found for {jurisdiction}, skipping...")
+                continue
+                
+            # Get data for this jurisdiction
+            raw_score = raw_scores[jurisdiction]
+            case_count = len(case_list)
+            
+            # Calculate confidence based on sample size
+            confidence = case_count / (case_count + conservative_factor)
+            
+            # Apply Bayesian shrinkage formula
+            adjusted_score = (confidence * raw_score) + ((1 - confidence) * global_average)
+            
+            # Store results
+            adjusted_scores[jurisdiction] = adjusted_score
+            shrinkage_details[jurisdiction] = {
+                "raw_score": raw_score,
+                "adjusted_score": adjusted_score,
+                "case_count": case_count,
+                "confidence": confidence,
+                "shrinkage_amount": abs(raw_score - adjusted_score),
+                "shrinkage_direction": "toward_global" if abs(adjusted_score - global_average) < abs(raw_score - global_average) else "away_from_global"
+            }
+            
+            self.logger.info(
+                f"{jurisdiction}: ${raw_score:,.0f} → ${adjusted_score:,.0f} "
+                f"(confidence: {confidence:.3f}, cases: {case_count})"
+            )
+        
+        # Step 4: Save adjusted scores (overwrite the original file)
+        self.save_to_json(adjusted_scores, "jurisdiction_scores.json")
+        
+        self.logger.info(f"Bayesian shrinkage completed for {len(adjusted_scores)} jurisdictions")
+        return adjusted_scores
+    
+
 
     # ─── DATA QUALITY ASSESSMENT METHODS ─────────────────────────────────────────────────
     def calculate_data_completeness(self, case_data: dict) -> float:
@@ -270,6 +332,7 @@ class JurisdictionScoreManager:
         # Reason: sqrt flattens the curve, so the multiplier grows quickly at first and then levels off as completeness approaches 1
         quality_multiplier = 0.6 * (0.4 * math.sqrt(data_completeness_score))
         return quality_multiplier
+    
 
     # ─── RECENCY CALCULATION METHODS ─────────────────────────────────────────────────────
     def calculate_recency_multiplier(self, case_data: dict) -> float:

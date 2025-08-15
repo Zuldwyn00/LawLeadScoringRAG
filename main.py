@@ -24,6 +24,18 @@
 #TODO: IMPORTANT: Implement feature to always retrieve the settlement value/outcome of the cases given to the AI in its historical context, not all the data it gets contains this.
 
 #TODO: case_id is sometimes a string and sometimes an int apparently in the vectorDB, we need to fix this to ensure more consistent data pulling so we dont need to always handle a string or an int.
+        #I dont know if this is actually true, its a guess based on some issues finding case ids    
+
+#BIG STUFF
+#TODO: Create some better method for getting all the jurisdiction data in one search that we need to use in our jurisdiction scoring system, the method should return a dict of all the required info for that system
+# This way we can re-use all that data without having to do weird calls and roundabout ways to get it.
+    #TODO: After doing this, complete the (BAYESIAN_SHRINKAGE()) method so its not just tbe current placeholder based on hard-coded values.
+    # currently it overwrites the original scores after processing them and then applies the bayesian
+
+#small stuff
+#TODO: Clear All button does nothing
+#TODO: Fix UI show original lead description not being dark mode
+#TODO: Get rid of tika, its slow as hell but rememebr that we changed to it because the other option gave too much garbage text like /n/n/n
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.aiclients import EmbeddingManager, ChatManager
@@ -165,6 +177,7 @@ def jurisdiction_score_test():
     jurisdiction_manager = JurisdictionScoreManager()
     scores = {}
 
+    # Step 1: Calculate raw jurisdiction scores
     jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction(
         "case_files", "Suffolk County"
     )
@@ -187,11 +200,22 @@ def jurisdiction_score_test():
     # score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
     # scores['Kings County'] = score.get('jurisdiction_score')
 
+    # Save raw scores first
     jurisdiction_manager.save_to_json(data=scores)
+    print("Raw jurisdiction scores:")
+    for jurisdiction, score in scores.items():
+        print(f"  {jurisdiction}: ${score:,.2f}")
 
-    print(jurisdiction_manager.get_jurisdiction_modifier("Suffolk County"))
-    print(jurisdiction_manager.get_jurisdiction_modifier("Nassau County"))
-    print(jurisdiction_manager.get_jurisdiction_modifier("Queens County"))
+    # Step 2: Apply Bayesian shrinkage
+    print("\nApplying Bayesian shrinkage...")
+    case_counts = qdrant_manager.get_all_case_ids_by_jurisdiction("case_files")
+    adjusted_scores = jurisdiction_manager.bayesian_shrinkage(case_counts)
+
+    # Step 3: Get final modifiers (now uses Bayesian-adjusted scores)
+    print("\nFinal modifiers:")
+    print(f"Suffolk County: {jurisdiction_manager.get_jurisdiction_modifier('Suffolk County'):.3f}x")
+    print(f"Nassau County: {jurisdiction_manager.get_jurisdiction_modifier('Nassau County'):.3f}x")
+    print(f"Queens County: {jurisdiction_manager.get_jurisdiction_modifier('Queens County'):.3f}x")
 
 
 def run_ocr_on_folder(folder_path: str):
@@ -227,7 +251,7 @@ def settlement_value_test():
     print(values)
 
 def main():
-   score_test()
+   jurisdiction_score_test()
 
 if __name__ == "__main__":
     main()

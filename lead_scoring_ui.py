@@ -865,7 +865,7 @@ with st.container():
                 
                 # Show processing logs if available
                 if st.session_state.processing_logs:
-                    with st.expander("📋 View Processing Logs", expanded=False):
+                    with st.popover("📋 View Processing Logs"):
                         log_text = get_current_processing_logs()
                         st.text_area(
                             "Processing Steps",
@@ -1041,22 +1041,22 @@ if st.session_state.scored_leads:
         unsafe_allow_html=True,
     )
 
-    # Generate CSS for confidence borders for each lead
+    # Generate CSS for each expander using unique data attributes instead of position-based selectors
     confidence_css = "<style>"
-    for i, lead in enumerate(st.session_state.scored_leads):
-        confidence_color = get_score_color(lead.get("confidence", 50))
-        confidence_css += f"""
-        div[data-testid="stExpander"]:nth-of-type({i+1}) {{
-            border: 3px solid {confidence_color} !important;
-            border-radius: 8px !important;
-            margin: 10px 0 !important;
-        }}
-        div[data-testid="stExpander"]:nth-of-type({i+1}) > div[data-testid="stExpanderDetails"] {{
-            border-top: none !important;
-        }}
-        """
+    
+    # Base styling for all expanders
+    confidence_css += """
+    /* Base styling for all expanders */
+    [data-testid="stExpander"] {
+        border: 3px solid #404040 !important;
+        border-radius: 8px !important;
+        margin: 10px 0 !important;
+        display: block !important;
+        visibility: visible !important;
+    }
+    """
+    
     confidence_css += "</style>"
-
     st.markdown(confidence_css, unsafe_allow_html=True)
 
     for i, lead in enumerate(st.session_state.scored_leads):
@@ -1088,10 +1088,27 @@ if st.session_state.scored_leads:
                         unsafe_allow_html=True
                     )
                 
-                # Create expandable container for lead details
+                # Create expandable container for lead details with confidence-based border color
+                confidence_color = get_score_color(lead.get("confidence", 50))
+                unique_class = f"expander-{i}"
+                
+                # Apply confidence color using a unique class for this specific expander
+                st.markdown(
+                    f"""
+                    <style>
+                    .{unique_class} [data-testid="stExpander"] {{
+                        border: 3px solid {confidence_color} !important;
+                        border-radius: 8px !important;
+                    }}
+                    </style>
+                    <div class="{unique_class}">
+                    """,
+                    unsafe_allow_html=True,
+                )
+                
                 with st.expander(
                     f"Score: {lead['score']}/100 | Confidence: {lead.get('confidence', 50)}/100 - {lead['timestamp']}",
-                    expanded=False,
+                    expanded=False
                 ):
                     # Show AI analysis first - this is the primary content
                     st.markdown("""
@@ -1113,7 +1130,7 @@ if st.session_state.scored_leads:
                     # Show lead description second - smaller and less prominent
                     st.markdown("<br>", unsafe_allow_html=True)  # Add some spacing
                     
-                    with st.expander("📋 View Original Lead Description", expanded=False):
+                    with st.popover("📋 View Original Lead Description"):
                         st.markdown(f"""
                         <div style='background-color: #1a1a1a; padding: 15px; border-radius: 8px; border-left: 3px solid #404040;'>
                             <p style='color: #e0e0e0; font-size: 14px; line-height: 1.5; margin: 0; font-family: Inter, sans-serif;'>
@@ -1121,6 +1138,9 @@ if st.session_state.scored_leads:
                             </p>
                         </div>
                         """, unsafe_allow_html=True)
+                
+                # Close the unique class container div
+                st.markdown("</div>", unsafe_allow_html=True)
 
 else:
     st.info(

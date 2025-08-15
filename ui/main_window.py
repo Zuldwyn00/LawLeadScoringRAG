@@ -35,6 +35,7 @@ class LeadScoringApp:
         
         # Initialize feedback manager for program close handling
         self.feedback_manager = FeedbackManager()
+        print(f"DEBUG: Main window using FeedbackManager instance: {id(self.feedback_manager)}")
         
         # Initialize with example lead
         self.scored_leads = self.event_handler.get_initial_leads()
@@ -202,13 +203,15 @@ class LeadScoringApp:
         """Create the right panel with guidelines and stats."""
         right_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
         right_frame.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
-        right_frame.grid_rowconfigure(1, weight=1)  # Make the expandable area flexible
+        right_frame.grid_rowconfigure(0, weight=1)  # Make the expandable area take most space
         right_frame.grid_columnconfigure(0, weight=1)
         
-        # Container for expandable widgets that takes all space until stats
+        # Container for expandable widgets that takes maximum available space
         expandable_container = ctk.CTkFrame(right_frame, fg_color="transparent")
-        expandable_container.grid(row=0, column=0, sticky="nsew", padx=20, pady=20)
-        expandable_container.grid_rowconfigure(2, weight=1)  # Make space flexible
+        expandable_container.grid(row=0, column=0, sticky="nsew", padx=20, pady=(20, 10))
+        expandable_container.grid_rowconfigure(0, weight=0)  # Guidelines widget row
+        expandable_container.grid_rowconfigure(1, weight=0)  # Feedback widget row  
+        expandable_container.grid_rowconfigure(2, weight=1)  # Spacer row - gets weight when nothing expanded
         expandable_container.grid_columnconfigure(0, weight=1)
         
         # Scoring Guidelines expandable widget
@@ -219,13 +222,13 @@ class LeadScoringApp:
         self.feedback_guidelines_widget = FeedbackGuidelinesWidget(expandable_container)
         self.feedback_guidelines_widget.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         
-        # Spacer to push stats to bottom
+        # Spacer to fill remaining space and push stats to very bottom
         spacer = ctk.CTkFrame(expandable_container, fg_color="transparent", height=1)
         spacer.grid(row=2, column=0, sticky="nsew")
         
-        # Statistics section (fixed at bottom)
+        # Statistics section (positioned at the very bottom with minimal space)
         self.stats_widget = StatsWidget(right_frame)
-        self.stats_widget.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
+        self.stats_widget.grid(row=1, column=0, sticky="ew", padx=20, pady=(5, 20))
         
         # Set up mutual exclusion for expandable widgets
         self._setup_expandable_mutual_exclusion()
@@ -288,7 +291,8 @@ class LeadScoringApp:
             lead_item = LeadItem(
                 self.results_frame,
                 lead,
-                lead_index=i
+                lead_index=i,
+                feedback_manager=self.feedback_manager
             )
             lead_item.grid(row=i, column=0, sticky="ew", padx=10, pady=5)
             
@@ -300,6 +304,11 @@ class LeadScoringApp:
         """Handle application closing - save any pending feedback before exit."""
         # Check if there's any pending feedback
         pending_count = self.feedback_manager.get_pending_feedback_count()
+        
+        # Debug: Print feedback status for troubleshooting
+        print(f"DEBUG: Closing application - found {pending_count} pending feedback entries")
+        for key, entry in self.feedback_manager.pending_feedback.items():
+            print(f"  - {key}: has_feedback={entry.has_feedback()}, has_unsaved_changes={entry.has_unsaved_changes}")
         
         if pending_count > 0:
             # Ask user if they want to save pending feedback
@@ -323,55 +332,82 @@ class LeadScoringApp:
             # If cancel (None), do nothing - stay in application
         else:
             # No pending feedback, just close
+            print("DEBUG: No pending feedback found, closing normally")
             self.root.destroy()
     
     def _setup_expandable_mutual_exclusion(self):
         """Set up mutual exclusion between expandable widgets in the right panel."""
         expandable_widgets = [self.guidelines_widget, self.feedback_guidelines_widget]
         
-        # Store original toggle methods
-        for widget in expandable_widgets:
-            widget._original_toggle = widget.toggle
-            
         def create_exclusive_toggle(target_widget):
             def exclusive_toggle():
-                # If expanding this widget, collapse all others
+                # First, collapse all other widgets if target is being expanded
                 if not target_widget.is_expanded:
                     for other_widget in expandable_widgets:
                         if other_widget != target_widget and other_widget.is_expanded:
-                            other_widget._original_toggle()  # Collapse others
+                            other_widget.collapse()  # Collapse others first
                 
                 # Now toggle the target widget
-                target_widget._original_toggle()
+                if target_widget.is_expanded:
+                    target_widget.collapse()
+                else:
+                    target_widget.expand()
                 
-                # Update the expanded widget to fill available space
+                # Force layout update immediately to ensure proper space allocation
                 self._update_expandable_layout()
                 
             return exclusive_toggle
         
-        # Replace toggle methods with exclusive versions
-        for widget in expandable_widgets:
-            widget.toggle = create_exclusive_toggle(widget)
+        # Replace the button commands directly with exclusive versions
+        self.guidelines_widget.header_button.configure(command=create_exclusive_toggle(self.guidelines_widget))
+        self.feedback_guidelines_widget.header_button.configure(command=create_exclusive_toggle(self.feedback_guidelines_widget))
     
     def _update_expandable_layout(self):
         """Update the layout when expandable widgets change state."""
         # Find which widget is currently expanded
         expanded_widget = None
+        expandable_container = self.guidelines_widget.master  # Get the expandable container
+        
         for widget in [self.guidelines_widget, self.feedback_guidelines_widget]:
             if widget.is_expanded:
                 expanded_widget = widget
                 break
         
         if expanded_widget:
-            # Make the expanded widget use all available space
-            expanded_widget.grid_configure(sticky="nsew")
-            # Update its content frame to be flexible
-            expanded_widget.content_frame.grid_configure(sticky="nsew")
-        
-        # Reset other widgets to not expand
-        for widget in [self.guidelines_widget, self.feedback_guidelines_widget]:
-            if widget != expanded_widget:
-                widget.grid_configure(sticky="ew")
+            # Reset all row weights to 0 first
+            expandable_container.grid_rowconfigure(0, weight=0)
+            expandable_container.grid_rowconfigure(1, weight=0)
+            expandable_container.grid_rowconfigure(2, weight=0)
+            
+            # Configure the expanded widget to take ALL available space
+            if expanded_widget == self.guidelines_widget:
+                # Guidelines widget gets all the space
+                expandable_container.grid_rowconfigure(0, weight=1)
+                self.guidelines_widget.grid_configure(sticky="nsew", pady=(0, 5))
+                self.feedback_guidelines_widget.grid_configure(sticky="ew", pady=(0, 5))
+            elif expanded_widget == self.feedback_guidelines_widget:
+                # Feedback widget gets all the space
+                expandable_container.grid_rowconfigure(1, weight=1)
+                self.feedback_guidelines_widget.grid_configure(sticky="nsew", pady=(0, 5))
+                self.guidelines_widget.grid_configure(sticky="ew", pady=(0, 5))
+            
+            # Ensure the expanded widget's internal layout is configured for full expansion
+            expanded_widget.grid_rowconfigure(1, weight=1)  # Content row gets weight
+            expanded_widget.content_frame.grid_rowconfigure(0, weight=1)  # Textbox row gets weight
+            
+        else:
+            # No widget expanded - restore default layout with spacer
+            expandable_container.grid_rowconfigure(0, weight=0)
+            expandable_container.grid_rowconfigure(1, weight=0) 
+            expandable_container.grid_rowconfigure(2, weight=1)  # Spacer gets the weight
+            
+            # Restore normal spacing and layout
+            self.guidelines_widget.grid_configure(sticky="ew", pady=(0, 10))
+            self.feedback_guidelines_widget.grid_configure(sticky="ew", pady=(0, 10))
+            
+            # Reset internal weights
+            self.guidelines_widget.grid_rowconfigure(1, weight=0)
+            self.feedback_guidelines_widget.grid_rowconfigure(1, weight=0)
     
     def _capture_final_text_states(self):
         """Capture the final text state from all lead items with pending feedback."""

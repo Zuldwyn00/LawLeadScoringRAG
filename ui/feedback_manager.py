@@ -40,9 +40,11 @@ class FeedbackEntry:
     
     def add_text_feedback(self, selected_text: str, replacement_text: str, position_info: str = ""):
         """Add feedback for text replacement in AI analysis."""
+        print(f"DEBUG: add_text_feedback called - selected: '{selected_text[:50]}...', replacement: '{replacement_text[:50]}...'")
         # Check if this change overlaps with existing changes
         self._handle_overlapping_changes(selected_text, replacement_text, position_info)
         self.has_unsaved_changes = True
+        print(f"DEBUG: has_unsaved_changes set to: {self.has_unsaved_changes}")
     
     def _handle_overlapping_changes(self, selected_text: str, replacement_text: str, position_info: str):
         """
@@ -155,9 +157,15 @@ class FeedbackManager:
             FeedbackEntry: The feedback entry for this lead.
         """
         key = f"{chat_log_filename}_{lead_index}"
+        print(f"DEBUG: get_or_create_feedback_entry - key: {key}")
         if key not in self.pending_feedback:
+            print(f"DEBUG: Creating new feedback entry for key: {key}")
             self.pending_feedback[key] = FeedbackEntry(chat_log_filename, lead_index, original_analysis_text)
-        return self.pending_feedback[key]
+        else:
+            print(f"DEBUG: Found existing feedback entry for key: {key}")
+        entry = self.pending_feedback[key]
+        print(f"DEBUG: Entry state - has_feedback: {entry.has_feedback()}, has_unsaved_changes: {entry.has_unsaved_changes}")
+        return entry
     
     def has_pending_feedback(self, chat_log_filename: str, lead_index: int) -> bool:
         """
@@ -171,7 +179,7 @@ class FeedbackManager:
             bool: True if pending feedback exists for this lead.
         """
         key = f"{chat_log_filename}_{lead_index}"
-        return key in self.pending_feedback and self.pending_feedback[key].has_feedback()
+        return key in self.pending_feedback and self.pending_feedback[key].has_feedback() and self.pending_feedback[key].has_unsaved_changes
     
     def save_feedback_for_lead(self, chat_log_filename: str, lead_index: int) -> bool:
         """
@@ -296,7 +304,7 @@ class FeedbackManager:
         for key in pending_keys:
             if key in self.pending_feedback:
                 feedback_entry = self.pending_feedback[key]
-                if feedback_entry.has_feedback():
+                if feedback_entry.has_feedback() and feedback_entry.has_unsaved_changes:
                     if self.save_feedback_for_lead(feedback_entry.chat_log_filename, feedback_entry.lead_index):
                         saved_count += 1
         
@@ -321,7 +329,16 @@ class FeedbackManager:
         Returns:
             int: Number of leads with unsaved feedback.
         """
-        return sum(1 for entry in self.pending_feedback.values() if entry.has_feedback())
+        count = 0
+        print(f"DEBUG: get_pending_feedback_count - checking {len(self.pending_feedback)} entries")
+        for key, entry in self.pending_feedback.items():
+            has_feedback = entry.has_feedback()
+            has_unsaved = entry.has_unsaved_changes
+            print(f"DEBUG: Entry {key}: has_feedback={has_feedback}, has_unsaved_changes={has_unsaved}")
+            if has_feedback and has_unsaved:
+                count += 1
+        print(f"DEBUG: Final pending count: {count}")
+        return count
     
     def save_feedback(self, feedback_entry: FeedbackEntry) -> bool:
         """

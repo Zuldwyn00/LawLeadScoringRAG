@@ -147,7 +147,7 @@ class ScoreBlock(ctk.CTkFrame):
 class LeadItem(ctk.CTkFrame):
     """Widget for displaying a single lead item with score and buttons that expand inline sections."""
     
-    def __init__(self, parent, lead: dict, lead_index: int = 0, **kwargs):
+    def __init__(self, parent, lead: dict, lead_index: int = 0, feedback_manager=None, **kwargs):
         confidence_color = get_score_color(lead.get("confidence", 50))
         
         super().__init__(
@@ -165,8 +165,9 @@ class LeadItem(ctk.CTkFrame):
         self.description_expanded = False
         
         # Feedback management - only for non-example leads
-        self.feedback_manager = FeedbackManager()
+        self.feedback_manager = feedback_manager if feedback_manager is not None else FeedbackManager()
         self.feedback_entry = None
+        print(f"DEBUG: LeadItem {lead_index} using FeedbackManager instance: {id(self.feedback_manager)}")
         
         # Associate chat logs - real leads get their actual chat log, examples get fake test chat log
         if lead.get("is_example", False):
@@ -287,14 +288,13 @@ class LeadItem(ctk.CTkFrame):
         )
         analysis_label.grid(row=0, column=0, sticky="w", padx=15, pady=(15, 5))
         
-        # Create custom text widget with editing capabilities
+        # Create custom text widget with editing capabilities (auto-sizing)
         self.analysis_textbox = InlineEditableText(
             self.analysis_section,
             font=FONTS()["small"],
             fg_color=COLORS["tertiary_black"],
             text_color=COLORS["text_white"],
             wrap="word",
-            height=300,
             on_text_edit=self._on_text_edited
         )
         self.analysis_textbox.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
@@ -498,9 +498,12 @@ class LeadItem(ctk.CTkFrame):
 # ─── INLINE EDITABLE TEXT WIDGET ───────────────────────────────────────────────
 
 class InlineEditableText(tk.Text):
-    """Custom text widget that allows inline editing with visual feedback."""
+    """Custom text widget that allows inline editing with visual feedback and auto-sizing."""
     
     def __init__(self, parent, on_text_edit=None, font=None, fg_color=None, text_color=None, **kwargs):
+        # Remove height from kwargs if present - we'll manage it dynamically
+        kwargs.pop('height', None)
+        
         # Style the Text widget to match CustomTkinter appearance
         styled_kwargs = {
             'bg': fg_color or COLORS["tertiary_black"],
@@ -513,6 +516,7 @@ class InlineEditableText(tk.Text):
             'relief': 'flat',
             'font': font,
             'wrap': 'word',  # Explicitly set wrap mode
+            'height': 1,  # Start with minimal height
             **kwargs
         }
         
@@ -520,6 +524,7 @@ class InlineEditableText(tk.Text):
         self.on_text_edit = on_text_edit
         self.edit_history = []  # Track edits for hover tooltips
         self.tooltip_window = None
+        self.font_metrics = None  # Will store font metrics for calculations
         
         # Configure text widget for inline editing
         self.bind("<Button-3>", self._show_context_menu)
@@ -531,11 +536,76 @@ class InlineEditableText(tk.Text):
         self.tag_configure("edited", foreground="#ff4444", selectforeground="#ff6666")
         self.tag_configure("hover_edited", foreground="#ff6666")
     
+    def _calculate_text_height(self, text: str) -> int:
+        """
+        Calculate the required height in lines for the given text.
+        
+        Args:
+            text (str): The text to measure.
+            
+        Returns:
+            int: Number of lines needed.
+        """
+        if not text.strip():
+            return 1
+        
+        # Force an update to ensure the widget has been drawn
+        self.update_idletasks()
+        
+        # Get the width of the text widget in characters
+        widget_width = self.winfo_width()
+        if widget_width <= 1:  # Widget not yet drawn
+            widget_width = 400  # Default fallback width
+        
+        # Calculate characters per line based on font
+        try:
+            # Use the font to measure character width
+            font = self.cget('font')
+            if isinstance(font, str):
+                import tkinter.font as tkfont
+                font_obj = tkfont.nametofont(font)
+            else:
+                font_obj = font
+            
+            char_width = font_obj.measure('M')  # Use 'M' as average character width
+            chars_per_line = max(1, (widget_width - 20) // char_width)  # Account for padding
+            
+        except:
+            chars_per_line = 80  # Fallback
+        
+        # Split text into lines and count wrapped lines
+        lines = text.split('\n')
+        total_lines = 0
+        
+        for line in lines:
+            if not line:
+                total_lines += 1  # Empty line
+            else:
+                # Calculate how many lines this text line will wrap to
+                line_length = len(line)
+                wrapped_lines = max(1, (line_length + chars_per_line - 1) // chars_per_line)
+                total_lines += wrapped_lines
+        
+        # Add a small buffer and set reasonable limits
+        total_lines = max(3, min(total_lines + 1, 30))  # Between 3 and 30 lines
+        
+        return total_lines
+
     def set_text(self, text: str):
-        """Set the initial text content."""
+        """Set the initial text content and auto-size the widget."""
         self.delete("1.0", "end")
         self.insert("1.0", text)
         self.configure(state="normal")  # Keep editable for selection
+        
+        # Auto-size the widget based on content
+        # Schedule resize after the widget is fully rendered
+        self.after_idle(self._resize_to_content)
+    
+    def _resize_to_content(self):
+        """Resize the text widget to fit its content."""
+        current_text = self.get("1.0", "end-1c")
+        required_height = self._calculate_text_height(current_text)
+        self.configure(height=required_height)
     
     def _prevent_unwanted_edits(self, event):
         """Prevent direct typing but allow selection and navigation."""
@@ -631,6 +701,9 @@ class InlineEditableText(tk.Text):
         # Update edit record with new end position (use start_pos for consistency)
         edit_record['new_end_pos'] = new_end_pos
         edit_record['start_pos'] = start_pos  # Update to use the original start_pos
+        
+        # Resize to fit new content
+        self._resize_to_content()
         
         # Call the callback if provided
         if self.on_text_edit:
@@ -871,8 +944,9 @@ class ExpandableFrame(ctk.CTkFrame):
         self.title = title
         self.is_expanded = False
         
-        # Configure grid
+        # Configure grid for proper expansion
         self.grid_columnconfigure(0, weight=1)
+        # Note: Row weights are managed by the main window layout method
         
         # Create header button
         self.header_button = ctk.CTkButton(
@@ -890,6 +964,7 @@ class ExpandableFrame(ctk.CTkFrame):
         # Content frame (initially hidden)
         self.content_frame = ctk.CTkFrame(self, fg_color=COLORS["secondary_black"])
         self.content_frame.grid_columnconfigure(0, weight=1)
+        # Note: Content frame row weights are set in the specific widget implementations
         
     def toggle(self):
         """Toggle the expanded/collapsed state."""
@@ -902,13 +977,15 @@ class ExpandableFrame(ctk.CTkFrame):
         """Expand to show content."""
         self.is_expanded = True
         self.header_button.configure(text=f"▼ {self.title}")
-        self.content_frame.grid(row=1, column=0, sticky="ew", padx=5, pady=(0, 5))
+        self.content_frame.grid(row=1, column=0, sticky="nsew", padx=5, pady=(0, 5))
+        # Note: Row weights are managed by the main window layout method
         
     def collapse(self):
         """Collapse to hide content."""
         self.is_expanded = False
         self.header_button.configure(text=f"▶ {self.title}")
         self.content_frame.grid_remove()
+        # Note: Row weights are managed by the main window layout method
         
     def add_content(self, widget):
         """Add a widget to the content area."""
@@ -976,7 +1053,7 @@ During the AI Analysis phase, the system:
         self.guidelines_textbox.insert("1.0", guidelines_text)
         self.guidelines_textbox.configure(state="disabled")
         
-        # Configure content frame grid
+        # Configure content frame grid to use all available space
         self.content_frame.grid_rowconfigure(0, weight=1)
         self.content_frame.grid_columnconfigure(0, weight=1)
 
@@ -995,61 +1072,124 @@ class FeedbackGuidelinesWidget(ExpandableFrame):
         self.setup_content()
         
     def setup_content(self):
-        """Set up the feedback guidelines content."""
+        """Set up the feedback guidelines content with color coding."""
+        # Use tkinter Text widget instead of CTkTextbox for color support
+        import tkinter as tk
+        
+        self.feedback_textbox = tk.Text(
+            self.content_frame,
+            font=FONTS()["small"],
+            bg=COLORS["tertiary_black"],
+            fg=COLORS["text_white"],
+            wrap="word",
+            borderwidth=0,
+            highlightthickness=0,
+            relief="flat",
+            insertbackground=COLORS["text_white"],
+            selectbackground=COLORS["accent_orange"],
+            selectforeground=COLORS["text_white"],
+            width=1,  # Minimum width to allow proper expansion
+            height=1   # Minimum height to allow proper expansion
+        )
+        self.feedback_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        
+        # Configure color tags - minimal and consistent with app theme
+        self.feedback_textbox.tag_configure("header", foreground=COLORS["accent_orange"])  # Orange for main headers
+        self.feedback_textbox.tag_configure("important", foreground=COLORS["accent_orange"])  # Orange for key actions
+        self.feedback_textbox.tag_configure("subtle", foreground=COLORS["text_gray"])  # Gray for less important info
+        
+        # Insert content with color coding
+        self._insert_colored_content()
+        
+        self.feedback_textbox.configure(state="disabled")
+        
+        # Configure content frame grid to use all available space
+        self.content_frame.grid_rowconfigure(0, weight=1)
+        self.content_frame.grid_columnconfigure(0, weight=1)
+        
+        # Force the textbox to update its layout after grid configuration
+        self.feedback_textbox.update_idletasks()
+    
+    def _insert_colored_content(self):
+        """Insert the minimally color-coded feedback guidelines content."""
+        # Simple text with only strategic orange highlights for key actions
         feedback_text = """How to Provide Feedback:
 
-✏️ Edit Text:
+✏️ EDIT TEXT:
 1. Click "📊 View AI Analysis" on any lead
-2. Select text you want to change
-3. Type your correction
+2. Select text you want to change  
+3. Right-click → Edit Selected Text
 4. Text highlights in orange when edited
 5. Hover over highlighted text to see original
 
-🔢 Change Scores:
+🔢 CHANGE SCORES:
 1. Click the score number in the colored box
 2. Enter new score (0-100)
 3. Press Enter to confirm
 4. Score box updates with new color
 
-💾 Save Feedback:
-• Orange "SAVE FEEDBACK" button appears when changes are made
+💾 SAVE YOUR WORK:
+• Orange "SAVE FEEDBACK" button appears when changes made
 • Each lead has its own save button
-• Button shows "SAVE FEEDBACK (TEST)" for example leads
-• Click to save all your changes for that lead
+• Click to save all changes for that lead
+• Button shows "(TEST)" for example leads
 
-📁 Feedback Files:
-• Saved to: scripts/data/feedback/ folder
-• Contains original text + your changes
-• Includes change details for AI training
+📁 WHERE FILES GO:
+• Saved to: scripts/data/feedback/
+• Contains original + your changes
 • Each lead gets its own file
 
-🔄 Multiple Saves:
-• You can edit → save → edit more → save again
-• Changes accumulate in the same file
+🔄 MULTIPLE EDITS:
+• Edit → Save → Edit More → Save
+• Changes accumulate in same file
 • Perfect for iterative improvements
 
-💡 Best Practices:
-• Make corrections that improve accuracy
+💡 BEST PRACTICES:
 • Fix obvious errors or unclear language
 • Adjust scores based on your expertise
 • Save frequently to avoid losing work
 
-⚠️ Notes:
-• Example leads use fake chat logs for testing
-• Real leads link to actual scoring sessions
-• Program prompts to save unsaved feedback on exit"""
+⚠️ IMPORTANT NOTES:
+• Example leads use fake data for testing
+• Real leads link to actual sessions
+• Program warns about unsaved feedback on exit"""
 
-        self.feedback_textbox = ctk.CTkTextbox(
-            self.content_frame,
-            font=FONTS()["small"],
-            fg_color=COLORS["tertiary_black"],
-            text_color=COLORS["text_white"],
-            wrap="word"
-        )
-        self.feedback_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        # Insert the main text
         self.feedback_textbox.insert("1.0", feedback_text)
-        self.feedback_textbox.configure(state="disabled")
         
-        # Configure content frame grid
-        self.content_frame.grid_rowconfigure(0, weight=1)
-        self.content_frame.grid_columnconfigure(0, weight=1)
+        # Only highlight truly important clickable elements in orange
+        important_phrases = [
+            "📊 View AI Analysis",
+            "Right-click → Edit Selected Text", 
+            "Click the score number",
+            "SAVE FEEDBACK",
+            "Save frequently"
+        ]
+        
+        for phrase in important_phrases:
+            start_idx = "1.0"
+            while True:
+                start_idx = self.feedback_textbox.search(phrase, start_idx, "end")
+                if not start_idx:
+                    break
+                end_idx = f"{start_idx}+{len(phrase)}c"
+                self.feedback_textbox.tag_add("important", start_idx, end_idx)
+                start_idx = end_idx
+        
+        # Make file paths and technical details subtle gray
+        technical_phrases = [
+            "scripts/data/feedback/",
+            "(TEST)",
+            "fake data for testing",
+            "actual sessions"
+        ]
+        
+        for phrase in technical_phrases:
+            start_idx = "1.0"
+            while True:
+                start_idx = self.feedback_textbox.search(phrase, start_idx, "end")
+                if not start_idx:
+                    break
+                end_idx = f"{start_idx}+{len(phrase)}c"
+                self.feedback_textbox.tag_add("subtle", start_idx, end_idx)
+                start_idx = end_idx

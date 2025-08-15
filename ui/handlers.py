@@ -27,6 +27,7 @@ from utils import (
     load_from_json,
     save_to_json,
 )
+from .scored_leads_loader import load_all_scored_leads, ScoredLead
 
 # ─── CORE BUSINESS LOGIC ────────────────────────────────────────────────────────
 class LeadScoringHandler:
@@ -363,6 +364,34 @@ class UIEventHandler:
         
 
         
+    def convert_scored_lead_to_ui_format(self, scored_lead: ScoredLead) -> dict:
+        """Convert a ScoredLead dataclass to the UI's expected dictionary format."""
+        return {
+            "timestamp": scored_lead.timestamp.strftime("%Y-%m-%d %H:%M:%S"),
+            "description": scored_lead.case_summary,
+            "score": scored_lead.lead_score,
+            "confidence": scored_lead.confidence_score,
+            "analysis": scored_lead.detailed_rationale,  # Full analysis text
+            "chat_log_filename": str(Path(scored_lead.file_path).name),  # Just filename, not full path
+            "is_example": False,  # Real scored leads are not examples
+            # Store additional data for potential future use
+            "_scored_lead_data": scored_lead  # Keep reference to full structured data
+        }
+    
     def get_initial_leads(self):
-        """Get the initial leads including the example lead."""
-        return [self.business_logic.get_example_lead()]
+        """Get the initial leads including both example lead and real scored leads from chat logs."""
+        leads = []
+        
+        # Add the example lead first
+        leads.append(self.business_logic.get_example_lead())
+        
+        # Load and convert real scored leads
+        try:
+            scored_leads = load_all_scored_leads()
+            for scored_lead in scored_leads:
+                ui_lead = self.convert_scored_lead_to_ui_format(scored_lead)
+                leads.append(ui_lead)
+        except Exception as e:
+            print(f"Warning: Could not load scored leads: {e}")
+        
+        return leads

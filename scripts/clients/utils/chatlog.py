@@ -193,7 +193,7 @@ def dump_chat_log(message_history: List[BaseMessage], filename: str = "chat_log.
         print(f"Successfully saved chat log to {destination_path}")
     except (IOError, TypeError) as e:
         print(f"Error saving chat log: {e}")
-        return
+        return None
 
     # Also save a human-readable text version
     text_path = destination_path.with_suffix('.txt')
@@ -235,3 +235,6 @@ def dump_chat_log(message_history: List[BaseMessage], filename: str = "chat_log.
         print(f"Successfully saved readable chat log to {text_path}")
     except (IOError, TypeError) as e:
         print(f"Error saving readable chat log: {e}")
+    
+    # Return the filename (without path) for reference
+    return unique_name

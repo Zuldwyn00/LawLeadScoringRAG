@@ -20,8 +20,6 @@ PyYAML==6.0.2
 # Environment and Configuration
 python-dotenv==1.1.1
 
-# Web UI (for lead_scoring_ui.py)
-streamlit==1.47.0
 
 # Desktop GUI (for lead_scoring_gui.py)
 customtkinter==5.2.2

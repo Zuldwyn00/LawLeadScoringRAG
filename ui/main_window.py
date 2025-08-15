@@ -12,6 +12,7 @@ from .styles import setup_theme, COLORS, FONTS, get_primary_button_style, get_se
 from .widgets import ProgressWidget, LeadItem, StatsWidget, GuidelinesWidget
 from .handlers import UIEventHandler
 from .dialogs import LogViewerDialog
+from .feedback_manager import FeedbackManager
 
 # ─── MAIN APPLICATION CLASS ─────────────────────────────────────────────────────
 class LeadScoringApp:
@@ -32,11 +33,17 @@ class LeadScoringApp:
         # Initialize event handler
         self.event_handler = UIEventHandler(self)
         
+        # Initialize feedback manager for program close handling
+        self.feedback_manager = FeedbackManager()
+        
         # Initialize with example lead
         self.scored_leads = self.event_handler.get_initial_leads()
         
         # Create UI components
         self.create_widgets()
+        
+        # Set up window close event handler
+        self.setup_close_handler()
         
         # Refresh initial display
         self.refresh_results()
@@ -263,10 +270,62 @@ class LeadScoringApp:
         for i, lead in enumerate(self.scored_leads):
             lead_item = LeadItem(
                 self.results_frame,
-                lead
+                lead,
+                lead_index=i
             )
             lead_item.grid(row=i, column=0, sticky="ew", padx=10, pady=5)
             
+    def setup_close_handler(self):
+        """Set up the window close event handler to save any pending feedback."""
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+    
+    def on_closing(self):
+        """Handle application closing - save any pending feedback before exit."""
+        # Check if there's any pending feedback
+        pending_count = self.feedback_manager.get_pending_feedback_count()
+        
+        if pending_count > 0:
+            # Ask user if they want to save pending feedback
+            result = messagebox.askyesnocancel(
+                "Unsaved Feedback", 
+                f"You have unsaved feedback for {pending_count} lead(s).\n\n"
+                "Would you like to save this feedback before closing?\n\n"
+                "• Yes: Save feedback and exit\n"
+                "• No: Exit without saving\n"
+                "• Cancel: Return to application"
+            )
+            
+            if result is True:  # Yes - save and exit
+                # Before saving, capture current text state for all lead items with pending feedback
+                self._capture_final_text_states()
+                saved_count = self.feedback_manager.save_all_pending_feedback()
+                messagebox.showinfo("Feedback Saved", f"Saved feedback for {saved_count} lead(s).")
+                self.root.destroy()
+            elif result is False:  # No - exit without saving
+                self.root.destroy()
+            # If cancel (None), do nothing - stay in application
+        else:
+            # No pending feedback, just close
+            self.root.destroy()
+    
+    def _capture_final_text_states(self):
+        """Capture the final text state from all lead items with pending feedback."""
+        # Iterate through all lead items in the results frame
+        for widget in self.results_frame.winfo_children():
+            if hasattr(widget, 'lead_index') and hasattr(widget, 'analysis_textbox'):
+                lead_index = widget.lead_index
+                current_chat_log = widget.current_chat_log
+                
+                if current_chat_log and self.feedback_manager.has_pending_feedback(current_chat_log, lead_index):
+                    # Get current text and update feedback entry
+                    current_analysis_text = widget.analysis_textbox.get("1.0", "end-1c")
+                    feedback_entry = self.feedback_manager.get_or_create_feedback_entry(
+                        current_chat_log, 
+                        lead_index, 
+                        widget.lead["analysis"]
+                    )
+                    feedback_entry.set_replaced_analysis_text(current_analysis_text)
+    
     def after(self, delay, callback):
         """Wrapper for tkinter's after method."""
         return self.root.after(delay, callback)

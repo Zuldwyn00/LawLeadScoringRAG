@@ -134,6 +134,7 @@ class LeadScoringHandler:
             "confidence": 78,
             "analysis": example_analysis,
             "is_example": True,
+            "chat_log_filename": "example_test_chat_log_fake.json"  # Fake chat log for testing feedback
         }
         
     def score_lead_process(self, lead_description: str, progress_callback=None, completion_callback=None, error_callback=None):
@@ -189,9 +190,11 @@ class LeadScoringHandler:
                 animation_thread.start()
             
             try:
-                final_analysis = lead_scoring_client.score_lead(
+                # score_lead now returns (analysis, chat_log_filename)
+                final_analysis, chat_log_filename = lead_scoring_client.score_lead(
                     new_lead_description=lead_description, historical_context=historical_context
                 )
+                    
             finally:
                 self.ai_analysis_running = False
                 time.sleep(0.5)
@@ -207,7 +210,7 @@ class LeadScoringHandler:
                 progress_callback(100, "✅ Lead scoring completed successfully!", time.time() - start_time)
                 
             if completion_callback:
-                completion_callback(score, confidence, final_analysis)
+                completion_callback(score, confidence, final_analysis, chat_log_filename)
                 
         except Exception as e:
             self.ai_analysis_running = False
@@ -283,7 +286,7 @@ class UIEventHandler:
             def progress_update(progress, status, elapsed_time):
                 self.app.after(0, lambda: self.app.progress_widget.update(progress, status, elapsed_time))
                 
-            def completion_callback(score, confidence, analysis):
+            def completion_callback(score, confidence, analysis, chat_log_filename=None):
                 # Create new lead
                 new_lead = {
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -291,6 +294,7 @@ class UIEventHandler:
                     "score": score,
                     "confidence": confidence,
                     "analysis": analysis,
+                    "chat_log_filename": chat_log_filename,  # Link to specific chat log
                 }
                 
                 # Update UI on main thread

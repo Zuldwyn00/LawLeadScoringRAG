@@ -165,11 +165,13 @@ def score_test():
     
     historical_context = qdrant_client.get_context(search_results)
 
-    final_analysis = scorer.score_lead(
+    # score_lead now returns (analysis, chat_log_filename)
+    final_analysis, chat_log_filename = scorer.score_lead(
         new_lead_description=new_lead_description, historical_context=historical_context
     )
-    dump_chat_log(scorer.client.message_history)
+    # No need to call dump_chat_log here since score_lead already does it
     print(final_analysis)
+    print(f"Chat log saved as: {chat_log_filename}")
 
 
 def jurisdiction_score_test():

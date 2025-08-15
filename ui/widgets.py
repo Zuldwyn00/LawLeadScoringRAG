@@ -7,7 +7,12 @@ These widgets encapsulate common UI patterns and styling.
 
 import customtkinter as ctk
 import tkinter as tk
+from tkinter import messagebox, simpledialog
 from .styles import COLORS, FONTS, get_score_color
+import sys
+import os
+
+from .feedback_manager import FeedbackManager, FeedbackEntry, extract_chat_log_filename_from_session
 
 # ─── PROGRESS DISPLAY WIDGET ────────────────────────────────────────────────────
 class ProgressWidget:
@@ -67,8 +72,11 @@ class ProgressWidget:
 class ScoreBlock(ctk.CTkFrame):
     """Widget for displaying a score in a colored block."""
     
-    def __init__(self, parent, score: int, **kwargs):
-        self.score = score
+    def __init__(self, parent, score: int, editable: bool = False, on_score_change=None, **kwargs):
+        self.original_score = score
+        self.current_score = score
+        self.editable = editable
+        self.on_score_change = on_score_change
         color = get_score_color(score)
         
         super().__init__(
@@ -82,19 +90,64 @@ class ScoreBlock(ctk.CTkFrame):
         
         self.grid_propagate(False)
         
-        self.score_label = ctk.CTkLabel(
-            self,
-            text=str(score),
-            font=ctk.CTkFont(family="Inter", size=20, weight="bold"),
-            text_color=COLORS["text_white"]
-        )
+        if editable:
+            # Create clickable score for editing
+            self.score_label = ctk.CTkLabel(
+                self,
+                text=str(score),
+                font=ctk.CTkFont(family="Inter", size=20, weight="bold"),
+                text_color=COLORS["text_white"],
+                cursor="hand2"
+            )
+            self.score_label.bind("<Button-1>", self._edit_score)
+            
+            # Add edit indicator
+            self.edit_indicator = ctk.CTkLabel(
+                self,
+                text="✏️",
+                font=ctk.CTkFont(size=10),
+                text_color=COLORS["text_white"]
+            )
+            self.edit_indicator.place(relx=0.85, rely=0.15, anchor="center")
+        else:
+            self.score_label = ctk.CTkLabel(
+                self,
+                text=str(score),
+                font=ctk.CTkFont(family="Inter", size=20, weight="bold"),
+                text_color=COLORS["text_white"]
+            )
+        
         self.score_label.place(relx=0.5, rely=0.5, anchor="center")
+    
+    def _edit_score(self, event=None):
+        """Handle score editing when clicked."""
+        new_score = simpledialog.askinteger(
+            "Edit Score",
+            f"Enter new score (0-100):\nOriginal score: {self.original_score}",
+            initialvalue=self.current_score,
+            minvalue=0,
+            maxvalue=100
+        )
+        
+        if new_score is not None and new_score != self.current_score:
+            self.update_score(new_score)
+            if self.on_score_change:
+                self.on_score_change(self.original_score, new_score)
+    
+    def update_score(self, new_score: int):
+        """Update the displayed score and color."""
+        self.current_score = new_score
+        self.score_label.configure(text=str(new_score))
+        
+        # Update background color
+        new_color = get_score_color(new_score)
+        self.configure(fg_color=new_color)
 
 # ─── LEAD ITEM WIDGET ───────────────────────────────────────────────────────────
 class LeadItem(ctk.CTkFrame):
     """Widget for displaying a single lead item with score and buttons that expand inline sections."""
     
-    def __init__(self, parent, lead: dict, **kwargs):
+    def __init__(self, parent, lead: dict, lead_index: int = 0, **kwargs):
         confidence_color = get_score_color(lead.get("confidence", 50))
         
         super().__init__(
@@ -106,9 +159,22 @@ class LeadItem(ctk.CTkFrame):
         )
         
         self.lead = lead
+        self.lead_index = lead_index
         self.grid_columnconfigure(0, weight=1)
         self.analysis_expanded = False
         self.description_expanded = False
+        
+        # Feedback management - only for non-example leads
+        self.feedback_manager = FeedbackManager()
+        self.feedback_entry = None
+        
+        # Associate chat logs - real leads get their actual chat log, examples get fake test chat log
+        if lead.get("is_example", False):
+            self.current_chat_log = lead.get("chat_log_filename", "example_test_chat_log_fake.json")  # Fake chat log for testing
+        else:
+            # For real leads, use the specific chat log if available, otherwise get most recent
+            self.current_chat_log = lead.get("chat_log_filename") or extract_chat_log_filename_from_session()
+        
         self.setup_widgets()
         
     def setup_widgets(self):
@@ -118,9 +184,14 @@ class LeadItem(ctk.CTkFrame):
         main_frame.grid(row=0, column=0, sticky="ew", padx=15, pady=15)
         main_frame.grid_columnconfigure(1, weight=1)
         
-        # Score block
-        score_block = ScoreBlock(main_frame, self.lead["score"])
-        score_block.grid(row=0, column=0, padx=(0, 15), pady=0, sticky="n")
+        # Score block (editable)
+        self.score_block = ScoreBlock(
+            main_frame, 
+            self.lead["score"], 
+            editable=True, 
+            on_score_change=self._on_score_change
+        )
+        self.score_block.grid(row=0, column=0, padx=(0, 15), pady=0, sticky="n")
         
         # Content frame
         content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
@@ -180,6 +251,18 @@ class LeadItem(ctk.CTkFrame):
         )
         self.view_description_btn.pack(side="left")
         
+        # Save feedback button (initially hidden) - include test feedback button for examples
+        feedback_button_text = "💾 SAVE FEEDBACK (TEST)" if self.lead.get("is_example", False) else "💾 SAVE FEEDBACK"
+        self.save_feedback_btn = ctk.CTkButton(
+            button_frame,
+            text=feedback_button_text,
+            fg_color=COLORS["accent_orange"],
+            hover_color=COLORS["accent_orange_hover"],
+            font=FONTS()["small_button"],
+            command=self._save_feedback
+        )
+        # Don't pack initially - will be shown when feedback exists
+        
         # Expandable sections frame (initially hidden)
         self.sections_frame = ctk.CTkFrame(self, fg_color="transparent")
         self.sections_frame.grid_columnconfigure(0, weight=1)
@@ -192,7 +275,7 @@ class LeadItem(ctk.CTkFrame):
             border_width=2
         )
         
-        # Add analysis content
+        # Add analysis content header
         analysis_label = ctk.CTkLabel(
             self.analysis_section,
             text="📊 AI Analysis & Recommendation",
@@ -201,17 +284,18 @@ class LeadItem(ctk.CTkFrame):
         )
         analysis_label.grid(row=0, column=0, sticky="w", padx=15, pady=(15, 5))
         
-        self.analysis_textbox = ctk.CTkTextbox(
+        # Create custom text widget with editing capabilities
+        self.analysis_textbox = InlineEditableText(
             self.analysis_section,
             font=FONTS()["small"],
             fg_color=COLORS["tertiary_black"],
             text_color=COLORS["text_white"],
             wrap="word",
-            height=300
+            height=300,
+            on_text_edit=self._on_text_edited
         )
         self.analysis_textbox.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
-        self.analysis_textbox.insert("1.0", self.lead["analysis"])
-        self.analysis_textbox.configure(state="disabled")
+        self.analysis_textbox.set_text(self.lead["analysis"])
         self.analysis_section.grid_columnconfigure(0, weight=1)
         self.analysis_section.grid_rowconfigure(1, weight=1)
         
@@ -311,6 +395,402 @@ class LeadItem(ctk.CTkFrame):
             # Hide sections frame if nothing is expanded
             if not self.analysis_expanded:
                 self.sections_frame.grid_remove()
+    
+    # ─── FEEDBACK HANDLING METHODS ─────────────────────────────────────────────
+    
+    def _on_score_change(self, original_score: int, new_score: int):
+        """Handle score change from the editable score block."""
+        if not self.current_chat_log:
+            messagebox.showwarning("No Chat Log", "Cannot save feedback: No chat log found for this session.")
+            return
+        
+        # Get or create feedback entry in memory
+        feedback_entry = self.feedback_manager.get_or_create_feedback_entry(
+            self.current_chat_log, 
+            self.lead_index, 
+            self.lead["analysis"]
+        )
+        
+        # Set score feedback (accumulates in memory)
+        feedback_entry.set_score_feedback(original_score, new_score)
+        
+        # Update UI to show save button
+        self._update_save_button_visibility()
+        
+        feedback_type = "TEST" if self.lead.get("is_example", False) else "REAL"
+        print(f"Score feedback accumulated ({feedback_type}): {original_score} → {new_score}")
+    
+    def _on_text_edited(self, original_text: str, new_text: str, start_pos: str, end_pos: str):
+        """Handle inline text editing from the custom text widget."""
+        if not self.current_chat_log:
+            messagebox.showwarning("No Chat Log", "Cannot save feedback: No chat log found for this session.")
+            return
+        
+        # Get or create feedback entry in memory
+        feedback_entry = self.feedback_manager.get_or_create_feedback_entry(
+            self.current_chat_log, 
+            self.lead_index, 
+            self.lead["analysis"]
+        )
+        
+        # Add text feedback with position information (accumulates in memory)
+        position_info = f"AI Analysis Section (pos: {start_pos} to {end_pos})"
+        feedback_entry.add_text_feedback(original_text, new_text, position_info)
+        
+        # Update UI to show save button
+        self._update_save_button_visibility()
+        
+        feedback_type = "TEST" if self.lead.get("is_example", False) else "REAL"
+        print(f"Text feedback accumulated ({feedback_type}): '{original_text}' → '{new_text}'")
+    
+    def _save_feedback(self):
+        """Save the accumulated feedback for this lead."""
+        if not self.current_chat_log:
+            messagebox.showwarning("No Chat Log", "Cannot save feedback: No chat log found for this session.")
+            return
+        
+        # Get the current modified text from the analysis textbox
+        current_analysis_text = self.analysis_textbox.get("1.0", "end-1c")
+        
+        # Update the feedback entry with the final replaced text
+        feedback_entry = self.feedback_manager.get_or_create_feedback_entry(
+            self.current_chat_log, 
+            self.lead_index, 
+            self.lead["analysis"]
+        )
+        feedback_entry.set_replaced_analysis_text(current_analysis_text)
+        
+        if self.feedback_manager.save_feedback_for_lead(self.current_chat_log, self.lead_index):
+            messagebox.showinfo("Feedback Saved", f"Feedback for Lead #{self.lead_index + 1} saved successfully!")
+            # Hide the save button after successful save
+            self._update_save_button_visibility()
+            # Reset the feedback entry for fresh changes after save
+            self._reset_feedback_entry_after_save()
+        else:
+            messagebox.showerror("Error", "Failed to save feedback.")
+    
+    def _reset_feedback_entry_after_save(self):
+        """Reset the feedback entry after saving to start fresh for new changes."""
+        # Update the lead's analysis text to the current modified text as the new baseline
+        current_analysis_text = self.analysis_textbox.get("1.0", "end-1c")
+        self.lead["analysis"] = current_analysis_text
+        
+        # Clear the local feedback entry reference to start fresh
+        self.feedback_entry = None
+        # The next change will create a new feedback entry starting from the current state
+    
+    def _update_save_button_visibility(self):
+        """Update the visibility of the save feedback button based on pending feedback."""
+        if self.save_feedback_btn:
+            if self.feedback_manager.has_pending_feedback(self.current_chat_log, self.lead_index):
+                # Show the save button
+                self.save_feedback_btn.pack(side="left", padx=(10, 0))
+            else:
+                # Hide the save button
+                self.save_feedback_btn.pack_forget()
+
+
+# ─── INLINE EDITABLE TEXT WIDGET ───────────────────────────────────────────────
+
+class InlineEditableText(tk.Text):
+    """Custom text widget that allows inline editing with visual feedback."""
+    
+    def __init__(self, parent, on_text_edit=None, font=None, fg_color=None, text_color=None, **kwargs):
+        # Style the Text widget to match CustomTkinter appearance
+        styled_kwargs = {
+            'bg': fg_color or COLORS["tertiary_black"],
+            'fg': text_color or COLORS["text_white"],
+            'insertbackground': text_color or COLORS["text_white"],
+            'selectbackground': COLORS["accent_orange"],
+            'selectforeground': COLORS["text_white"],
+            'borderwidth': 0,
+            'highlightthickness': 0,
+            'relief': 'flat',
+            'font': font,
+            'wrap': 'word',  # Explicitly set wrap mode
+            **kwargs
+        }
+        
+        super().__init__(parent, **styled_kwargs)
+        self.on_text_edit = on_text_edit
+        self.edit_history = []  # Track edits for hover tooltips
+        self.tooltip_window = None
+        
+        # Configure text widget for inline editing
+        self.bind("<Button-3>", self._show_context_menu)
+        self.bind("<KeyPress>", self._prevent_unwanted_edits)
+        self.bind("<Motion>", self._on_mouse_motion)
+        self.bind("<Leave>", self._hide_tooltip)
+        
+        # Configure tags for styling edited text (only color change to avoid layout issues)
+        self.tag_configure("edited", foreground="#ff4444", selectforeground="#ff6666")
+        self.tag_configure("hover_edited", foreground="#ff6666")
+    
+    def set_text(self, text: str):
+        """Set the initial text content."""
+        self.delete("1.0", "end")
+        self.insert("1.0", text)
+        self.configure(state="normal")  # Keep editable for selection
+    
+    def _prevent_unwanted_edits(self, event):
+        """Prevent direct typing but allow selection and navigation."""
+        # Allow navigation and selection keys
+        allowed_keys = [
+            'Left', 'Right', 'Up', 'Down', 'Home', 'End', 
+            'Page_Up', 'Page_Down', 'Tab', 'Escape'
+        ]
+        
+        # Allow Ctrl combinations for copy/select all
+        if event.state & 0x4:  # Ctrl key pressed
+            return
+        
+        if event.keysym in allowed_keys:
+            return
+        
+        # Block all other key presses
+        return "break"
+    
+    def _show_context_menu(self, event):
+        """Show context menu for selected text editing."""
+        try:
+            # Get selected text
+            selected_text = self.selection_get()
+            if selected_text.strip():
+                # Create context menu
+                context_menu = tk.Menu(self, tearoff=0)
+                context_menu.add_command(
+                    label="✏️ Edit Selected Text",
+                    command=lambda: self._start_inline_edit(selected_text)
+                )
+                context_menu.tk_popup(event.x_root, event.y_root)
+        except tk.TclError:
+            # No text selected
+            pass
+    
+    def _start_inline_edit(self, selected_text: str):
+        """Start inline editing of selected text."""
+        try:
+            # Get selection boundaries
+            start_pos = self.index(tk.SEL_FIRST)
+            end_pos = self.index(tk.SEL_LAST)
+            
+            # Create inline edit dialog
+            InlineEditDialog(self, selected_text, start_pos, end_pos, self._complete_edit)
+            
+        except tk.TclError:
+            messagebox.showwarning("No Selection", "Please select text to edit.")
+    
+    def _complete_edit(self, original_text: str, new_text: str, start_pos: str, end_pos: str):
+        """Complete the inline edit and apply visual styling."""
+        # Strip any unwanted whitespace/newlines from the new text
+        new_text = new_text.strip()
+        
+        if new_text == original_text.strip():
+            return  # No change made
+        
+        # Record the edit for hover tooltips
+        edit_record = {
+            'start_pos': start_pos,
+            'end_pos': end_pos,
+            'original_text': original_text,
+            'new_text': new_text
+        }
+        self.edit_history.append(edit_record)
+        
+        # Simple approach: delete and insert, then apply tag to exactly what was inserted
+        self.delete(start_pos, end_pos)
+        self.insert(start_pos, new_text)
+        
+        # Calculate end position simply by counting characters from start
+        line, col = map(int, start_pos.split('.'))
+        
+        # Handle multi-line text properly
+        if '\n' in new_text:
+            lines = new_text.split('\n')
+            final_line = line + len(lines) - 1
+            final_col = len(lines[-1]) if len(lines) > 1 else col + len(new_text)
+            new_end_pos = f"{final_line}.{final_col}"
+        else:
+            # Single line text
+            new_end_pos = f"{line}.{col + len(new_text)}"
+        
+        print(f"Simple calc: start={start_pos}, end={new_end_pos}, text='{new_text}'")
+        
+        # Apply highlighting only to the exact text that was inserted
+        self.tag_add("edited", start_pos, new_end_pos)
+        
+        # Update edit record with new end position (use start_pos for consistency)
+        edit_record['new_end_pos'] = new_end_pos
+        edit_record['start_pos'] = start_pos  # Update to use the original start_pos
+        
+        # Call the callback if provided
+        if self.on_text_edit:
+            self.on_text_edit(original_text, new_text, start_pos, new_end_pos)
+    
+    def _on_mouse_motion(self, event):
+        """Handle mouse motion for hover tooltips."""
+        # Get mouse position in text coordinates
+        mouse_pos = self.index(f"@{event.x},{event.y}")
+        
+        # Check if mouse is over edited text
+        for edit in self.edit_history:
+            if self._is_position_in_range(mouse_pos, edit['start_pos'], edit.get('new_end_pos', edit['end_pos'])):
+                self._show_tooltip(event, edit['original_text'])
+                return
+        
+        # Hide tooltip if not over edited text
+        self._hide_tooltip()
+    
+    def _is_position_in_range(self, pos: str, start: str, end: str) -> bool:
+        """Check if position is within a text range."""
+        try:
+            pos_float = float(pos)
+            start_float = float(start)
+            end_float = float(end)
+            return start_float <= pos_float <= end_float
+        except ValueError:
+            return False
+    
+    def _show_tooltip(self, event, original_text: str):
+        """Show tooltip with original text."""
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+        
+        self.tooltip_window = tk.Toplevel(self)
+        self.tooltip_window.wm_overrideredirect(True)
+        self.tooltip_window.wm_geometry(f"+{event.x_root + 10}+{event.y_root + 10}")
+        
+        # Create tooltip content
+        tooltip_label = tk.Label(
+            self.tooltip_window,
+            text=f"Original: {original_text}",
+            background="#2b2b2b",
+            foreground="white",
+            relief="solid",
+            borderwidth=1,
+            font=("Arial", 9),
+            padx=8,
+            pady=4
+        )
+        tooltip_label.pack()
+    
+    def _hide_tooltip(self, event=None):
+        """Hide the tooltip."""
+        if self.tooltip_window:
+            self.tooltip_window.destroy()
+            self.tooltip_window = None
+
+
+# ─── INLINE EDIT DIALOG ─────────────────────────────────────────────────────────
+
+class InlineEditDialog(ctk.CTkToplevel):
+    """Small dialog for inline text editing."""
+    
+    def __init__(self, parent, selected_text: str, start_pos: str, end_pos: str, callback):
+        super().__init__(parent)
+        self.selected_text = selected_text
+        self.start_pos = start_pos
+        self.end_pos = end_pos
+        self.callback = callback
+        
+        self.setup_window()
+        self.create_widgets()
+        
+        # Position near mouse cursor
+        self.position_dialog()
+        
+        # Make it modal
+        self.transient(parent)
+        self.grab_set()
+        self.focus()
+    
+    def setup_window(self):
+        """Configure the dialog window."""
+        self.title("Edit Text")
+        self.geometry("400x250")
+        self.configure(fg_color=COLORS["primary_black"])
+        self.resizable(False, False)
+        
+        # Configure grid weights
+        self.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+    
+    def create_widgets(self):
+        """Create and arrange the dialog widgets."""
+        # Header
+        header_label = ctk.CTkLabel(
+            self,
+            text="Edit Selected Text",
+            font=FONTS()["subheading"],
+            text_color=COLORS["accent_orange"]
+        )
+        header_label.grid(row=0, column=0, pady=(20, 10))
+        
+        # Text editing area
+        self.text_editor = ctk.CTkTextbox(
+            self,
+            font=FONTS()["body"],
+            fg_color=COLORS["tertiary_black"],
+            text_color=COLORS["text_white"],
+            height=120,
+            wrap="word"
+        )
+        self.text_editor.grid(row=1, column=0, sticky="ew", padx=20, pady=(0, 20))
+        self.text_editor.insert("1.0", self.selected_text)
+        self.text_editor.focus()
+        
+        # Select all text for easy replacement
+        self.text_editor.tag_add("sel", "1.0", "end-1c")
+        
+        # Buttons
+        button_frame = ctk.CTkFrame(self, fg_color="transparent")
+        button_frame.grid(row=2, column=0, pady=(0, 20))
+        
+        cancel_button = ctk.CTkButton(
+            button_frame,
+            text="Cancel",
+            font=FONTS()["button"],
+            fg_color=COLORS["tertiary_black"],
+            hover_color=COLORS["border_gray"],
+            border_color=COLORS["border_gray"],
+            border_width=2,
+            width=80,
+            command=self.destroy
+        )
+        cancel_button.pack(side="left", padx=(0, 10))
+        
+        confirm_button = ctk.CTkButton(
+            button_frame,
+            text="Confirm",
+            font=FONTS()["button"],
+            fg_color=COLORS["accent_orange"],
+            hover_color=COLORS["accent_orange_hover"],
+            width=80,
+            command=self._confirm_edit
+        )
+        confirm_button.pack(side="left")
+        
+        # Bind Enter key to confirm
+        self.bind('<Return>', lambda e: self._confirm_edit())
+        self.bind('<Escape>', lambda e: self.destroy())
+    
+    def position_dialog(self):
+        """Position dialog near the mouse cursor."""
+        # Get mouse position
+        x = self.winfo_pointerx()
+        y = self.winfo_pointery()
+        
+        # Offset slightly so it doesn't cover the selection
+        self.geometry(f"400x250+{x + 20}+{y - 50}")
+    
+    def _confirm_edit(self):
+        """Confirm the edit and close dialog."""
+        new_text = self.text_editor.get("1.0", "end-1c").strip()
+        
+        # Call the callback with the edit
+        self.callback(self.selected_text, new_text, self.start_pos, self.end_pos)
+        self.destroy()
+
 
 # ─── STATISTICS WIDGET ──────────────────────────────────────────────────────────
 class StatsWidget(ctk.CTkFrame):

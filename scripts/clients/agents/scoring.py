@@ -44,6 +44,7 @@ class LeadScoringClient:
         self.prompt = load_prompt('lead_scoring')
         self.tool_manager = ToolManager(tools=[get_file_context])
         self.current_lead_score = None
+        self.last_chat_log_filename = None  # Store the most recent chat log filename
 
         # Register summarizer globally for use in tools (with caching support)
         self.summarizer = summarizer
@@ -98,7 +99,7 @@ class LeadScoringClient:
             if self.final_model_temperature is not None:
                 self.final_client.client.temperature = self.final_model_temperature
 
-    def score_lead(self, new_lead_description: str, historical_context: str) -> str:
+    def score_lead(self, new_lead_description: str, historical_context: str) -> tuple[str, str]:
         """
         Scores a new lead by comparing it against historical data using a structured prompt.
 
@@ -107,7 +108,7 @@ class LeadScoringClient:
             historical_context (str): A formatted string containing search results of similar historical cases.
 
         Returns:
-            str: The response from the language model with jurisdiction-modified score.
+            tuple[str, str]: A tuple containing (response_text, chat_log_filename).
         """
         # Reset tool call count, history, and message history for this new lead scoring session
         self.tool_manager.tool_call_count = 0
@@ -186,11 +187,13 @@ class LeadScoringClient:
                     response,
                     flags=re.IGNORECASE,
                 )
-            return response
+            
+            # Return both response and chat log filename
+            return response, self.last_chat_log_filename
 
         except Exception as e:
             self.logger.error("An unexpected error occurred in score_lead: %s", e)
-            return f"An error occurred while scoring the lead: {e}"
+            return f"An error occurred while scoring the lead: {e}", None
 
     def _build_tool_context_message(self, exclude_ids: set[str]) -> SystemMessage | None:
         """
@@ -387,7 +390,11 @@ class LeadScoringClient:
             return get_response_recursive()
 
         final_lead = get_response_recursive()
-        dump_chat_log(self.client.message_history)
+        chat_log_filename = dump_chat_log(self.client.message_history)
+        
+        # Store the chat log filename in the client instance for UI access
+        self.last_chat_log_filename = chat_log_filename
+        
         return final_lead
 
     def _get_final_lead_score(self, messages: list, validation_msg: SystemMessage) -> AIMessage:

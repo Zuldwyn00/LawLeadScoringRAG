@@ -174,6 +174,9 @@ class LeadItem(ctk.CTkFrame):
         else:
             # For real leads, use the specific chat log if available, otherwise get most recent
             self.current_chat_log = lead.get("chat_log_filename") or extract_chat_log_filename_from_session()
+            
+        # Debug output to help diagnose the issue
+        print(f"DEBUG: LeadItem #{lead_index} - is_example: {lead.get('is_example', False)}, current_chat_log: {self.current_chat_log}")
         
         self.setup_widgets()
         
@@ -422,7 +425,9 @@ class LeadItem(ctk.CTkFrame):
     
     def _on_text_edited(self, original_text: str, new_text: str, start_pos: str, end_pos: str):
         """Handle inline text editing from the custom text widget."""
+        print(f"DEBUG: _on_text_edited called - current_chat_log: {self.current_chat_log}")
         if not self.current_chat_log:
+            print(f"DEBUG: No chat log found, showing warning")
             messagebox.showwarning("No Chat Log", "Cannot save feedback: No chat log found for this session.")
             return
         
@@ -552,9 +557,11 @@ class InlineEditableText(tk.Text):
     
     def _show_context_menu(self, event):
         """Show context menu for selected text editing."""
+        print(f"DEBUG: _show_context_menu called")
         try:
             # Get selected text
             selected_text = self.selection_get()
+            print(f"DEBUG: Selected text: '{selected_text}'")
             if selected_text.strip():
                 # Create context menu
                 context_menu = tk.Menu(self, tearoff=0)
@@ -563,8 +570,10 @@ class InlineEditableText(tk.Text):
                     command=lambda: self._start_inline_edit(selected_text)
                 )
                 context_menu.tk_popup(event.x_root, event.y_root)
-        except tk.TclError:
+                print(f"DEBUG: Context menu shown")
+        except tk.TclError as e:
             # No text selected
+            print(f"DEBUG: TclError in _show_context_menu: {e}")
             pass
     
     def _start_inline_edit(self, selected_text: str):
@@ -969,3 +978,78 @@ During the AI Analysis phase, the system:
         
         # Configure content frame grid
         self.content_frame.grid_rowconfigure(0, weight=1)
+        self.content_frame.grid_columnconfigure(0, weight=1)
+
+# ─── FEEDBACK GUIDELINES WIDGET ─────────────────────────────────────────────────
+class FeedbackGuidelinesWidget(ExpandableFrame):
+    """Widget for displaying feedback guidelines."""
+    
+    def __init__(self, parent, **kwargs):
+        super().__init__(
+            parent,
+            title="📝 Feedback Guidelines",
+            fg_color=COLORS["tertiary_black"],
+            **kwargs
+        )
+        
+        self.setup_content()
+        
+    def setup_content(self):
+        """Set up the feedback guidelines content."""
+        feedback_text = """How to Provide Feedback:
+
+✏️ Edit Text:
+1. Click "📊 View AI Analysis" on any lead
+2. Select text you want to change
+3. Type your correction
+4. Text highlights in orange when edited
+5. Hover over highlighted text to see original
+
+🔢 Change Scores:
+1. Click the score number in the colored box
+2. Enter new score (0-100)
+3. Press Enter to confirm
+4. Score box updates with new color
+
+💾 Save Feedback:
+• Orange "SAVE FEEDBACK" button appears when changes are made
+• Each lead has its own save button
+• Button shows "SAVE FEEDBACK (TEST)" for example leads
+• Click to save all your changes for that lead
+
+📁 Feedback Files:
+• Saved to: scripts/data/feedback/ folder
+• Contains original text + your changes
+• Includes change details for AI training
+• Each lead gets its own file
+
+🔄 Multiple Saves:
+• You can edit → save → edit more → save again
+• Changes accumulate in the same file
+• Perfect for iterative improvements
+
+💡 Best Practices:
+• Make corrections that improve accuracy
+• Fix obvious errors or unclear language
+• Adjust scores based on your expertise
+• Save frequently to avoid losing work
+
+⚠️ Notes:
+• Example leads use fake chat logs for testing
+• Real leads link to actual scoring sessions
+• Program prompts to save unsaved feedback on exit"""
+
+        self.feedback_textbox = ctk.CTkTextbox(
+            self.content_frame,
+            font=FONTS()["small"],
+            fg_color=COLORS["tertiary_black"],
+            text_color=COLORS["text_white"],
+            wrap="word"
+        )
+        self.feedback_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        self.feedback_textbox.insert("1.0", feedback_text)
+        self.feedback_textbox.configure(state="disabled")
+        
+        # Configure content frame grid
+        self.content_frame.grid_rowconfigure(0, weight=1)
+        self.content_frame.grid_columnconfigure(0, weight=1)

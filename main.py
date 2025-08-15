@@ -122,7 +122,7 @@ def score_test():
     embedding_client = AzureClient(client_config='text_embedding_3_small')
     summarizer = SummarizationClient(AzureClient(client_config="gpt-o4-mini"))
     
-    scorer_kwargs = {'confidence_threshold': 80, 'final_model': 'gpt-4.1', 'final_model_temperature': 0.0}
+    scorer_kwargs = {'confidence_threshold': 99, 'final_model': 'gpt-4.1', 'final_model_temperature': 0.0}
     scorer = LeadScoringClient(AzureClient(client_config="gpt-o4-mini"), summarizer=summarizer, **scorer_kwargs)
     
     new_lead_description = (

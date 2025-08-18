@@ -135,14 +135,16 @@ def get_file_context(filepath: str, token_threshold: int = 1000) -> tuple:
         token_threshold (int): Maximum tokens allowed before summarization client is triggered
 
     Returns:
-        tuple: A tuple containing (content, token_count) on success, or a string error message on failure for a clean fallback rather than raising an error.
-               - content (str): The text content extracted from the file
-               - token_count (int): Number of tokens in the content
+        tuple: A tuple containing (content, token_count). On error, returns (error_message, 0).
+               - content (str): The text content extracted from the file or error message
+               - token_count (int): Number of tokens in the content, or 0 on error
     """
     try:
         parsed = get_text_from_file(filepath)
         if not parsed or 'content' not in parsed:
-            return f"Warning: No content found in file: {filepath}"
+            error_msg = f"Warning: No content found in file: {filepath}"
+            logger.warning(error_msg)
+            return (error_msg, 0)
         
         content = parsed['content']
         original_tokens = count_tokens(content)
@@ -162,6 +164,7 @@ def get_file_context(filepath: str, token_threshold: int = 1000) -> tuple:
 
         return(content, token_count)
     except Exception as e:
+        error_msg = f"Error: Unable to read file {filepath}"
         logger.error(f"Failed to read file '{filepath}': {type(e).__name__}: {str(e)}")
-        return f"Error: Unable to read file {filepath}"
+        return (error_msg, 0)
 

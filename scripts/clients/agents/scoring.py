@@ -71,7 +71,7 @@ class LeadScoringClient:
         """
         # Temperature for main client
         if 'temperature' in kwargs:
-            self.client.client.temperature = kwargs['temperature']
+            self.client.client.temperature = kwargs.pop('temperature')
 
         # Confidence threshold with default
         if 'confidence_threshold' in kwargs:
@@ -181,6 +181,12 @@ class LeadScoringClient:
                     f"Score modified from {original_score} to {modified_score} using jurisdiction modifier {modifier}"
                 )
 
+
+                modifier_message = SystemMessage(
+                    content=f"JURISDICTION MODIFIER APPLIED: Original score {original_score} modified to {modified_score} "
+                    f"using {jurisdiction} jurisdiction modifier of {modifier:.3f}x. "
+                    f"Final adjusted score: {modified_score}/100"
+                )
                 # Replace the original score in the response with the modified score
                 response = re.sub(
                     r"Lead Score:\s*\d+/100",
@@ -189,6 +195,7 @@ class LeadScoringClient:
                     flags=re.IGNORECASE,
                 )
             
+                self.client.add_message(modifier_message, response)
             # Return both response and chat log filename
             return response, self.last_chat_log_filename
 
@@ -467,6 +474,13 @@ def extract_score_from_response(response: str) -> int:
 
     # Look for "Lead Score: X/100" pattern
     pattern = r"Lead Score:\s*(\d+)/100"
+    match = re.search(pattern, response, re.IGNORECASE)
+
+    if match:
+        return int(match.group(1))
+
+    # Look for "Final adjusted score: X/100" pattern (from jurisdiction modifier messages)
+    pattern = r"Final adjusted score:\s*(\d+)/100"
     match = re.search(pattern, response, re.IGNORECASE)
 
     if match:

@@ -14,9 +14,6 @@
 
 #TODO: The jurisdiction scoring is inflated i believe, as it adds together all the duplicated values of the settlement values to get the average, rather than just the unique values.
 
-#TODO: Finish Caching system
-    #TODO: Allow caching system to look for first applicable filepath for a cache if the client is not given
-
 #TODO: Tool batch calling does not work, seems to be a limitation from the client we are using, langchain seems to support it from what I can tell.
 
 ##TODO: Why is AI able to make 6 tool calls instead of 5? Might be an issue with the confidence checking where it still allows an extra tool call.
@@ -27,10 +24,15 @@
         #I dont know if this is actually true, its a guess based on some issues finding case ids    
 
 #BIG STUFF
-#TODO: Create some better method for getting all the jurisdiction data in one search that we need to use in our jurisdiction scoring system, the method should return a dict of all the required info for that system
+#TODO: (I think we kinda did this, or at least the bayesian part?) Create some better method for getting all the jurisdiction data in one search that we need to use in our jurisdiction scoring system, the method should return a dict of all the required info for that system
 # This way we can re-use all that data without having to do weird calls and roundabout ways to get it.
     #TODO: After doing this, complete the (BAYESIAN_SHRINKAGE()) method so its not just tbe current placeholder based on hard-coded values.
     # currently it overwrites the original scores after processing them and then applies the bayesian
+
+#TODO: METRICS TRACKING - Implement data tracking system for AI, each client or agent should have its own data tracker, we can use this to track any data we want like the chat log name, etc 
+# this way we can easily grab all the data we need from the AI instance rather than having to return things from certain functions and making it confusing.
+    #TODO: We can use the elapsed time that the manager tracks to use for a better loading bar, but this might not matter really because we are not going to have this be using a UI 
+
 
 #small stuff
 #TODO: Clear All button does nothing

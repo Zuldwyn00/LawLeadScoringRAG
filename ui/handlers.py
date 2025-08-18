@@ -322,8 +322,15 @@ class UIEventHandler:
         
     def _handle_scoring_completion(self, new_lead):
         """Handle successful completion of lead scoring."""
-        # Add to scored leads
-        self.app.scored_leads.insert(0, new_lead)
+        # Extract example leads to keep them at the bottom
+        example_leads = [lead for lead in self.app.scored_leads if lead.get("is_example", False)]
+        non_example_leads = [lead for lead in self.app.scored_leads if not lead.get("is_example", False)]
+        
+        # Add new lead at the top of non-example leads
+        non_example_leads.insert(0, new_lead)
+        
+        # Reconstruct list: non-example leads first, then example leads at bottom
+        self.app.scored_leads = non_example_leads + example_leads
         
         # Update UI
         self.app.refresh_results()
@@ -388,10 +395,7 @@ class UIEventHandler:
         """Get the initial leads including both example lead and real scored leads from chat logs."""
         leads = []
         
-        # Add the example lead first
-        leads.append(self.business_logic.get_example_lead())
-        
-        # Load and convert real scored leads
+        # Load and convert real scored leads first
         try:
             scored_leads = load_all_scored_leads()
             for scored_lead in scored_leads:
@@ -399,5 +403,8 @@ class UIEventHandler:
                 leads.append(ui_lead)
         except Exception as e:
             print(f"Warning: Could not load scored leads: {e}")
+        
+        # Add the example lead last (at the bottom)
+        leads.append(self.business_logic.get_example_lead())
         
         return leads

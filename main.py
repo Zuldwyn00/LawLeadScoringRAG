@@ -253,7 +253,8 @@ def settlement_value_test():
     print(values)
 
 def main():
-   jurisdiction_score_test()
+   string = "13+8-9+21"
+
 
 if __name__ == "__main__":
     main()

@@ -388,6 +388,11 @@ class FeedbackManager:
                 with open(feedback_file, 'r', encoding='utf-8') as f:
                     feedback_data = json.load(f)
                     feedback_entries.append(feedback_data)
+                    
+                    # Register this file in saved_feedback_files mapping for future updates
+                    lead_index = feedback_data.get('lead_index', 0)
+                    key = f"{chat_log_filename}_{lead_index}"
+                    self.saved_feedback_files[key] = feedback_file.name
         
         except Exception as e:
             print(f"Error loading feedback for {chat_log_filename}: {e}")

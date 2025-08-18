@@ -126,7 +126,7 @@ class LeadScoringClient:
         # Build an initial tool-usage system message so the model knows its starting budget
         initial_tool_usage_text = (
             f"Your tool usage count is at '{self.tool_manager.tool_call_count} out of "
-            f"{self.tool_manager.tool_call_limit} maximum tool calls'."
+            f"{self.tool_manager.tool_call_limit} maximum tool calls, you MUST use at least 1 tool call during your beginning score.'."
         )
         initial_tool_usage_message = SystemMessage(content=initial_tool_usage_text)
         

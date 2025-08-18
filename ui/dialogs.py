@@ -9,6 +9,7 @@ import customtkinter as ctk
 import threading
 import time
 from pathlib import Path
+import logging
 from .styles import COLORS, FONTS
 
 # ─── ANALYSIS DIALOG ────────────────────────────────────────────────────────────
@@ -538,6 +539,56 @@ class LogViewerDialog(ctk.CTkToplevel):
                 filtered_lines.append(line)
                 
         return '\n'.join(filtered_lines)
+    
+    def filter_logs_by_level(self, log_content: str, min_level: int = logging.INFO) -> str:
+        """
+        Filter log entries to only include records at or above the given level.
+
+        Preserves multi-line records by including continuation lines only when the
+        preceding header line was included.
+
+        Args:
+            log_content (str): Raw log text as written by the logger.
+            min_level (int): Minimum logging level to include (e.g., logging.INFO).
+
+        Returns:
+            str: Filtered log text containing only lines for included records.
+        """
+        level_name_to_value = {
+            'NOTSET': logging.NOTSET,
+            'DEBUG': logging.DEBUG,
+            'INFO': logging.INFO,
+            'WARNING': logging.WARNING,
+            'ERROR': logging.ERROR,
+            'CRITICAL': logging.CRITICAL,
+        }
+
+        filtered_lines = []
+        include_following_lines = False
+
+        for line in log_content.split('\n'):
+            if line.strip() == '':
+                # keep blank lines if we're inside an included record for readability
+                if include_following_lines:
+                    filtered_lines.append(line)
+                continue
+
+            parts = line.split(' - ', 3)
+            if len(parts) >= 3:
+                level_name = parts[2].strip()
+                level_value = level_name_to_value.get(level_name)
+                if level_value is not None:
+                    include_following_lines = level_value >= min_level
+                    if include_following_lines:
+                        filtered_lines.append(line)
+                    # Skip header line if below threshold and do not include subsequent continuations
+                    continue
+
+            # Lines that don't parse as a header (likely continuation)
+            if include_following_lines:
+                filtered_lines.append(line)
+
+        return '\n'.join(filtered_lines)
         
     def refresh_logs(self):
         """Refresh the log content."""
@@ -561,6 +612,9 @@ class LogViewerDialog(ctk.CTkToplevel):
                 # Filter by session time if provided
                 if self.session_start_time:
                     content = self.filter_logs_by_time(content, self.session_start_time)
+                
+                # Always filter to show only INFO and above levels
+                content = self.filter_logs_by_level(content, min_level=logging.INFO)
                     
                 if content.strip():
                     self.log_text.insert("end", f"\n{'='*80}\n")

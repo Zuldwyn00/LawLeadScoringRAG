@@ -11,6 +11,7 @@ from tkinter import messagebox, simpledialog
 from .styles import COLORS, FONTS, get_score_color
 import sys
 import os
+import re
 
 from .feedback_manager import FeedbackManager, FeedbackEntry, extract_chat_log_filename_from_session
 
@@ -179,6 +180,13 @@ class LeadItem(ctk.CTkFrame):
         # Debug output to help diagnose the issue
         print(f"DEBUG: LeadItem #{lead_index} - is_example: {lead.get('is_example', False)}, current_chat_log: {self.current_chat_log}")
         
+        # Register existing feedback file if available
+        existing_feedback_filename = lead.get("_existing_feedback_filename")
+        if existing_feedback_filename and self.current_chat_log:
+            key = f"{self.current_chat_log}_{lead_index}"
+            self.feedback_manager.saved_feedback_files[key] = existing_feedback_filename
+            print(f"DEBUG: Registered existing feedback file for {key}: {existing_feedback_filename}")
+        
         self.setup_widgets()
         
     def setup_widgets(self):
@@ -188,13 +196,26 @@ class LeadItem(ctk.CTkFrame):
         main_frame.grid(row=0, column=0, sticky="ew", padx=15, pady=15)
         main_frame.grid_columnconfigure(1, weight=1)
         
-        # Score block (editable)
+        # Score block (editable) - display corrected score but use original for editing baseline
+        display_score = self.lead["score"]  # This is the corrected score
+        original_score_for_editing = display_score  # Default to same value
+        
+        # If this lead has feedback, get the original AI score for the edit dialog
+        scored_lead_data = self.lead.get("_scored_lead_data")
+        if scored_lead_data and hasattr(scored_lead_data, 'feedback_changes') and scored_lead_data.feedback_changes:
+            from scripts.clients.agents.scoring import extract_score_from_response
+            original_score_for_editing = extract_score_from_response(scored_lead_data.detailed_rationale)
+            if original_score_for_editing <= 0:
+                original_score_for_editing = display_score  # Fallback
+        
         self.score_block = ScoreBlock(
             main_frame, 
-            self.lead["score"], 
+            display_score, 
             editable=True, 
             on_score_change=self._on_score_change
         )
+        # Set the original score for the edit dialog
+        self.score_block.original_score = original_score_for_editing
         self.score_block.grid(row=0, column=0, padx=(0, 15), pady=0, sticky="n")
         
         # Content frame
@@ -298,7 +319,13 @@ class LeadItem(ctk.CTkFrame):
             on_text_edit=self._on_text_edited
         )
         self.analysis_textbox.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
-        self.analysis_textbox.set_text(self.lead["analysis"])
+        # Use edited analysis if available so content matches post-edit state
+        initial_analysis_text = self.lead.get("_edited_analysis") or self.lead.get("analysis", "")
+        # Keep baseline in lead dict consistent with visible text for subsequent edits
+        self.lead["analysis"] = initial_analysis_text
+        self.analysis_textbox.set_text(initial_analysis_text)
+        # Re-apply saved feedback highlights if available
+        self._apply_feedback_highlights_if_any()
         self.analysis_section.grid_columnconfigure(0, weight=1)
         self.analysis_section.grid_rowconfigure(1, weight=1)
         
@@ -332,6 +359,10 @@ class LeadItem(ctk.CTkFrame):
         self.description_textbox.grid(row=1, column=0, sticky="nsew", padx=15, pady=(0, 15))
         self.description_textbox.insert("1.0", self.lead["description"])
         self.description_textbox.configure(state="disabled")
+        
+        # Prevent scroll event propagation to parent to avoid scroll conflicts
+        self._bind_description_scroll_events()
+        
         self.description_section.grid_columnconfigure(0, weight=1)
         self.description_section.grid_rowconfigure(1, weight=1)
         
@@ -398,6 +429,55 @@ class LeadItem(ctk.CTkFrame):
             # Hide sections frame if nothing is expanded
             if not self.analysis_expanded:
                 self.sections_frame.grid_remove()
+    
+    def _bind_description_scroll_events(self):
+        """Bind scroll event handlers to the description textbox to prevent conflicts."""
+        try:
+            # Get the underlying tkinter Text widget from CTkTextbox
+            text_widget = self.description_textbox._textbox
+            
+            # Bind scroll events to prevent propagation
+            text_widget.bind("<MouseWheel>", self._on_description_mousewheel)
+            text_widget.bind("<Button-4>", self._on_description_mousewheel)
+            text_widget.bind("<Button-5>", self._on_description_mousewheel)
+        except AttributeError:
+            # Fallback if CTkTextbox structure changes
+            self.description_textbox.bind("<MouseWheel>", self._on_description_mousewheel)
+            self.description_textbox.bind("<Button-4>", self._on_description_mousewheel)
+            self.description_textbox.bind("<Button-5>", self._on_description_mousewheel)
+    
+    def _on_description_mousewheel(self, event):
+        """Handle mousewheel events for the description textbox."""
+        try:
+            # Check if the description textbox needs scrolling
+            text_widget = getattr(self.description_textbox, '_textbox', self.description_textbox)
+            
+            # Check if content exceeds visible area
+            total_lines = float(text_widget.index('end-1c').split('.')[0])
+            textbox_height = self.description_textbox.winfo_height()
+            line_height = text_widget.dlineinfo("1.0")[3] if text_widget.dlineinfo("1.0") else 14
+            visible_lines = textbox_height / line_height
+            
+            if total_lines > visible_lines:
+                # Content needs scrolling - handle it within this textbox
+                if hasattr(event, 'delta') and event.delta:
+                    # Windows and MacOS
+                    text_widget.yview_scroll(int(-1 * (event.delta / 120)), "units")
+                elif hasattr(event, 'num'):
+                    if event.num == 4:
+                        # Linux scroll up
+                        text_widget.yview_scroll(-1, "units")
+                    elif event.num == 5:
+                        # Linux scroll down
+                        text_widget.yview_scroll(1, "units")
+                # Consume the event to prevent propagation to parent
+                return "break"
+            else:
+                # Let the parent handle scrolling if this widget doesn't need to scroll
+                pass
+        except Exception:
+            # If anything goes wrong, let the parent handle scrolling
+            pass
     
     # ─── FEEDBACK HANDLING METHODS ─────────────────────────────────────────────
     
@@ -473,6 +553,53 @@ class LeadItem(ctk.CTkFrame):
             self._reset_feedback_entry_after_save()
         else:
             messagebox.showerror("Error", "Failed to save feedback.")
+
+    def _apply_feedback_highlights_if_any(self):
+        """Apply orange highlight tags for previously saved feedback edits if present.
+        
+        Parses saved position info strings (e.g., "AI Analysis Section (pos: 3.7 to 3.25)")
+        and re-applies the "edited" tag to the edited ranges. Also populates
+        the InlineEditableText.edit_history so hover tooltips show original text.
+        """
+        try:
+            # Prefer original AI analysis as base (already set), then overlay edits
+            # Optionally could diff _edited_analysis to confirm, but we trust saved positions
+            changes = self.lead.get("_feedback_text_changes") or []
+            if not changes:
+                return
+
+            pos_regex = re.compile(r"pos:\s*([0-9]+\.[0-9]+)\s*to\s*([0-9]+\.[0-9]+)")
+
+            for change in changes:
+                position_info = change.get("position_info", "") or ""
+                m = pos_regex.search(position_info)
+                if not m:
+                    continue
+                start_pos, end_pos = m.group(1), m.group(2)
+
+                # Apply highlight tag
+                try:
+                    self.analysis_textbox.tag_add("edited", start_pos, end_pos)
+                except Exception:
+                    continue
+
+                # Populate edit history for hover tooltips
+                original_text = change.get("selected_text", "") or ""
+                new_text = change.get("replacement_text", "") or ""
+                
+                # Add to edit history for hover functionality - this recreates the edit record
+                # Must match the structure expected by _on_mouse_motion
+                edit_record = {
+                    "start_pos": start_pos,
+                    "end_pos": end_pos,  # Original end position
+                    "new_end_pos": end_pos,  # Updated end position (same for reloaded)
+                    "original_text": original_text,
+                    "new_text": new_text
+                }
+                self.analysis_textbox.edit_history.append(edit_record)
+        except Exception:
+            # Best-effort; ignore failures silently to avoid breaking UI
+            pass
     
     def _reset_feedback_entry_after_save(self):
         """Reset the feedback entry after saving to start fresh for new changes."""
@@ -531,6 +658,11 @@ class InlineEditableText(tk.Text):
         self.bind("<KeyPress>", self._prevent_unwanted_edits)
         self.bind("<Motion>", self._on_mouse_motion)
         self.bind("<Leave>", self._hide_tooltip)
+        
+        # Prevent scroll event propagation to parent to avoid scroll conflicts
+        self.bind("<MouseWheel>", self._on_mousewheel)
+        self.bind("<Button-4>", self._on_mousewheel)
+        self.bind("<Button-5>", self._on_mousewheel)
         
         # Configure tags for styling edited text (only color change to avoid layout issues)
         self.tag_configure("edited", foreground="#ff4444", selectforeground="#ff6666")
@@ -716,8 +848,10 @@ class InlineEditableText(tk.Text):
         
         # Check if mouse is over edited text
         for edit in self.edit_history:
-            if self._is_position_in_range(mouse_pos, edit['start_pos'], edit.get('new_end_pos', edit['end_pos'])):
-                self._show_tooltip(event, edit['original_text'])
+            # Safely get end position - try new_end_pos first, then end_pos, then start_pos as fallback
+            end_pos = edit.get('new_end_pos') or edit.get('end_pos') or edit.get('start_pos')
+            if end_pos and self._is_position_in_range(mouse_pos, edit.get('start_pos', ''), end_pos):
+                self._show_tooltip(event, edit.get('original_text', ''))
                 return
         
         # Hide tooltip if not over edited text
@@ -761,6 +895,31 @@ class InlineEditableText(tk.Text):
         if self.tooltip_window:
             self.tooltip_window.destroy()
             self.tooltip_window = None
+    
+    def _on_mousewheel(self, event):
+        """Handle mousewheel events to prevent scroll conflicts with parent frames."""
+        # Check if the text widget has content that can be scrolled
+        total_lines = float(self.index('end-1c').split('.')[0])
+        visible_lines = self.winfo_height() / self.dlineinfo("1.0")[3] if self.dlineinfo("1.0") else 1
+        
+        # Only handle scrolling if there's content to scroll within this widget
+        if total_lines > visible_lines:
+            # Handle scrolling within this text widget
+            if event.delta:
+                # Windows and MacOS
+                self.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            elif event.num == 4:
+                # Linux scroll up
+                self.yview_scroll(-1, "units")
+            elif event.num == 5:
+                # Linux scroll down
+                self.yview_scroll(1, "units")
+            # Consume the event to prevent propagation to parent
+            return "break"
+        else:
+            # Let the parent handle scrolling if this widget doesn't need to scroll
+            # Don't return "break" to allow event propagation
+            pass
 
 
 # ─── INLINE EDIT DIALOG ─────────────────────────────────────────────────────────

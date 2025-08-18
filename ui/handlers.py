@@ -58,10 +58,11 @@ class LeadScoringHandler:
 
         # Initialize agents
         summarization_client = SummarizationClient(summarizer_client)
+        scorer_kwargs = {'confidence_threshold': 80, 'final_model': 'gpt-4.1', 'final_model_temperature': 0.0}
         self.lead_scoring_client = LeadScoringClient(
             chat_client,
             summarizer=summarization_client,
-            final_model="gpt-4.1",
+            **scorer_kwargs
         )
         self.embedding_client = embedding_client
         
@@ -371,11 +372,16 @@ class UIEventHandler:
             "description": scored_lead.case_summary,
             "score": scored_lead.lead_score,
             "confidence": scored_lead.confidence_score,
-            "analysis": scored_lead.detailed_rationale,  # Full analysis text
+            # Use original AI analysis for base text; edited text will be layered as highlights if present
+            "analysis": scored_lead.detailed_rationale,
             "chat_log_filename": str(Path(scored_lead.file_path).name),  # Just filename, not full path
             "is_example": False,  # Real scored leads are not examples
             # Store additional data for potential future use
-            "_scored_lead_data": scored_lead  # Keep reference to full structured data
+            "_scored_lead_data": scored_lead,  # Keep reference to full structured data
+            "_has_feedback": getattr(scored_lead, "has_feedback", False),
+            "_feedback_text_changes": getattr(scored_lead, "feedback_changes", None),
+            "_edited_analysis": getattr(scored_lead, "edited_analysis", None),
+            "_existing_feedback_filename": getattr(scored_lead, "existing_feedback_filename", None),
         }
     
     def get_initial_leads(self):

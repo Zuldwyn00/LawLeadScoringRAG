@@ -27,6 +27,9 @@ from scripts.clients.agents.scoring import (
     extract_jurisdiction_from_response
 )
 
+# Prefer existing feedback if available for a chat log
+from .feedback_manager import FeedbackManager
+
 
 # ─── CONFIGURATION LOADING ───────────────────────────────────────────────────
 
@@ -87,9 +90,11 @@ class ScoredLead:
         case_summary (str): The original case summary provided by the user.
         lead_score (int): The numerical lead score (1-100).
         confidence_score (int): The confidence score (1-100).
-        detailed_rationale (str): The full AI analysis and scoring response.
+        detailed_rationale (str): The full AI analysis and scoring response (may include applied edits).
         file_path (str): Path to the source chat log file.
         timestamp (datetime): Timestamp when the scoring was completed.
+        has_feedback (bool): Whether feedback exists for this lead.
+        feedback_changes (Optional[List[Dict[str, Any]]]): Saved feedback text changes metadata used to re-apply highlights.
     """
     case_summary: str
     lead_score: int
@@ -97,6 +102,11 @@ class ScoredLead:
     detailed_rationale: str
     file_path: str
     timestamp: datetime
+    has_feedback: bool = False
+    feedback_changes: Optional[List[Dict[str, Any]]] = None
+    edited_analysis: Optional[str] = None
+    existing_feedback_filename: Optional[str] = None
+    original_ai_score: Optional[int] = None
 
 
 # ─── PARSING FUNCTIONS ────────────────────────────────────────────────────────
@@ -156,25 +166,78 @@ def load_scored_lead_from_file(file_path: Path) -> Optional[ScoredLead]:
         assistant_messages = [msg for msg in messages if msg.get('role') == 'assistant']
         if not assistant_messages:
             return None
-        
+
         # Get the assistant message with the highest index
         latest_assistant_msg = max(assistant_messages, key=lambda x: x.get('index', 0))
-        scoring_response = latest_assistant_msg.get('content', '')
+        original_scoring_response = latest_assistant_msg.get('content', '')
+        scoring_response = original_scoring_response
+
+        # If feedback exists for this chat log, capture edited analysis separately
+        chat_log_filename = file_path.name
+        feedback_manager = FeedbackManager()
+        feedback_entries = feedback_manager.load_feedback_for_chat_log(chat_log_filename)
+        selected_feedback: Dict[str, Any] | None = None
+        existing_feedback_filename: Optional[str] = None
+        if feedback_entries:
+            # Pick the most recent feedback by timestamp if available
+            try:
+                selected_feedback = max(
+                    feedback_entries,
+                    key=lambda e: datetime.fromisoformat(e.get('timestamp', '1970-01-01T00:00:00'))
+                )
+            except Exception:
+                # Fallback: just take the last entry
+                selected_feedback = feedback_entries[-1]
+            
+            # Find the corresponding feedback filename for this lead
+            # The lead_index should match what's in the feedback data
+            lead_index = selected_feedback.get('lead_index', 0)
+            key = f"{chat_log_filename}_{lead_index}"
+            existing_feedback_filename = feedback_manager.saved_feedback_files.get(key)
+
+        edited_analysis_text: Optional[str] = None
+        if selected_feedback:
+            # Keep original_scoring_response as the base AI analysis
+            # Store the replaced text separately so the UI can apply it with highlights
+            replaced_text = selected_feedback.get('replaced_analysis_text') or ''
+            original_analysis_text = selected_feedback.get('original_analysis_text') or ''
+            if replaced_text.strip():
+                edited_analysis_text = replaced_text
+            elif original_analysis_text.strip():
+                edited_analysis_text = original_analysis_text
         
         # Parse the scoring response
         parsed_data = parse_scoring_response(scoring_response)
+        original_ai_score = parsed_data['lead_score']  # Store the original AI score
+
+        # If feedback provided a corrected score, prefer it
+        if selected_feedback:
+            corrected_score = selected_feedback.get('corrected_score')
+            if isinstance(corrected_score, int) and corrected_score > 0:
+                parsed_data['lead_score'] = corrected_score
+            # We keep confidence from the original assistant response
         
-        # Extract timestamp from filename or use file modification time
-        timestamp = datetime.fromtimestamp(file_path.stat().st_mtime)
+        # Extract timestamp: prefer feedback timestamp if available, else file mtime
+        if selected_feedback and selected_feedback.get('timestamp'):
+            try:
+                timestamp = datetime.fromisoformat(selected_feedback['timestamp'])
+            except Exception:
+                timestamp = datetime.fromtimestamp(file_path.stat().st_mtime)
+        else:
+            timestamp = datetime.fromtimestamp(file_path.stat().st_mtime)
         
         # Create simplified ScoredLead object
         scored_lead = ScoredLead(
             case_summary=case_summary,
             lead_score=parsed_data['lead_score'],
             confidence_score=parsed_data['confidence_score'],
-            detailed_rationale=parsed_data['detailed_rationale'],
+            detailed_rationale=original_scoring_response,
             file_path=str(file_path),
-            timestamp=timestamp
+            timestamp=timestamp,
+            has_feedback=bool(selected_feedback),
+            feedback_changes=(selected_feedback.get('text_feedback', []) if selected_feedback else None),
+            edited_analysis=edited_analysis_text,
+            existing_feedback_filename=existing_feedback_filename
         )
         
         return scored_lead

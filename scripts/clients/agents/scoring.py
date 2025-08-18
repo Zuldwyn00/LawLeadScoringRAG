@@ -110,10 +110,11 @@ class LeadScoringClient:
         Returns:
             tuple[str, str]: A tuple containing (response_text, chat_log_filename).
         """
-        # Reset tool call count, history, and message history for this new lead scoring session
+        # Reset tool call count, history, message history, and current lead score for this new lead scoring session
         self.tool_manager.tool_call_count = 0
         self.tool_manager.tool_call_history = []
         self.client.clear_history()
+        self.current_lead_score = None  # Reset the current lead score to ensure fresh scoring
         
         system_prompt_content = load_prompt("lead_scoring")
         self.logger.debug(
@@ -365,9 +366,11 @@ class LeadScoringClient:
             else:
                 # If no tools were requested but we haven't met the threshold, instruct the model to continue.
                 continue_message_text = (
-                    "You must continue using tools, your tool usage count is at "
-                    f"'{self.tool_manager.tool_call_count} out of {self.tool_manager.tool_call_limit} maximum tool calls, "
-                    "and confidence threshold had not been reached.'"
+                    f"Your confidence appears to be below the threshold, but you didn't use any tools as required by your instructions. "
+                    f"Tool usage count: {self.tool_manager.tool_call_count}/{self.tool_manager.tool_call_limit}. "
+                    f"You MUST use get_file_context to examine specific case files from the historical context provided above. "
+                    f"Target files that are most relevant to this lead's circumstances (similar injury types, jurisdictions, or case outcomes). "
+                    f"Review the historical context and select 1-2 specific files to examine."
                 )
                 # if no tool calls were found, inform the AI it needs to make more and give it the historical context again.
                 continue_message = SystemMessage(content=continue_message_text)

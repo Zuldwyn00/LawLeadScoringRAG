@@ -12,15 +12,15 @@ from ..tools import get_file_context, ToolManager
 from .utils.summarization_registry import set_summarization_client
 
 
-class LeadScoringClient:
+class LeadScoringAgent:
 
     def __init__(self, client: BaseClient, summarizer=None, **kwargs):
         """
-        Initialize the LeadScoringClient.
+        Initialize the LeadScoringAgent.
 
         Args:
             client (BaseClient): The underlying AI client.
-            summarizer (SummarizationClient, optional): Summarization agent for file content tool. If not given then get_file_context will get the first
+            summarizer (SummarizationAgent, optional): Summarization agent for file content tool. If not given then get_file_context will get the first
             X characters from the file rather than summarize with an LLM call.
 
             **kwargs: Optional keyword arguments:
@@ -118,7 +118,7 @@ class LeadScoringClient:
             None  # Reset the current lead score to ensure fresh scoring
         )
 
-        system_prompt_content = load_prompt("lead_scoring")
+        system_prompt_content = self.prompt
         self.logger.debug(
             f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}"
         )

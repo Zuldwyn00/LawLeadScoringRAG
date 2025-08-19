@@ -12,16 +12,10 @@
 
 # TODO: Rest api integration for a function system.
 
-# FIXED: Jurisdiction scoring now deduplicates cases by case_id to prevent settlement value inflation
-
 # TODO: Tool batch calling does not work, seems to be a limitation from the client we are using, langchain seems to support it from what I can tell.
-
-##TODO: Why is AI able to make 6 tool calls instead of 5? Might be an issue with the confidence checking where it still allows an extra tool call.
+    # Why is AI able to make 6 tool calls instead of 5? Might be an issue with the confidence checking where it still allows an extra tool call.
 
 # TODO: IMPORTANT: Implement feature to always retrieve the settlement value/outcome of the cases given to the AI in its historical context, not all the data it gets contains this.
-
-# TODO: case_id is sometimes a string and sometimes an int apparently in the vectorDB, we need to fix this to ensure more consistent data pulling so we dont need to always handle a string or an int.
-# I dont know if this is actually true, its a guess based on some issues finding case ids
 
 # BIG STUFF
 # TODO: (I think we kinda did this, or at least the bayesian part?) Create some better method for getting all the jurisdiction data in one search that we need to use in our jurisdiction scoring system, the method should return a dict of all the required info for that system
@@ -39,16 +33,15 @@
 # small stuff
 # TODO: Clear All button does nothing
 # TODO: Get rid of tika, its slow as hell but rememebr that we changed to it because the other option gave too much garbage text like /n/n/n
-# TODO: Sensitive data is stored in the chat logs currently, primarily the LLM summaries
+# TODO: Potentially ensitive data is stored in the chat logs currently, primarily the LLM summaries, figure out a non-llm way to redact this.
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
-from scripts.aiclients import ChatManager
 from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
 from utils import *
 
-from scripts.clients import SummarizationClient, LeadScoringClient, AzureClient
+from scripts.clients import SummarizationAgent, LeadScoringAgent, MetadataAgent, AzureClient
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -57,8 +50,8 @@ logger = setup_logger(__name__, config)
 
 def embedding_test(filepath: str, case_id: int):
     ensure_directories()
-    chat_manager = ChatManager()
-    embedding_client = AzureClient(client_config="text_embedding_3_small")
+    metadata_agent = MetadataAgent(client=AzureClient(client_config="gpt-o4-mini"))
+    embedding_agent = AzureClient(client_config="text_embedding_3_small")
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
     qdrantmanager.create_collection("case_files")
@@ -83,14 +76,14 @@ def embedding_test(filepath: str, case_id: int):
 
         datachunks = []
         for i, chunk in enumerate(file_chunks):
-            chunk_embedding = embedding_client.get_embeddings(chunk.page_content)
+            chunk_embedding = embedding_agent.get_embeddings(chunk.page_content)
 
             datachunk = ChunkData()
             datachunk.set_case_id(case_id)
             datachunk.set_source(str(file))
             datachunk.set_text(chunk.page_content)
 
-            chunk_metadata = chat_manager.define_metadata(
+            chunk_metadata = metadata_agent.define_metadata(
                 chunk.page_content, str(file), case_id
             )
             datachunk.set_metadata(chunk_metadata)
@@ -123,14 +116,14 @@ def score_test():
     ensure_directories()
     qdrant_client = QdrantManager()
     embedding_client = AzureClient(client_config="text_embedding_3_small")
-    summarizer = SummarizationClient(AzureClient(client_config="gpt-o4-mini"))
+    summarizer = SummarizationAgent(AzureClient(client_config="gpt-o4-mini"))
 
     scorer_kwargs = {
         "confidence_threshold": 99,
         "final_model": "gpt-4.1",
         "final_model_temperature": 0.0,
     }
-    scorer = LeadScoringClient(
+    scorer = LeadScoringAgent(
         AzureClient(client_config="gpt-o4-mini"), summarizer=summarizer, **scorer_kwargs
     )
 

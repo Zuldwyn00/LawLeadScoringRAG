@@ -40,8 +40,8 @@ An AI-assisted legal lead scoring and retrieval system. The project ingests lega
   - Base layer: `BaseClient` (`scripts/clients/base.py`)
   - Azure client: `AzureClient` (`scripts/clients/azure.py`) configured via `scripts/clients/client_configs.json`
   - Domain agents:
-    - Lead scoring: `scripts/clients/agents/scoring.py` (`LeadScoringClient`)
-    - Summarization: `scripts/clients/agents/summarization.py` (`SummarizationClient`)
+    - Lead scoring: `scripts/clients/agents/scoring.py` (`LeadScoringAgent`)
+    - Summarization: `scripts/clients/agents/summarization.py` (`SummarizationAgent`)
   - Tools: `scripts/clients/tools.py` (e.g., `get_file_context` with optional summarization)
   - Caching: `scripts/clients/caching/` (file-partitioned summary cache)
   - Chat logs: `scripts/clients/utils/chatlog.py`
@@ -155,7 +155,7 @@ Chat logs are saved under the `directories.chat_logs` path configured in `config
 
 `main.py` contains a `score_test()` illustrating the end-to-end flow using:
 - `QdrantManager.search_vectors` → historical context
-- `LeadScoringClient` → iterative tool loop and jurisdiction modifier
+- `LeadScoringAgent` → iterative tool loop and jurisdiction modifier
 
 Run the example:
 

@@ -11,7 +11,7 @@ from ..caching.cacheschema import SummaryCacheEntry
 from utils import load_prompt, count_tokens, setup_logger, load_config
 
 
-class SummarizationClient:
+class SummarizationAgent:
     """
     A specialized client for text summarization tasks.
 
@@ -41,7 +41,7 @@ class SummarizationClient:
         self.prompt = load_prompt("summarize_text")
         self.logger = setup_logger(self.__class__.__name__, load_config())
         self.logger.info(
-            f"Initialized SummarizationClient with {client.__class__.__name__}"
+            "Initialized %s with %s", self.__class__.__name__, client.__class__.__name__
         )
 
     def summarize_text(

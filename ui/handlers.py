@@ -15,7 +15,7 @@ import sys
 sys.path.append(str(Path(__file__).parent.parent))
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
-from scripts.clients import AzureClient, LeadScoringClient, SummarizationClient
+from scripts.clients import AzureClient, LeadScoringAgent, SummarizationAgent
 from scripts.clients.agents.scoring import (
     extract_score_from_response,
     extract_confidence_from_response,
@@ -61,13 +61,13 @@ class LeadScoringHandler:
         summarizer_client = AzureClient("gpt-o4-mini")
 
         # Initialize agents
-        summarization_client = SummarizationClient(summarizer_client)
+        summarization_client = SummarizationAgent(summarizer_client)
         scorer_kwargs = {
             "confidence_threshold": 80,
             "final_model": "gpt-4.1",
             "final_model_temperature": 0.0,
         }
-        self.lead_scoring_client = LeadScoringClient(
+        self.lead_scoring_client = LeadScoringAgent(
             chat_client, summarizer=summarization_client, **scorer_kwargs
         )
         self.embedding_client = embedding_client

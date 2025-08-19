@@ -9,10 +9,10 @@ _summarization_client = None
 
 def set_summarization_client(client):
     """
-    Register a SummarizationClient globally for use in tools.
+    Register a SummarizationAgent globally for use in tools.
 
     Args:
-        client: A SummarizationClient instance
+        client: A SummarizationAgent instance
     """
     global _summarization_client
     _summarization_client = client
@@ -20,9 +20,9 @@ def set_summarization_client(client):
 
 def get_summarization_client():
     """
-    Retrieve the currently registered SummarizationClient.
+    Retrieve the currently registered SummarizationAgent.
 
     Returns:
-        The registered SummarizationClient, or None if no client has been set
+        The registered SummarizationAgent, or None if no client has been set
     """
     return _summarization_client

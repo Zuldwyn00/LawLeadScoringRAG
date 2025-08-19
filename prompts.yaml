@@ -1,4 +1,4 @@
-injury_metadata_extraction:
+metadata_extraction:
   title: Injury Case Metadata Extraction for RAG
   description: A system prompt for an LLM to extract factual metadata from a client's
     description of a personal injury event. The output is intended for a Retrieval-Augmented

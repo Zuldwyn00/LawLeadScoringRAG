@@ -9,8 +9,8 @@ This package provides a layered architecture for AI clients:
 - Caching: Cache management for client operations
 
 Usage:
-    from scripts.clients import LeadScoringClient, ClientCacheManager
-    client = LeadScoringClient()
+    from scripts.clients import LeadScoringAgent, ClientCacheManager
+    client = LeadScoringAgent()
     cache_manager = ClientCacheManager()
 """
 
@@ -21,8 +21,9 @@ from .azure import AzureClient
 
 # ── DOMAIN AGENTS ─────────────────────────────────────────────────────────
 # Import specialized client agents for specific business tasks
-from .agents.scoring import LeadScoringClient
-from .agents.summarization import SummarizationClient
+from .agents.scoring import LeadScoringAgent
+from .agents.summarization import SummarizationAgent
+from .agents.metadata import MetadataAgent
 
 # ── CACHING FUNCTIONALITY ─────────────────────────────────────────────────
 # Import caching classes for result storage and retrieval
@@ -35,8 +36,9 @@ __all__ = [
     "BaseClient",
     "AzureClient",
     # Domain agents (for actual usage)
-    "LeadScoringClient",
-    "SummarizationClient",
+    "LeadScoringAgent",
+    "SummarizationAgent",
+    "MetadataAgent",
     # Caching functionality
     "ClientCacheManager",
     "CacheEntry",

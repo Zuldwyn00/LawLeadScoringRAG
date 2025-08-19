@@ -1,5 +1,3 @@
-
-
 from datetime import datetime
 from typing import Optional
 from abc import ABC, abstractmethod
@@ -11,26 +9,27 @@ from pathlib import Path
 class CacheEntry(ABC):
     """
     Abstract base class for cache entries with common fields.
-    
+
     All cache entries must have source_file and created_at fields.
     Cannot be instantiated directly due to abstract to_dict method.
     """
+
     source_file: Path
-    client: str # the client used for the call from clients_config ie: (gpt-o4-mini, gpt-4o)
+    client: str  # the client used for the call from clients_config ie: (gpt-o4-mini, gpt-4o)
     created_at: datetime = field(default_factory=datetime.now)
     tokens: Optional[int] = None
-    
+
     def __post_init__(self):
-        #manual runtime data validation cause i dont like pydantic, but same jist.
+        # manual runtime data validation cause i dont like pydantic, but same jist.
         if not isinstance(self.created_at, datetime):
             raise TypeError("created_at must be a datetime object")
-        
+
         if not isinstance(self.source_file, Path):
             raise TypeError("source_file must be a Path object")
-        
+
         if not isinstance(self.client, str):
             raise TypeError("client must be a string object.")
-        
+
         if self.tokens is not None and not isinstance(self.tokens, int):
             raise TypeError("tokens must be an int object")
 
@@ -38,73 +37,79 @@ class CacheEntry(ABC):
     def to_dict(self) -> dict:
         """
         Convert the cache object to a dictionary.
-        
+
         Abstract method with base implementation - subclasses MUST override this
         but can call super().to_dict() to get base fields.
-        
+
         Returns:
             dict: Dictionary representation of the cache entry with base fields
         """
         return {
-            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-            'source_file': str(self.source_file),
-            'client': self.client,
-            'tokens': self.tokens,
+            "created_at": self.created_at.strftime("%Y-%m-%d %H:%M:%S"),
+            "source_file": str(self.source_file),
+            "client": self.client,
+            "tokens": self.tokens,
         }
-    
+
     @classmethod
     def from_dict(cls, data: dict):
         """
         Reconstruct a CacheEntry object from a dictionary.
-        
+
         Base implementation handles conversion of ALL common fields:
         - created_at: string -> datetime object
-        - source_file: string -> Path object  
+        - source_file: string -> Path object
         - client: string (validated as present)
         - tokens: string -> int or None (with validation)
-        
+
         Subclasses should override this method to handle their specific fields
         while calling this base implementation for common field conversion.
-        
+
         Args:
             data (dict): Dictionary containing cache entry data
-            
+
         Returns:
             CacheEntry: Reconstructed cache entry object with all base fields
-            
+
         Raises:
             ValueError: If required fields are missing, conversion fails, or data validation fails
         """
         # Create a copy to avoid modifying the original dict
         converted_data = data.copy()
-        
+
         # Convert string datetime back to datetime object
-        created_at_str = converted_data.get('created_at')
+        created_at_str = converted_data.get("created_at")
         if created_at_str and isinstance(created_at_str, str):
             try:
-                converted_data['created_at'] = datetime.strptime(created_at_str, '%Y-%m-%d %H:%M:%S')
+                converted_data["created_at"] = datetime.strptime(
+                    created_at_str, "%Y-%m-%d %H:%M:%S"
+                )
             except ValueError as e:
-                raise ValueError(f"Invalid datetime format for created_at: {created_at_str}") from e
-        
+                raise ValueError(
+                    f"Invalid datetime format for created_at: {created_at_str}"
+                ) from e
+
         # Convert string path back to Path object
-        source_file_str = converted_data.get('source_file')
+        source_file_str = converted_data.get("source_file")
         if source_file_str and isinstance(source_file_str, str):
-            converted_data['source_file'] = Path(source_file_str)
-        
+            converted_data["source_file"] = Path(source_file_str)
+
         # Handle tokens field (ensure it's int or None)
-        tokens = converted_data.get('tokens')
+        tokens = converted_data.get("tokens")
         if tokens is not None:
             if isinstance(tokens, str) and tokens.isdigit():
-                converted_data['tokens'] = int(tokens)
+                converted_data["tokens"] = int(tokens)
             elif not isinstance(tokens, int):
-                raise ValueError(f"tokens field must be an integer or None, got: {type(tokens)}")
-        
+                raise ValueError(
+                    f"tokens field must be an integer or None, got: {type(tokens)}"
+                )
+
         # Validate that all required base fields are present
-        required_fields = ['source_file', 'client']
+        required_fields = ["source_file", "client"]
         for field in required_fields:
             if field not in converted_data:
                 raise ValueError(f"Required field '{field}' missing from cache data")
-        
+
         # Create the object using the converted data
         return cls(**converted_data)
 
@@ -113,11 +118,14 @@ class CacheEntry(ABC):
 class SummaryCacheEntry(CacheEntry):
     """
     Cache schema for storing text summarization results.
-    
+
     Contains the summary generated by the SummarizationClient along with
     metadata about when it was created and the source text.
     """
-    summary: str = "" #have to set a default to avoid initializing blank value after defined values in parent class CacheEntry
+
+    summary: str = (
+        ""  # have to set a default to avoid initializing blank value after defined values in parent class CacheEntry
+    )
 
     def __post_init__(self):
         super().__post_init__()
@@ -125,45 +133,44 @@ class SummaryCacheEntry(CacheEntry):
             raise ValueError("summary must be a str object")
         if self.summary.strip() == "":
             raise ValueError("summary cannot be empty or just whitespace")
-        
-    
+
     def to_dict(self) -> dict:
         """
         Convert the SummaryCache object to a dictionary.
-        
+
         Calls parent to_dict for base fields, then adds summary field.
-        
+
         Returns:
             dict: Dictionary representation of the cache entry with all fields
         """
         result = super().to_dict()
-        result['summary'] = self.summary
+        result["summary"] = self.summary
         return result
-    
+
     @classmethod
     def from_dict(cls, data: dict):
         """
         Reconstruct a SummaryCacheEntry object from a dictionary.
-        
+
         Validates summary field, then calls parent from_dict for base field conversion.
-        
+
         Args:
             data (dict): Dictionary containing cache entry data including summary
-            
+
         Returns:
             SummaryCacheEntry: Reconstructed cache entry object with all fields
-            
+
         Raises:
             ValueError: If required fields are missing or conversion fails
         """
         # Validate that summary field is present
-        if 'summary' not in data:
+        if "summary" not in data:
             raise ValueError("Required field 'summary' missing from cache data")
-        
+
         # Validate summary is not empty
-        summary = data.get('summary', '')
-        if not isinstance(summary, str) or summary.strip() == '':
+        summary = data.get("summary", "")
+        if not isinstance(summary, str) or summary.strip() == "":
             raise ValueError("Summary field must be a non-empty string")
-        
+
         # Use parent class to handle all field conversion and object creation
         return super().from_dict(data)

@@ -21,7 +21,8 @@ import numpy
 
 # TODO: MAGIC NUMBERS - Get ride of the magic numbers like 0.6, 0.4, etc and use the config or something else.
 
-#TODO: Average out the places with less cases by maybe dividing by the total average amount of cases each jurisdiction has or something?
+# TODO: Average out the places with less cases by maybe dividing by the total average amount of cases each jurisdiction has or something?
+
 
 # ─── JURISDICTION SCORE MANAGER CLASS ────────────────────────────────────────────────────
 class JurisdictionScoreManager:
@@ -34,9 +35,11 @@ class JurisdictionScoreManager:
         self.recency_weights = self.config.get("jurisdiction_scoring", {}).get(
             "recency_weights", {}
         )
-        
+
         # Load Bayesian shrinkage configuration
-        bayesian_config = self.config.get("jurisdiction_scoring", {}).get("bayesian_shrinkage", {})
+        bayesian_config = self.config.get("jurisdiction_scoring", {}).get(
+            "bayesian_shrinkage", {}
+        )
         self.conservative_factor = bayesian_config.get("conservative_factor", 50)
 
     # ─── CORE SCORING METHODS ────────────────────────────────────────────────────────────
@@ -47,8 +50,8 @@ class JurisdictionScoreManager:
         Processes cases from a specific jurisdiction to generate a weighted average
         settlement value. Only cases with valid settlement values are considered.
         Each case is weighted by recency and data quality factors.
-        
-        Note: Deduplicates cases by case_id to prevent counting the same settlement 
+
+        Note: Deduplicates cases by case_id to prevent counting the same settlement
         multiple times when a case has multiple chunks.
 
         Args:
@@ -63,17 +66,19 @@ class JurisdictionScoreManager:
         Raises:
             Exception: If no valid cases found or case_weight_sum is zero.
         """
-        
+
         # Step 1: Deduplicate cases by case_id to prevent settlement value inflation
         unique_cases = {}
         total_chunks = len(jurisdiction_cases)
-        
+
         for case_data in jurisdiction_cases:
             case_id = case_data.get("case_id")
             if case_id and case_id not in unique_cases:
                 unique_cases[case_id] = case_data
-        
-        self.logger.info(f"Deduplicated {total_chunks} chunks into {len(unique_cases)} unique cases")
+
+        self.logger.info(
+            f"Deduplicated {total_chunks} chunks into {len(unique_cases)} unique cases"
+        )
 
         case_weight_sum = 0.0
         weighted_settlement_sum = 0.0
@@ -90,7 +95,9 @@ class JurisdictionScoreManager:
             )
             try:  # get the settlement value, ensure its valid, and convert it to a useable float if it has extra data attached to it like a $ or is a string.
                 settlement_raw = case_data.get("settlement_value")
-                self.logger.debug(f"Case {case_id}: raw settlement_value = '{settlement_raw}'")
+                self.logger.debug(
+                    f"Case {case_id}: raw settlement_value = '{settlement_raw}'"
+                )
                 if not settlement_raw or settlement_raw == "null":
                     self.logger.debug(f"Case {case_id}: skipping - no settlement value")
                     continue
@@ -98,11 +105,17 @@ class JurisdictionScoreManager:
                     str(settlement_raw).replace("$", "").replace(",", "")
                 )
                 if settlement_value <= 0:
-                    self.logger.debug(f"Case {case_id}: skipping - settlement value <= 0: {settlement_value}")
+                    self.logger.debug(
+                        f"Case {case_id}: skipping - settlement value <= 0: {settlement_value}"
+                    )
                     continue
-                self.logger.debug(f"Case {case_id}: valid settlement value: {settlement_value}")
+                self.logger.debug(
+                    f"Case {case_id}: valid settlement value: {settlement_value}"
+                )
             except (ValueError, TypeError) as e:
-                self.logger.debug(f"Case {case_id}: skipping - settlement value parsing error: {e}")
+                self.logger.debug(
+                    f"Case {case_id}: skipping - settlement value parsing error: {e}"
+                )
                 continue
 
             # Calculate case weight (recency x quality)
@@ -113,7 +126,9 @@ class JurisdictionScoreManager:
                 recency_mult * quality_mult
             )  # can define case_weight in a seperate method if we decide to make the logic for it more complicated, currently unnecessary.
 
-            self.logger.debug(f"Case {case_id}: recency_mult={recency_mult}, quality_mult={quality_mult}, case_weight={case_weight}")
+            self.logger.debug(
+                f"Case {case_id}: recency_mult={recency_mult}, quality_mult={quality_mult}, case_weight={case_weight}"
+            )
 
             weighted_settlement_sum += settlement_value * case_weight
             case_weight_sum += case_weight
@@ -137,15 +152,21 @@ class JurisdictionScoreManager:
         self.logger.info(f"  - Unique cases found: {len(unique_cases)}")
         self.logger.info(f"  - Valid cases processed: {valid_cases}")
         self.logger.info(f"  - Case weight sum: {case_weight_sum}")
-        self.logger.info(f"  - Weighted settlement sum: ${weighted_settlement_sum:,.2f}")
-        
+        self.logger.info(
+            f"  - Weighted settlement sum: ${weighted_settlement_sum:,.2f}"
+        )
+
         if case_weight_sum == 0:
-            self.logger.warning(f"No valid settlement data found for jurisdiction scoring")
+            self.logger.warning(
+                f"No valid settlement data found for jurisdiction scoring"
+            )
             if len(unique_cases) > 0:
                 # Log a sample case to debug
                 sample_case = next(iter(unique_cases.values()))
-                self.logger.warning(f"Sample case (no settlement): {sample_case.get('case_id', 'unknown')} - settlement_value: {sample_case.get('settlement_value', 'None')}")
-            
+                self.logger.warning(
+                    f"Sample case (no settlement): {sample_case.get('case_id', 'unknown')} - settlement_value: {sample_case.get('settlement_value', 'None')}"
+                )
+
             # Return a result with zero score and zero confidence instead of throwing exception
             result = {
                 "jurisdiction_score": 0.0,
@@ -156,8 +177,10 @@ class JurisdictionScoreManager:
                 "total_chunks_input": total_chunks,
                 "unique_cases_found": len(unique_cases),
             }
-            
-            self.logger.info(f"  - Final jurisdiction score: $0.00 (no settlement data)")
+
+            self.logger.info(
+                f"  - Final jurisdiction score: $0.00 (no settlement data)"
+            )
             self.logger.info(f"  - Confidence level: 0.00")
             return result
         else:
@@ -166,7 +189,6 @@ class JurisdictionScoreManager:
         confidence = min(
             1.0, valid_cases / 10
         )  # TODO: use the config to handle what our accepted amount of cases is for confidence currently is 10
-
 
         result = {
             "jurisdiction_score": jurisdiction_score,
@@ -178,7 +200,9 @@ class JurisdictionScoreManager:
             "unique_cases_found": len(unique_cases),
         }
         # Log final result
-        self.logger.info(f"  - Final jurisdiction score: ${result['jurisdiction_score']:,.2f}")
+        self.logger.info(
+            f"  - Final jurisdiction score: ${result['jurisdiction_score']:,.2f}"
+        )
         self.logger.info(f"  - Confidence level: {result['confidence']:.2f}")
 
         return result
@@ -206,7 +230,7 @@ class JurisdictionScoreManager:
         if not valid_scores:
             self.logger.warning("No valid scores found for modifier calculation.")
             return {}
-        
+
         average_score = sum(valid_scores) / len(valid_scores)
         self.logger.info(
             "Calculated reference average: $%.2f from %s jurisdictions with data.",
@@ -219,12 +243,19 @@ class JurisdictionScoreManager:
             if score == 0.0:
                 # Jurisdictions with no settlement data get neutral 1.0x modifier
                 modifier = 1.0
-                self.logger.debug("%s: $%.2f -> %.3fx (no data, default)", jurisdiction, score, modifier)
+                self.logger.debug(
+                    "%s: $%.2f -> %.3fx (no data, default)",
+                    jurisdiction,
+                    score,
+                    modifier,
+                )
             else:
                 modifier = score / average_score
-                modifier = max(0.8, min(1.15, modifier))  # Cap modifiers between 0.8x and 1.15x
+                modifier = max(
+                    0.8, min(1.15, modifier)
+                )  # Cap modifiers between 0.8x and 1.15x
                 self.logger.debug("%s: $%.2f -> %.3fx", jurisdiction, score, modifier)
-            
+
             modifiers[jurisdiction] = modifier
 
         return modifiers
@@ -241,66 +272,75 @@ class JurisdictionScoreManager:
         """
         modifiers = self.calculate_modifier_jurisdiction()
         return modifiers.get(jurisdiction_name, 1.0)
-    
 
     def bayesian_shrinkage(self, jurisdiction_case_counts: dict) -> dict:
         """
         Apply Bayesian shrinkage to jurisdiction scores to handle sample size bias.
-        
+
         Args:
             jurisdiction_case_counts: Dict mapping jurisdiction names to lists of case IDs
-            
+
         Returns:
             dict: Mapping of jurisdiction names to their Bayesian-adjusted scores
-            
+
         Note:
             Conservative factor is loaded from config at jurisdiction_scoring.bayesian_shrinkage.conservative_factor
             Higher values = more conservative = more shrinkage toward global average
         """
         self.logger.info("Starting Bayesian shrinkage adjustment...")
-        
+
         # Step 1: Load existing jurisdiction scores (raw averages)
         raw_scores = load_from_json(default_filename="jurisdiction_scores.json")
         if not raw_scores:
-            self.logger.warning("No existing jurisdiction scores found. Run score_jurisdiction first.")
+            self.logger.warning(
+                "No existing jurisdiction scores found. Run score_jurisdiction first."
+            )
             return {}
-        
+
         # Step 2: Calculate global average from raw scores (excluding jurisdictions with no data)
         valid_scores = [score for score in raw_scores.values() if score > 0.0]
         if not valid_scores:
             self.logger.warning("No valid scores found for global average calculation")
             return raw_scores
-        
+
         global_average = sum(valid_scores) / len(valid_scores)
-        self.logger.info(f"Global average calculated: ${global_average:,.2f} from {len(valid_scores)} jurisdictions with data")
-        
+        self.logger.info(
+            f"Global average calculated: ${global_average:,.2f} from {len(valid_scores)} jurisdictions with data"
+        )
+
         # Step 3: Apply Bayesian shrinkage to each jurisdiction
         adjusted_scores = {}
         shrinkage_details = {}
-        
+
         for jurisdiction, case_list in jurisdiction_case_counts.items():
             if jurisdiction not in raw_scores:
-                self.logger.warning(f"No raw score found for {jurisdiction}, skipping...")
+                self.logger.warning(
+                    f"No raw score found for {jurisdiction}, skipping..."
+                )
                 continue
-                
+
             # Get data for this jurisdiction
             raw_score = raw_scores[jurisdiction]
             case_count = len(case_list)
-            
+
             # Skip Bayesian shrinkage for jurisdictions with no settlement data
             if raw_score == 0.0:
                 adjusted_score = 0.0
-                self.logger.info(f"{jurisdiction}: No settlement data, keeping score at $0.00")
+                self.logger.info(
+                    f"{jurisdiction}: No settlement data, keeping score at $0.00"
+                )
             else:
                 # Calculate confidence based on sample size
                 confidence = case_count / (case_count + self.conservative_factor)
-                
+
                 # Apply Bayesian shrinkage formula
-                adjusted_score = (confidence * raw_score) + ((1 - confidence) * global_average)
-            
+                adjusted_score = (confidence * raw_score) + (
+                    (1 - confidence) * global_average
+                )
+
             # Store results
             adjusted_scores[jurisdiction] = adjusted_score
-            
+
             if raw_score == 0.0:
                 shrinkage_details[jurisdiction] = {
                     "raw_score": raw_score,
@@ -308,7 +348,7 @@ class JurisdictionScoreManager:
                     "case_count": case_count,
                     "confidence": 0.0,
                     "shrinkage_amount": 0.0,
-                    "shrinkage_direction": "no_data"
+                    "shrinkage_direction": "no_data",
                 }
             else:
                 confidence = case_count / (case_count + self.conservative_factor)
@@ -318,21 +358,26 @@ class JurisdictionScoreManager:
                     "case_count": case_count,
                     "confidence": confidence,
                     "shrinkage_amount": abs(raw_score - adjusted_score),
-                    "shrinkage_direction": "toward_global" if abs(adjusted_score - global_average) < abs(raw_score - global_average) else "away_from_global"
+                    "shrinkage_direction": (
+                        "toward_global"
+                        if abs(adjusted_score - global_average)
+                        < abs(raw_score - global_average)
+                        else "away_from_global"
+                    ),
                 }
-                
+
                 self.logger.info(
                     f"{jurisdiction}: ${raw_score:,.0f} → ${adjusted_score:,.0f} "
                     f"(confidence: {confidence:.3f}, cases: {case_count})"
                 )
-        
+
         # Step 4: Save adjusted scores (overwrite the original file)
         self.save_to_json(adjusted_scores, "jurisdiction_scores.json")
-        
-        self.logger.info(f"Bayesian shrinkage completed for {len(adjusted_scores)} jurisdictions")
-        return adjusted_scores
-    
 
+        self.logger.info(
+            f"Bayesian shrinkage completed for {len(adjusted_scores)} jurisdictions"
+        )
+        return adjusted_scores
 
     # ─── DATA QUALITY ASSESSMENT METHODS ─────────────────────────────────────────────────
     def calculate_data_completeness(self, case_data: dict) -> float:
@@ -405,7 +450,6 @@ class JurisdictionScoreManager:
         # Range: 0.6 (minimum) to 1.0 (maximum) - ensures all cases get at least some weight
         quality_multiplier = 0.6 + (0.4 * math.sqrt(data_completeness_score))
         return quality_multiplier
-    
 
     # ─── RECENCY CALCULATION METHODS ─────────────────────────────────────────────────────
     def calculate_recency_multiplier(self, case_data: dict) -> float:
@@ -422,7 +466,12 @@ class JurisdictionScoreManager:
         x = case_age_years
 
         conditionlist = [x <= 1, (x > 1) & (x <= 3), (x > 3) & (x <= 5), x > 5]
-        functionlist = [1.0, 0.8, 0.6, 0.4]  # multiplier depending on given age, older cases are less valuable
+        functionlist = [
+            1.0,
+            0.8,
+            0.6,
+            0.4,
+        ]  # multiplier depending on given age, older cases are less valuable
 
         recency_multiplier = numpy.piecewise(x, conditionlist, functionlist)
         return recency_multiplier

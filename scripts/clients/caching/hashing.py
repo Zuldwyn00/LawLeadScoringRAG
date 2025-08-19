@@ -69,7 +69,9 @@ def _validate_get_partition_path_args(
         raise ValueError("base_name must be a non-empty string")
 
     if not isinstance(partition_count, int):
-        raise TypeError(f"partition_count must be int, got {type(partition_count).__name__}")
+        raise TypeError(
+            f"partition_count must be int, got {type(partition_count).__name__}"
+        )
     if partition_count <= 0:
         raise ValueError("partition_count must be greater than 0")
 
@@ -96,4 +98,3 @@ def get_partition_path(
     partition_index = compute_partition_index(cache_key, partition_count)
     filename = build_partition_filename(base_name, partition_index)
     return str(Path(base_dir) / filename)
-

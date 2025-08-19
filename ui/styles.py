@@ -7,16 +7,18 @@ for the Lead Scoring GUI application.
 
 import customtkinter as ctk
 
+
 # ─── THEME CONFIGURATION ────────────────────────────────────────────────────────
 def setup_theme():
     """Configure the global CustomTkinter theme."""
     ctk.set_appearance_mode("dark")
     ctk.set_default_color_theme("blue")  # We'll override this with custom colors
 
+
 # ─── COLOR SCHEME ───────────────────────────────────────────────────────────────
 COLORS = {
     "primary_black": "#000000",
-    "secondary_black": "#1a1a1a", 
+    "secondary_black": "#1a1a1a",
     "tertiary_black": "#2d2d2d",
     "accent_orange": "#ff6b35",
     "accent_orange_hover": "#ff5722",
@@ -26,6 +28,7 @@ COLORS = {
     "text_dim": "#b0b0b0",
     "border_gray": "#404040",
 }
+
 
 # ─── FONTS ──────────────────────────────────────────────────────────────────────
 def get_fonts():
@@ -41,8 +44,10 @@ def get_fonts():
         "small_button": ctk.CTkFont(family="Inter", size=12),
     }
 
+
 # Cache for fonts once created
 _FONTS_CACHE = None
+
 
 def FONTS():
     """Get cached fonts or create them if they don't exist."""
@@ -51,6 +56,7 @@ def FONTS():
         _FONTS_CACHE = get_fonts()
     return _FONTS_CACHE
 
+
 # ─── WIDGET STYLES ──────────────────────────────────────────────────────────────
 def get_primary_button_style():
     """Get styling for primary action buttons."""
@@ -58,8 +64,9 @@ def get_primary_button_style():
         "fg_color": COLORS["accent_orange"],
         "hover_color": COLORS["accent_orange_hover"],
         "text_color": COLORS["text_white"],
-        "font": FONTS()["button"]
+        "font": FONTS()["button"],
     }
+
 
 def get_secondary_button_style():
     """Get styling for secondary action buttons."""
@@ -69,8 +76,9 @@ def get_secondary_button_style():
         "border_color": COLORS["border_gray"],
         "border_width": 2,
         "text_color": COLORS["text_white"],
-        "font": FONTS()["button"]
+        "font": FONTS()["button"],
     }
+
 
 def get_textbox_style():
     """Get styling for text input areas."""
@@ -79,8 +87,9 @@ def get_textbox_style():
         "text_color": COLORS["text_white"],
         "border_color": COLORS["border_gray"],
         "border_width": 2,
-        "font": FONTS()["body"]
+        "font": FONTS()["body"],
     }
+
 
 def get_frame_style(level="primary"):
     """Get styling for frames based on hierarchy level."""
@@ -93,14 +102,15 @@ def get_frame_style(level="primary"):
     else:
         return {"fg_color": "transparent"}
 
+
 # ─── UTILITY FUNCTIONS ──────────────────────────────────────────────────────────
 def get_score_color(score: int) -> str:
     """
     Get the color for a score using a gradient from red to green.
-    
+
     Args:
         score (int): The numerical score (0-100)
-    
+
     Returns:
         str: The color as a hex color string
     """

@@ -291,17 +291,19 @@ class QdrantManager:
             )
             raise Exception(f"Error retrieving cases by jurisdiction: {e}")
 
-    def get_all_case_ids_by_jurisdiction(self, collection_name: str) -> Dict[str, List[str]]:
+    def get_all_case_ids_by_jurisdiction(
+        self, collection_name: str
+    ) -> Dict[str, List[str]]:
         """
         Retrieve all case_ids grouped by jurisdiction from the collection.
-        
+
         Args:
             collection_name (str): Name of the collection to search.
-            
+
         Returns:
-            Dict[str, List[str]]: Dictionary where keys are jurisdiction names and 
+            Dict[str, List[str]]: Dictionary where keys are jurisdiction names and
                                 values are lists of unique case_ids for that jurisdiction.
-                                
+
         Example return format:
         {
             "Suffolk County": ["case_001", "case_045", "case_078"],
@@ -311,9 +313,11 @@ class QdrantManager:
         """
         try:
             jurisdiction_cases = {}  # Dict to group case_ids by jurisdiction
-            processed_pairs = set()  # Track (case_id, jurisdiction) pairs to avoid duplicates
+            processed_pairs = (
+                set()
+            )  # Track (case_id, jurisdiction) pairs to avoid duplicates
             offset = None
-            
+
             while True:
                 result = self.client.scroll(
                     collection_name=collection_name,
@@ -322,44 +326,48 @@ class QdrantManager:
                     with_payload=True,
                     with_vectors=False,  # We don't need vectors, just payload data
                 )
-                
+
                 points, next_offset = result
-                
+
                 # Extract case_id and jurisdiction from each point's payload
                 for point in points:
                     case_id = point.payload.get("case_id")
                     jurisdiction = point.payload.get("jurisdiction")
-                    
+
                     if case_id and jurisdiction:  # Only process if both fields exist
                         pair = (case_id, jurisdiction)
-                        
+
                         # Skip if we've already processed this case_id + jurisdiction combination
                         if pair not in processed_pairs:
                             processed_pairs.add(pair)
-                            
+
                             # Initialize jurisdiction list if it doesn't exist
                             if jurisdiction not in jurisdiction_cases:
                                 jurisdiction_cases[jurisdiction] = []
-                            
+
                             # Add case_id to the jurisdiction's list
                             jurisdiction_cases[jurisdiction].append(case_id)
-                
+
                 if next_offset is None:
                     break
                 offset = next_offset
-            
+
             # Log summary statistics
             total_cases = sum(len(case_ids) for case_ids in jurisdiction_cases.values())
-            logger.info(f"Found {total_cases} unique case IDs across {len(jurisdiction_cases)} jurisdictions in collection '{collection_name}'")
-            
+            logger.info(
+                f"Found {total_cases} unique case IDs across {len(jurisdiction_cases)} jurisdictions in collection '{collection_name}'"
+            )
+
             # Log case counts per jurisdiction
             for jurisdiction, case_ids in jurisdiction_cases.items():
                 logger.info(f"  {jurisdiction}: {len(case_ids)} cases")
-            
+
             return jurisdiction_cases
-            
+
         except Exception as e:
-            logger.error(f"Error retrieving case IDs by jurisdiction from collection '{collection_name}': {e}")
+            logger.error(
+                f"Error retrieving case IDs by jurisdiction from collection '{collection_name}': {e}"
+            )
             raise Exception(f"Error retrieving case IDs by jurisdiction: {e}")
 
     def get_context(self, search_results: list) -> str:

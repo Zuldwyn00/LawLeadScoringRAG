@@ -13,4 +13,4 @@ Modules:
 
 from .main_window import LeadScoringApp
 
-__all__ = ['LeadScoringApp']
+__all__ = ["LeadScoringApp"]

@@ -7,6 +7,7 @@ import pytest
 from scripts.clients.caching.cachemanager import ClientCacheManager
 from scripts.clients.caching.cacheschema import SummaryCacheEntry
 from scripts.clients.caching.hashing import get_partition_path
+
 # ─── TEST COMMAND ──────────────────────────────────────────────────────────
 # Run this test file with: pytest tests/scripts/clients/caching/test_cachemanager.py
 
@@ -47,6 +48,7 @@ def stub_logger(monkeypatch: pytest.MonkeyPatch):
     Args:
         monkeypatch (pytest.MonkeyPatch): Patcher fixture.
     """
+
     def _setup_logger(name, config, level=None, filename=None):
         logger = logging.getLogger(name)
         logger.handlers = []
@@ -61,7 +63,9 @@ def stub_logger(monkeypatch: pytest.MonkeyPatch):
 
 
 @pytest.fixture()
-def cache_manager(monkeypatch: pytest.MonkeyPatch, fake_config: dict) -> ClientCacheManager:
+def cache_manager(
+    monkeypatch: pytest.MonkeyPatch, fake_config: dict
+) -> ClientCacheManager:
     """
     Provide a cache manager instance configured to use temp directories.
 
@@ -159,4 +163,3 @@ def test_get_cached_entry_returns_none_when_missing(cache_manager: ClientCacheMa
         cache_type=SummaryCacheEntry,
     )
     assert missing is None
-

@@ -1,5 +1,11 @@
 from typing import List, Any, Dict, Tuple, Optional
-from langchain_core.messages import BaseMessage, AIMessage, SystemMessage, HumanMessage, ToolMessage
+from langchain_core.messages import (
+    BaseMessage,
+    AIMessage,
+    SystemMessage,
+    HumanMessage,
+    ToolMessage,
+)
 import sys
 import os
 import json
@@ -66,7 +72,7 @@ def _extract_tool_calls(message: AIMessage) -> List[Dict[str, Any]]:
         raw_calls = message.additional_kwargs.get("tool_calls") or []
         for raw in raw_calls:
             call_id = raw.get("id")
-            fn = (raw.get("function") or {})
+            fn = raw.get("function") or {}
             name = fn.get("name")
             args = fn.get("arguments")
             if isinstance(args, str):
@@ -100,7 +106,9 @@ def _unique_log_filename(base_filename: Optional[str] = None) -> str:
     return f"{stem}_{timestamp}{ext}"
 
 
-def dump_chat_log(message_history: List[BaseMessage], filename: str = "chat_log.json") -> None:
+def dump_chat_log(
+    message_history: List[BaseMessage], filename: str = "chat_log.json"
+) -> None:
     """
     Saves the complete message history as a human-readable JSON using the project's
     save_to_json utility. Includes full content for all messages without truncation.
@@ -196,45 +204,47 @@ def dump_chat_log(message_history: List[BaseMessage], filename: str = "chat_log.
         return None
 
     # Also save a human-readable text version
-    text_path = destination_path.with_suffix('.txt')
+    text_path = destination_path.with_suffix(".txt")
     try:
         with open(text_path, "w", encoding="utf-8") as f:
             f.write("=" * 80 + "\n")
             f.write("CHAT LOG - LEAD SCORING SESSION\n")
             f.write("=" * 80 + "\n\n")
-            
+
             f.write(f"Total Messages: {output['meta']['total_messages']}\n")
-            f.write(f"Tools Used: {', '.join(output['meta']['tools_used']) if output['meta']['tools_used'] else 'None'}\n")
+            f.write(
+                f"Tools Used: {', '.join(output['meta']['tools_used']) if output['meta']['tools_used'] else 'None'}\n"
+            )
             f.write("\n" + "=" * 80 + "\n\n")
-            
-            for msg in output['messages']:
+
+            for msg in output["messages"]:
                 # Header for each message
                 f.write(f"[{msg['index']}] {msg['role'].upper()} ({msg['type']})\n")
                 f.write("-" * 40 + "\n")
-                
+
                 # Content
-                if msg['content']:
-                    f.write(msg['content'])
+                if msg["content"]:
+                    f.write(msg["content"])
                     f.write("\n")
-                
+
                 # Tool call information for assistant messages
-                if 'tool_calls' in msg and msg['tool_calls']:
+                if "tool_calls" in msg and msg["tool_calls"]:
                     f.write("\nTOOL CALLS:\n")
-                    for tc in msg['tool_calls']:
+                    for tc in msg["tool_calls"]:
                         f.write(f"  • {tc['tool']} (ID: {tc['id']})\n")
-                        if tc['args']:
+                        if tc["args"]:
                             f.write(f"    Args: {tc['args']}\n")
-                
+
                 # Tool information for tool messages
-                if 'tool_name' in msg:
+                if "tool_name" in msg:
                     f.write(f"\nTOOL: {msg['tool_name']}\n")
                     f.write(f"RESPONDING TO: {msg['tool_call_id']}\n")
-                
+
                 f.write("\n" + "=" * 80 + "\n\n")
-        
+
         print(f"Successfully saved readable chat log to {text_path}")
     except (IOError, TypeError) as e:
         print(f"Error saving readable chat log: {e}")
-    
+
     # Return the filename (without path) for reference
     return unique_name

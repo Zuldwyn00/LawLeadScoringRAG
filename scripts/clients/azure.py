@@ -9,6 +9,7 @@ import os
 
 from utils import *
 
+
 class AzureClient(BaseClient):
 
     def __init__(self, client_config: str, **kwargs):
@@ -45,8 +46,8 @@ class AzureClient(BaseClient):
     def _initialize_client(self):
         """Initialize the appropriate LangChain client based on configuration."""
         params = {
-            "azure_deployment": self.client_config.get('deployment_name'),
-            "openai_api_version": self.client_config.get('api_version'),
+            "azure_deployment": self.client_config.get("deployment_name"),
+            "openai_api_version": self.client_config.get("api_version"),
             "azure_endpoint": os.getenv("AZURE_OPENAI_ENDPOINT"),
             "api_key": os.getenv("AZURE_OPENAI_API_KEY"),
         }

@@ -14,7 +14,7 @@ from .utils.summarization_registry import set_summarization_client
 
 class LeadScoringClient:
 
-    def __init__(self, client: BaseClient, summarizer = None, **kwargs):
+    def __init__(self, client: BaseClient, summarizer=None, **kwargs):
         """
         Initialize the LeadScoringClient.
 
@@ -37,7 +37,7 @@ class LeadScoringClient:
             )
 
         self.client = client
-        self.prompt = load_prompt('lead_scoring')
+        self.prompt = load_prompt("lead_scoring")
         self.tool_manager = ToolManager(tools=[get_file_context])
         self.current_lead_score = None
         self.last_chat_log_filename = None  # Store the most recent chat log filename
@@ -54,38 +54,40 @@ class LeadScoringClient:
 
         self._initialize_kwargs(kwargs)
 
-        #bind tools to underlying langchain client    
+        # bind tools to underlying langchain client
         self.client.client = self.client.client.bind_tools(self.tool_manager.tools)
         self.logger.debug(f"Tools bound to client: {self.tool_manager.tools}")
 
     def _initialize_kwargs(self, kwargs: dict) -> None:
         """
         Initialize all optional parameters from kwargs.
-        
+
         Args:
             kwargs (dict): Keyword arguments passed to the constructor.
         """
         # Temperature for main client
-        if 'temperature' in kwargs:
-            self.client.client.temperature = kwargs.pop('temperature')
+        if "temperature" in kwargs:
+            self.client.client.temperature = kwargs.pop("temperature")
 
         # Confidence threshold with default
-        if 'confidence_threshold' in kwargs:
-            self.confidence_threshold = kwargs.pop('confidence_threshold')
+        if "confidence_threshold" in kwargs:
+            self.confidence_threshold = kwargs.pop("confidence_threshold")
         else:
             self.confidence_threshold = 80
 
         # Final model configuration
-        if 'final_model' in kwargs:
-            self.final_model: str = kwargs.pop('final_model')
+        if "final_model" in kwargs:
+            self.final_model: str = kwargs.pop("final_model")
         else:
             self.final_model = None
-            
-        if 'final_model_temperature' in kwargs:
-            self.final_model_temperature: Optional[float] = kwargs.pop('final_model_temperature')
+
+        if "final_model_temperature" in kwargs:
+            self.final_model_temperature: Optional[float] = kwargs.pop(
+                "final_model_temperature"
+            )
         else:
             self.final_model_temperature = None
-            
+
         # Initialize final client if final model is specified
         self.final_client: AzureClient | None = None
         if self.final_model:
@@ -95,7 +97,9 @@ class LeadScoringClient:
             if self.final_model_temperature is not None:
                 self.final_client.client.temperature = self.final_model_temperature
 
-    def score_lead(self, new_lead_description: str, historical_context: str) -> tuple[str, str]:
+    def score_lead(
+        self, new_lead_description: str, historical_context: str
+    ) -> tuple[str, str]:
         """
         Scores a new lead by comparing it against historical data using a structured prompt.
 
@@ -110,13 +114,15 @@ class LeadScoringClient:
         self.tool_manager.tool_call_count = 0
         self.tool_manager.tool_call_history = []
         self.client.clear_history()
-        self.current_lead_score = None  # Reset the current lead score to ensure fresh scoring
-        
+        self.current_lead_score = (
+            None  # Reset the current lead score to ensure fresh scoring
+        )
+
         system_prompt_content = load_prompt("lead_scoring")
         self.logger.debug(
             f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}"
         )
-        
+
         # Create system message with the main prompt
         system_message = SystemMessage(content=system_prompt_content)
 
@@ -126,7 +132,7 @@ class LeadScoringClient:
             f"{self.tool_manager.tool_call_limit} maximum tool calls, you MUST use at least 1 tool call during your beginning score.'."
         )
         initial_tool_usage_message = SystemMessage(content=initial_tool_usage_text)
-        
+
         # Create historical context as a separate system message
         historical_context_message = SystemMessage(
             content=f"**Historical Case Summaries for Reference:**\n{historical_context}"
@@ -134,15 +140,22 @@ class LeadScoringClient:
 
         # Create user message with only the new lead description
         user_message = HumanMessage(content=new_lead_description)
-        messages_to_send = [system_message, initial_tool_usage_message, historical_context_message, user_message]
-
-        # Add all initial messages to message history so they appear in chat logs
-        self.client.add_message([
+        messages_to_send = [
             system_message,
             initial_tool_usage_message,
             historical_context_message,
             user_message,
-        ])
+        ]
+
+        # Add all initial messages to message history so they appear in chat logs
+        self.client.add_message(
+            [
+                system_message,
+                initial_tool_usage_message,
+                historical_context_message,
+                user_message,
+            ]
+        )
 
         try:
             self.logger.debug("Attempting to score lead, sending messages to client...")
@@ -184,7 +197,7 @@ class LeadScoringClient:
                     response,
                     flags=re.IGNORECASE,
                 )
-                
+
                 # Add both the explanation and modified response to chat history
                 # Order matters: explanation first, then modified response (so AI message has highest index)
                 modifier_explanation = SystemMessage(
@@ -193,11 +206,15 @@ class LeadScoringClient:
                     f"Final adjusted score: {modified_score}/100"
                 )
                 modified_response_message = AIMessage(content=response)
-                
+
                 # Add both messages in correct order - explanation first, then modified response
-                self.client.add_message([modifier_explanation, modified_response_message])
-                self.logger.debug("Added explanation and modified response to chat history")
-            
+                self.client.add_message(
+                    [modifier_explanation, modified_response_message]
+                )
+                self.logger.debug(
+                    "Added explanation and modified response to chat history"
+                )
+
             # Return both response and chat log filename
             return response, self.last_chat_log_filename
 
@@ -205,7 +222,9 @@ class LeadScoringClient:
             self.logger.error("An unexpected error occurred in score_lead: %s", e)
             return f"An error occurred while scoring the lead: {e}", None
 
-    def _build_tool_context_message(self, exclude_ids: set[str]) -> SystemMessage | None:
+    def _build_tool_context_message(
+        self, exclude_ids: set[str]
+    ) -> SystemMessage | None:
         """
         Build a compact SystemMessage containing:
         - A summary list of all prior tool calls (tool name and args, e.g., filepaths)
@@ -225,7 +244,8 @@ class LeadScoringClient:
         if getattr(self.tool_manager, "tool_call_history", None):
             # Filter out any calls that belong to the current turn (by call_id)
             filtered_history = [
-                h for h in self.tool_manager.tool_call_history
+                h
+                for h in self.tool_manager.tool_call_history
                 if h.get("call_id") not in exclude_ids
             ]
             if filtered_history:
@@ -251,15 +271,19 @@ class LeadScoringClient:
 
         # 2) Aggregate prior tool outputs (as before), excluding current-turn ids
         prior_tool_msgs = [
-            m for m in self.client.message_history
-            if isinstance(m, ToolMessage) and getattr(m, "tool_call_id", None) not in exclude_ids
+            m
+            for m in self.client.message_history
+            if isinstance(m, ToolMessage)
+            and getattr(m, "tool_call_id", None) not in exclude_ids
         ]
 
         output_lines: List[str] = []
         if prior_tool_msgs:
             output_lines.append("Tool Context So Far:")
             for msg in prior_tool_msgs:
-                content_snippet = msg.content  # keep full content; assume upstream truncation if needed
+                content_snippet = (
+                    msg.content
+                )  # keep full content; assume upstream truncation if needed
                 output_lines.append(f"- {content_snippet}")
 
         # If neither history nor outputs exist, return None
@@ -340,16 +364,27 @@ class LeadScoringClient:
 
         def get_response_recursive() -> AIMessage:
             def _validate_confidence_threshold_and_tool_limit() -> SystemMessage | None:
-                if self.tool_manager.tool_call_limit == self.tool_manager.tool_call_count:
-                    return SystemMessage(content="Tool call limit reached, provide your final lead score analysis.")
-                confidence_score = extract_confidence_from_response(self.current_lead_score.content)
+                if (
+                    self.tool_manager.tool_call_limit
+                    == self.tool_manager.tool_call_count
+                ):
+                    return SystemMessage(
+                        content="Tool call limit reached, provide your final lead score analysis."
+                    )
+                confidence_score = extract_confidence_from_response(
+                    self.current_lead_score.content
+                )
 
-                if confidence_score != 0:  # Skip confidence check when threshold is 0 (testing mode for full tool loops)
+                if (
+                    confidence_score != 0
+                ):  # Skip confidence check when threshold is 0 (testing mode for full tool loops)
                     if confidence_score >= self.confidence_threshold:
-                        return SystemMessage(content=(
-                            f"Confidence is {confidence_score} / {self.confidence_threshold} , "
-                            "threshold for confidence reached, provide your final lead score analysis "
-                        ))
+                        return SystemMessage(
+                            content=(
+                                f"Confidence is {confidence_score} / {self.confidence_threshold} , "
+                                "threshold for confidence reached, provide your final lead score analysis "
+                            )
+                        )
                     return None
 
             validation_msg = _validate_confidence_threshold_and_tool_limit()
@@ -368,7 +403,9 @@ class LeadScoringClient:
 
             # If the model requested tools, call them and send tool messages IMMEDIATELY
             if getattr(last_response, "tool_calls", None):
-                tool_call_responses = self.tool_manager.batch_tool_call(last_response.tool_calls)
+                tool_call_responses = self.tool_manager.batch_tool_call(
+                    last_response.tool_calls
+                )
                 # Track tool messages in history for logging/debugging purposes
                 self.client.add_message(tool_call_responses)
                 exclude_ids = set(map(lambda tc: tc["id"], last_response.tool_calls))
@@ -395,28 +432,34 @@ class LeadScoringClient:
                 tool_context_msg=tool_context_msg,
                 extra_messages=extra_messages,
             )
-            
-            current_lead_token_count = sum(map(lambda m: count_tokens(str(m.content)), messages_to_send))
-            self.logger.info(f"Lead scoring iteration - Token count: {current_lead_token_count}")
+
+            current_lead_token_count = sum(
+                map(lambda m: count_tokens(str(m.content)), messages_to_send)
+            )
+            self.logger.info(
+                f"Lead scoring iteration - Token count: {current_lead_token_count}"
+            )
             self.current_lead_score = self.client.invoke(messages_to_send)
             return get_response_recursive()
 
         final_lead = get_response_recursive()
         chat_log_filename = dump_chat_log(self.client.message_history)
-        
+
         # Store the chat log filename in the client instance for UI access
         self.last_chat_log_filename = chat_log_filename
-        
+
         return final_lead
 
-    def _get_final_lead_score(self, messages: list, validation_msg: SystemMessage) -> AIMessage:
+    def _get_final_lead_score(
+        self, messages: list, validation_msg: SystemMessage
+    ) -> AIMessage:
         """
         Generate the final lead score when confidence threshold is met or tool call limit is reached.
-        
+
         Args:
             messages (list): Base messages to start the conversation.
             validation_msg (SystemMessage): System message indicating why final scoring is triggered.
-            
+
         Returns:
             AIMessage: The final lead scoring response.
         """
@@ -426,7 +469,9 @@ class LeadScoringClient:
         # Ensure any pending tool calls on the last assistant message are resolved
         tool_call_responses = None
         if getattr(self.current_lead_score, "tool_calls", None):
-            tool_call_responses = self.tool_manager.batch_tool_call(self.current_lead_score.tool_calls)
+            tool_call_responses = self.tool_manager.batch_tool_call(
+                self.current_lead_score.tool_calls
+            )
             # Record tool messages in history
             self.client.add_message(tool_call_responses)
 
@@ -434,7 +479,7 @@ class LeadScoringClient:
         tool_usage_details = self.tool_manager.get_tool_usage_summary()
         tool_usage_summary_msg = SystemMessage(
             content=f"Tool Usage Summary: You made {self.tool_manager.tool_call_count} tool calls out of {self.tool_manager.tool_call_limit} maximum. "
-                   f"{tool_usage_details}. Please include this exact information in your '**6. Analysis Depth & Tool Usage:**' section."
+            f"{tool_usage_details}. Please include this exact information in your '**6. Analysis Depth & Tool Usage:**' section."
         )
 
         messages_to_send = self._assemble_messages(
@@ -444,11 +489,13 @@ class LeadScoringClient:
             tool_context_msg=tool_context_msg,
             extra_messages=[validation_msg, tool_usage_summary_msg],
         )
-        
+
         # Calculate and log token count for final lead scoring
-        total_tokens = sum(map(lambda m: count_tokens(str(m.content)), messages_to_send))
+        total_tokens = sum(
+            map(lambda m: count_tokens(str(m.content)), messages_to_send)
+        )
         self.logger.info(f"Final lead scoring - Token count: {total_tokens}")
-        
+
         # Use the final (no-tools) model for the last scoring pass
         if self.final_client is not None:
             final_lead = self.final_client.invoke(messages_to_send)

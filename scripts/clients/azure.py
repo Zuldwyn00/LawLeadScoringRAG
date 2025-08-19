@@ -1,12 +1,8 @@
 from langchain_openai import AzureChatOpenAI, AzureOpenAIEmbeddings
 import os
-import json
+from typing import List
 from langchain_core.messages import (
-    BaseMessage,
     AIMessage,
-    SystemMessage,
-    HumanMessage,
-    ToolMessage,
 )
 from .base import BaseClient
 import os

@@ -1,8 +1,6 @@
-from typing import Callable, Optional, List
+from typing import Optional, List
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage, AIMessage
 import re
-from pathlib import Path
-import hashlib
 
 from scripts.clients.utils.chatlog import dump_chat_log
 
@@ -12,8 +10,6 @@ from utils import load_prompt, count_tokens, setup_logger, load_config
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from ..tools import get_file_context, ToolManager
 from .utils.summarization_registry import set_summarization_client
-from ..caching.cacheschema import SummaryCacheEntry
-
 
 
 class LeadScoringClient:

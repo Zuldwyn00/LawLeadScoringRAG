@@ -1,7 +1,7 @@
 
 
 from datetime import datetime
-from typing import Optional, Union
+from typing import Optional
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path

@@ -1,6 +1,6 @@
 # Legal RAG Lead Scoring System (Law_RAG)
 
-An AI-assisted legal lead scoring and retrieval system. The project ingests legal documents (PDF/DOCX), applies OCR when needed, chunks and embeds text, stores vectors in Qdrant, and scores new leads against similar historical cases using Azure OpenAI. A Streamlit UI provides an interactive lead scoring experience with progress, logging, and explainable outputs.
+An AI-assisted legal lead scoring and retrieval system. The project ingests legal documents (PDF/DOCX), applies OCR when needed, chunks and embeds text, stores vectors in Qdrant, and scores new leads against similar historical cases using Azure OpenAI. A customtkiner UI provides an interactive lead scoring experience with progress, logging, and explainable outputs.
 
 ---
 
@@ -22,7 +22,6 @@ An AI-assisted legal lead scoring and retrieval system. The project ingests lega
   - AI document summarization agent
   - File-backed, partitioned cache for summaries (cost and latency reduction)
 - Persisted chat logs (JSON + human-readable text)
-- Streamlit web UI
   - Progress status, logs, and color-coded score/confidence presentation
 - Configurable via `config.yaml` and `prompts.yaml`
 
@@ -47,7 +46,7 @@ An AI-assisted legal lead scoring and retrieval system. The project ingests lega
   - Caching: `scripts/clients/caching/` (file-partitioned summary cache)
   - Chat logs: `scripts/clients/utils/chatlog.py`
 - UI
-  - `lead_scoring_ui.py` (Streamlit-based)
+  - `scripts/ui/` (customtkinter based UI)
   - `run_ui.py` launcher (sets host/port and prints access URLs)
 - CLI/entry points (ad-hoc)
   - `main.py` contains callable functions for embedding and scoring tests
@@ -69,7 +68,7 @@ Python dependencies are pinned in `requirements.txt`:
 - LangChain, langchain-openai, langchain-text-splitters, tiktoken
 - qdrant-client
 - ocrmypdf, PyMuPDF, tika
-- streamlit
+- customtkinter
 - numpy, PyYAML, python-dotenv, requests
 - pytest
 
@@ -83,6 +82,7 @@ Edit `config.yaml`:
 - `logger`: level, format, filename, rotation
 - `aiconfig.default_encoding`: token encoding base
 - `jurisdiction_scoring.field_weights`: presence weights for metadata completeness
+- `jurisdiction_scoring.bayesian_shrinage`: fields involved in the bayesian shrinkage for jurisdiction scoring
 - `caching.directories`: path forcache partitions
 
 Prompts are defined in `prompts.yaml`:
@@ -102,7 +102,6 @@ Create a `.env` file in the project root or set environment variables in your sh
 - `AZURE_OPENAI_API_KEY` — Azure OpenAI API key
 - `QDRANT_URL` — Qdrant endpoint URL
 - `QDRANT_KEY` — Qdrant API key (if required)
-- `STREAMLIT_PASSWORD` — Password required by the UI
 
 `qdrant_client` loads env via `python-dotenv` in `scripts/vectordb.py`.
 
@@ -140,8 +139,6 @@ Notes
 python run_ui.py
 ```
 
-- Default server binds on `0.0.0.0:3000` and prints local and LAN URLs
-- Authenticate using the `STREAMLIT_PASSWORD` environment variable
 - Paste a lead description and click "Score Lead"
 - The app shows progress, animated status, logs, and a final analysis with:
   - Lead Score (0–100)
@@ -360,7 +357,6 @@ Law_RAG/
 - Azure OpenAI authentication failures
   - Verify `AZURE_OPENAI_ENDPOINT` and `AZURE_OPENAI_API_KEY`
 - UI password rejected
-  - Confirm `STREAMLIT_PASSWORD` is set in environment
 
 ---
 

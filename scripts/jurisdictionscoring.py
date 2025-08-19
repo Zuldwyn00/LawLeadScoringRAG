@@ -1,11 +1,8 @@
 # ─── IMPORTS AND CONFIGURATION ──────────────────────────────────────────────────────────
-from email.policy import default
 from utils import *
 import math
 import numpy
-from typing import override, Dict
 
-config = load_config()
 
 # ─── TODO COMMENTS ───────────────────────────────────────────────────────────────────────
 # TODO, refactor  recency_multiplier to use a scalable system where the values are stored in the config
@@ -29,25 +26,14 @@ config = load_config()
 # ─── JURISDICTION SCORE MANAGER CLASS ────────────────────────────────────────────────────
 class JurisdictionScoreManager:
     def __init__(self):
-        self.config = config
-        self.logger = setup_logger(__name__, config)
+        self.config = load_config()
+        self.logger = setup_logger(__name__, self.config)
         self.field_weights = self.config.get("jurisdiction_scoring", {}).get(
             "field_weights", {}
         )
         self.recency_weights = self.config.get("jurisdiction_scoring", {}).get(
             "recency_weights", {}
         )
-        
-        # Load outlier detection configuration
-        outlier_config = self.config.get("jurisdiction_scoring", {}).get("outlier_detection", {})
-        self.outlier_enabled = outlier_config.get("enabled", True)
-        self.outlier_methods = outlier_config.get("methods", ['iqr', 'zscore', 'modified_zscore'])
-        self.outlier_handling = outlier_config.get("handling_method", 'winsorize')
-        self.iqr_multiplier = outlier_config.get("iqr_multiplier", 1.5)
-        self.zscore_threshold = outlier_config.get("zscore_threshold", 3.0)
-        self.modified_zscore_threshold = outlier_config.get("modified_zscore_threshold", 3.5)
-        self.winsorize_percentiles = outlier_config.get("winsorize_percentiles", [5, 95])
-        self.cap_multiplier = outlier_config.get("cap_multiplier", 5.0)
         
         # Load Bayesian shrinkage configuration
         bayesian_config = self.config.get("jurisdiction_scoring", {}).get("bayesian_shrinkage", {})
@@ -246,7 +232,7 @@ class JurisdictionScoreManager:
     def get_jurisdiction_modifier(self, jurisdiction_name: str) -> float:
         """
         Get the modifier for a specific jurisdiction.
-git add
+
         Args:
             jurisdiction_name (str): Name of the jurisdiction
 

@@ -5,7 +5,6 @@ import logging.handlers
 import yaml
 import os
 import json
-import sys
 import tiktoken
 
 

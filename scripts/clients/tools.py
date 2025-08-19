@@ -4,7 +4,6 @@ from typing import List, Callable
 from utils import count_tokens, setup_logger, load_config
 from scripts.filemanagement import get_text_from_file
 from .agents.utils.summarization_registry import get_summarization_client
-from .caching import SummaryCacheEntry
 
 from langchain_core.tools import tool
 from langchain_core.messages import ToolMessage
@@ -39,8 +38,6 @@ class ToolManager:
         Returns:
             ToolMessage: A properly formatted tool message with content and optional metadata
         """
-        #if self.tool_call_count >= self.tool_call_limit: #TODO: Should call_tool handle the limiting, or should the agent
-           # return ToolCallLimitReached(f'Tool call limit ({self.tool_call_limit}) reached, cannot use more tools.')
         tool_name = tool_call.get("name")
         tool_args = tool_call.get("args", {})
 

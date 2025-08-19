@@ -38,17 +38,16 @@
 
 #small stuff
 #TODO: Clear All button does nothing
-#TODO: Fix UI show original lead description not being dark mode
 #TODO: Get rid of tika, its slow as hell but rememebr that we changed to it because the other option gave too much garbage text like /n/n/n
+#TODO: Sensitive data is stored in the chat logs currently, primarily the LLM summaries
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
-from scripts.aiclients import EmbeddingManager, ChatManager
+from scripts.aiclients import ChatManager
 from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
 from utils import *
 
-from scripts.clients.utils.chatlog import dump_chat_log
 from scripts.clients import SummarizationClient, LeadScoringClient, AzureClient
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
@@ -59,7 +58,7 @@ logger = setup_logger(__name__, config)
 def embedding_test(filepath: str, case_id: int):
     ensure_directories()
     chat_manager = ChatManager()
-    embeddingmanager = EmbeddingManager()
+    embedding_client = AzureClient(client_config='text_embedding_3_small')
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
     qdrantmanager.create_collection('case_files')
@@ -84,7 +83,7 @@ def embedding_test(filepath: str, case_id: int):
 
         datachunks = []
         for i, chunk in enumerate(file_chunks):
-            chunk_embedding = embeddingmanager.get_embeddings(chunk.page_content)
+            chunk_embedding = embedding_client.get_embeddings(chunk.page_content)
 
             datachunk = ChunkData()
             datachunk.set_case_id(case_id)

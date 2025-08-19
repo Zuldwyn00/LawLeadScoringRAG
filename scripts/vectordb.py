@@ -1,10 +1,8 @@
 import os
 from dotenv import load_dotenv
-from huggingface_hub import load_torch_model
 from qdrant_client import QdrantClient
 from qdrant_client.http import models
 from qdrant_client.http.exceptions import ResponseHandlingException
-from langchain_openai import AzureOpenAIEmbeddings
 from typing import List, Dict, Any
 import uuid
 import json

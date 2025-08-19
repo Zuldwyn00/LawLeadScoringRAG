@@ -10,7 +10,7 @@ logger:
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"  # Log message format
   datefmt: "%Y-%m-%d %H:%M:%S"  # Date format for log messages
   filename: "pdf_scraper.log"  # Log file name
-  max_bytes: 5242880 # 5MB
+  max_bytes: 2000000 # 2MB
   backup_count: 5
 
 aiconfig:
@@ -32,14 +32,14 @@ jurisdiction_scoring:
     insurance_mentioned: 0.6,
     witnesses_mentioned: 0.5,
     prior_legal_representation_mentioned: 0.2,
-    case_outcome: 2.5,
-    settlement_value: 3.0,
+    case_outcome: 3.0,
+    settlement_value: 5.0,
     communication_channel: 0.0,
     key_phrases: 0.0,
     summary: 0.0,
   }
   bayesian_shrinkage:
-    conservative_factor: 50  # Higher values = more conservative = more shrinkage toward global average
+    conservative_factor: 7  # Higher values = more conservative = more shrinkage toward global average
 
 caching:
   directories:

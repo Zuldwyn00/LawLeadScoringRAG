@@ -6,7 +6,6 @@ This script starts the customtkinter desktop interface for the lead scoring syst
 """
 
 import sys
-import os
 from pathlib import Path
 
 # Add the project root to the path so we can import our modules

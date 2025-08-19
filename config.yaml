@@ -39,7 +39,7 @@ jurisdiction_scoring:
     summary: 0.0,
   }
   bayesian_shrinkage:
-    conservative_factor: 7  # Higher values = more conservative = more shrinkage toward global average
+    conservative_factor: 10  # Higher values = more conservative = more shrinkage toward global average
 
 caching:
   directories:

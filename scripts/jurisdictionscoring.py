@@ -40,7 +40,7 @@ class JurisdictionScoreManager:
         bayesian_config = self.config.get("jurisdiction_scoring", {}).get(
             "bayesian_shrinkage", {}
         )
-        self.conservative_factor = bayesian_config.get("conservative_factor", 50)
+        self.conservative_factor = bayesian_config.get("conservative_factor", 10)
 
     # ─── CORE SCORING METHODS ────────────────────────────────────────────────────────────
     def score_jurisdiction(self, jurisdiction_cases: list):

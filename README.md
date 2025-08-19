@@ -200,7 +200,7 @@ adjusted_score = (confidence × raw_score) + ((1 - confidence) × global_average
 
 **Where**:
 - `case_count`: Number of cases for this jurisdiction
-- `conservative_factor`: How much shrinkage to apply (default: 10)
+- `conservative_factor`: How much shrinkage to apply 
 - `raw_score`: Jurisdiction's weighted average settlement
 - `global_average`: Average across all jurisdictions
 

@@ -72,7 +72,7 @@ class SummarizationClient:
                 source_file=str(source_path),
                 cache_type=SummaryCacheEntry
             )
-            self.logger.debug(f"Cache lookup result for '{source_file}': {cached_entry}")
+            self.logger.debug(f"Cache lookup result for '{source_file}'")
             if cached_entry:
                 self.logger.info(f"Using cached summary for '{source_file}' (tokens: {cached_entry.tokens})")
                 return cached_entry.summary

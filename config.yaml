@@ -38,6 +38,8 @@ jurisdiction_scoring:
     key_phrases: 0.0,
     summary: 0.0,
   }
+  bayesian_shrinkage:
+    conservative_factor: 50  # Higher values = more conservative = more shrinkage toward global average
 
 caching:
   directories:

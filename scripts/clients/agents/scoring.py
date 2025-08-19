@@ -181,12 +181,6 @@ class LeadScoringClient:
                     f"Score modified from {original_score} to {modified_score} using jurisdiction modifier {modifier}"
                 )
 
-
-                modifier_message = SystemMessage(
-                    content=f"JURISDICTION MODIFIER APPLIED: Original score {original_score} modified to {modified_score} "
-                    f"using {jurisdiction} jurisdiction modifier of {modifier:.3f}x. "
-                    f"Final adjusted score: {modified_score}/100"
-                )
                 # Replace the original score in the response with the modified score
                 response = re.sub(
                     r"Lead Score:\s*\d+/100",
@@ -194,8 +188,20 @@ class LeadScoringClient:
                     response,
                     flags=re.IGNORECASE,
                 )
+                
+                # Add both the explanation and modified response to chat history
+                # Order matters: explanation first, then modified response (so AI message has highest index)
+                modifier_explanation = SystemMessage(
+                    content=f"JURISDICTION MODIFIER APPLIED: Original score {original_score} modified to {modified_score} "
+                    f"using {jurisdiction} jurisdiction modifier of {modifier:.3f}x. "
+                    f"Final adjusted score: {modified_score}/100"
+                )
+                modified_response_message = AIMessage(content=response)
+                
+                # Add both messages in correct order - explanation first, then modified response
+                self.client.add_message([modifier_explanation, modified_response_message])
+                self.logger.debug("Added explanation and modified response to chat history")
             
-                self.client.add_message(modifier_message, response)
             # Return both response and chat log filename
             return response, self.last_chat_log_filename
 
@@ -576,4 +582,4 @@ def extract_confidence_from_response(response: str) -> int:
     if match:
         return int(match.group(1))
 
-    return 50
+    return 0

@@ -12,7 +12,7 @@
 
 # TODO: Rest api integration for a function system.
 
-#TODO: The jurisdiction scoring is inflated i believe, as it adds together all the duplicated values of the settlement values to get the average, rather than just the unique values.
+# FIXED: Jurisdiction scoring now deduplicates cases by case_id to prevent settlement value inflation
 
 #TODO: Tool batch calling does not work, seems to be a limitation from the client we are using, langchain seems to support it from what I can tell.
 
@@ -33,6 +33,8 @@
 # this way we can easily grab all the data we need from the AI instance rather than having to return things from certain functions and making it confusing.
     #TODO: We can use the elapsed time that the manager tracks to use for a better loading bar, but this might not matter really because we are not going to have this be using a UI 
 
+
+#TODO: FILE INTAKE - IMPLEMENTING CHUNKING FOR LARGE FILES
 
 #small stuff
 #TODO: Clear All button does nothing
@@ -255,7 +257,8 @@ def settlement_value_test():
     print(values)
 
 def main():
-   string = "13+8-9+21"
+   
+    jurisdiction_score_test()
 
 
 if __name__ == "__main__":

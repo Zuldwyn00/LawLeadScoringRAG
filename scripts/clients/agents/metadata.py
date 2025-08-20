@@ -36,7 +36,7 @@ class MetadataAgent:
             self.wait_for_rate_limit()
             self.rate_limit_flag = False
 
-        system_prompt_content = load_prompt("injury_metadata_extraction")
+        system_prompt_content = self.prompt
         self.logger.debug(
             f"Token count: {count_tokens(text) + count_tokens(system_prompt_content)}"
         )

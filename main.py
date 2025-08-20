@@ -59,7 +59,7 @@ def embedding_test(filepath: str, case_id: int):
     vector_config = {
     "chunk": models.VectorParams(size=3072, distance=models.Distance.COSINE),
     }
-    qdrantmanager.create_collection("case_files_large")
+    qdrantmanager.create_collection("case_files_large", vector_config=vector_config)
     files = find_files(Path(filepath))
     progress = len(files)
     print(f"Found {progress} files")

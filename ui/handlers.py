@@ -55,7 +55,7 @@ class LeadScoringHandler:
 
         # Initialize embedding and chat clients using AzureClient
         embedding_client = AzureClient("text_embedding_3_small")
-        chat_client = AzureClient("o4-mini")
+        chat_client = AzureClient("gpt-5-mini")
 
         # Use a separate chat client for summarization
         summarizer_client = AzureClient("o4-mini")
@@ -63,8 +63,8 @@ class LeadScoringHandler:
         # Initialize agents
         summarization_client = SummarizationAgent(summarizer_client)
         scorer_kwargs = {
-            "confidence_threshold": 80,
-            "final_model": "gpt-4.1",
+            "confidence_threshold": 85,
+            "final_model": "gpt-5-chat",
             "final_model_temperature": 0.0,
         }
         self.lead_scoring_client = LeadScoringAgent(

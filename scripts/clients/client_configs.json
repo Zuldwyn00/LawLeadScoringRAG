@@ -12,6 +12,11 @@
       "supports_tools": false,
       "description": "gpt-4.1 standard deployment for general tasks, higher costs than o4-mini"
     },
+    "gpt-5-mini": {
+      "deployment_name": "gpt-5-mini",
+      "api_version": "2025-04-01-preview",
+      "gpt-5-mini": "standard deployment for general tasks, lower input cost but higher output cost than o4-mini"
+    },
     "gpt-5-chat": {
       "deployment_name": "gpt-5-chat",
       "api_version": "2025-01-01-preview",

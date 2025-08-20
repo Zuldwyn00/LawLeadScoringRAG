@@ -198,8 +198,7 @@ class LeadScoringAgent:
                     flags=re.IGNORECASE,
                 )
 
-                # Add both the explanation and modified response to chat history
-                # Order matters: explanation first, then modified response (so AI message has highest index)
+                # Add jurisdiction modifier explanation and replace the final response
                 modifier_explanation = SystemMessage(
                     content=f"JURISDICTION MODIFIER APPLIED: Original score {original_score} modified to {modified_score} "
                     f"using {jurisdiction} jurisdiction modifier of {modifier:.3f}x. "
@@ -207,13 +206,14 @@ class LeadScoringAgent:
                 )
                 modified_response_message = AIMessage(content=response)
 
-                # Add both messages in correct order - explanation first, then modified response
-                self.client.add_message(
-                    [modifier_explanation, modified_response_message]
-                )
-                self.logger.debug(
-                    "Added explanation and modified response to chat history"
-                )
+                # Add explanation and replace the last message with the modified response
+                self.client.add_message(modifier_explanation)
+                # Replace the last message (the original response) with the modified one
+                if self.client.message_history:
+                    self.client.message_history[-1] = modified_response_message
+                    self.logger.debug(
+                        "Added modifier explanation and replaced final response with modified version"
+                    )
 
             # Return both response and chat log filename
             return response, self.last_chat_log_filename

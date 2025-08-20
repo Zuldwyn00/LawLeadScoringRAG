@@ -1,4 +1,4 @@
-directories:
+5directories:
   data: "scripts/data" 
   jsons: "scripts/data/jsons"
   logs: "logs"

@@ -466,6 +466,66 @@ class LogViewerDialog(ctk.CTkToplevel):
         )
         auto_refresh_checkbox.grid(row=0, column=1, padx=10, pady=10)
 
+        # Log level filter checkboxes
+        filters_frame = ctk.CTkFrame(control_frame, fg_color="transparent")
+        filters_frame.grid(row=0, column=2, padx=10, pady=10, sticky="w")
+
+        self.show_debug_var = ctk.BooleanVar(value=False)
+        self.show_info_var = ctk.BooleanVar(value=True)
+        self.show_warning_var = ctk.BooleanVar(value=True)
+        self.show_error_var = ctk.BooleanVar(value=True)
+        self.show_critical_var = ctk.BooleanVar(value=True)
+
+        debug_cb = ctk.CTkCheckBox(
+            filters_frame,
+            text="DEBUG",
+            font=FONTS()["body"],
+            text_color=COLORS["text_white"],
+            variable=self.show_debug_var,
+            command=self.refresh_logs,
+        )
+        debug_cb.grid(row=0, column=0, padx=(0, 6))
+
+        info_cb = ctk.CTkCheckBox(
+            filters_frame,
+            text="INFO",
+            font=FONTS()["body"],
+            text_color=COLORS["text_white"],
+            variable=self.show_info_var,
+            command=self.refresh_logs,
+        )
+        info_cb.grid(row=0, column=1, padx=(0, 6))
+
+        warning_cb = ctk.CTkCheckBox(
+            filters_frame,
+            text="WARNING",
+            font=FONTS()["body"],
+            text_color=COLORS["text_white"],
+            variable=self.show_warning_var,
+            command=self.refresh_logs,
+        )
+        warning_cb.grid(row=0, column=2, padx=(0, 6))
+
+        error_cb = ctk.CTkCheckBox(
+            filters_frame,
+            text="ERROR",
+            font=FONTS()["body"],
+            text_color=COLORS["text_white"],
+            variable=self.show_error_var,
+            command=self.refresh_logs,
+        )
+        error_cb.grid(row=0, column=3, padx=(0, 6))
+
+        critical_cb = ctk.CTkCheckBox(
+            filters_frame,
+            text="CRITICAL",
+            font=FONTS()["body"],
+            text_color=COLORS["text_white"],
+            variable=self.show_critical_var,
+            command=self.refresh_logs,
+        )
+        critical_cb.grid(row=0, column=4)
+
         # Log count label
         self.log_count_label = ctk.CTkLabel(
             control_frame,
@@ -543,7 +603,7 @@ class LogViewerDialog(ctk.CTkToplevel):
         return "\n".join(filtered_lines)
 
     def filter_logs_by_level(
-        self, log_content: str, min_level: int = logging.INFO
+        self, log_content: str, min_level: int = logging.INFO, enabled_levels=None
     ) -> str:
         """
         Filter log entries to only include records at or above the given level.
@@ -582,7 +642,10 @@ class LogViewerDialog(ctk.CTkToplevel):
                 level_name = parts[2].strip()
                 level_value = level_name_to_value.get(level_name)
                 if level_value is not None:
-                    include_following_lines = level_value >= min_level
+                    if enabled_levels is not None:
+                        include_following_lines = level_value in enabled_levels
+                    else:
+                        include_following_lines = level_value >= min_level
                     if include_following_lines:
                         filtered_lines.append(line)
                     # Skip header line if below threshold and do not include subsequent continuations
@@ -617,8 +680,22 @@ class LogViewerDialog(ctk.CTkToplevel):
                 if self.session_start_time:
                     content = self.filter_logs_by_time(content, self.session_start_time)
 
-                # Always filter to show only INFO and above levels
-                content = self.filter_logs_by_level(content, min_level=logging.INFO)
+                # Filter by selected levels from UI
+                enabled_levels = set()
+                if self.show_debug_var.get():
+                    enabled_levels.add(logging.DEBUG)
+                if self.show_info_var.get():
+                    enabled_levels.add(logging.INFO)
+                if self.show_warning_var.get():
+                    enabled_levels.add(logging.WARNING)
+                if self.show_error_var.get():
+                    enabled_levels.add(logging.ERROR)
+                if self.show_critical_var.get():
+                    enabled_levels.add(logging.CRITICAL)
+
+                content = self.filter_logs_by_level(
+                    content, min_level=logging.INFO, enabled_levels=enabled_levels
+                )
 
                 if content.strip():
                     self.log_text.insert("end", f"\n{'='*80}\n")

@@ -46,7 +46,7 @@ class BaseClient(ABC):
 
         Args:
             client_type (str): The name of the client configuration to load
-                             (e.g., "gpt-o4-mini", "text_embedding_3_small")
+                             (e.g., "o4-mini", "text_embedding_3_small")
 
         Returns:
             Dict[str, Any]: The configuration dictionary for the specified client

@@ -55,10 +55,10 @@ class LeadScoringHandler:
 
         # Initialize embedding and chat clients using AzureClient
         embedding_client = AzureClient("text_embedding_3_small")
-        chat_client = AzureClient("gpt-o4-mini")
+        chat_client = AzureClient("o4-mini")
 
         # Use a separate chat client for summarization
-        summarizer_client = AzureClient("gpt-o4-mini")
+        summarizer_client = AzureClient("o4-mini")
 
         # Initialize agents
         summarization_client = SummarizationAgent(summarizer_client)

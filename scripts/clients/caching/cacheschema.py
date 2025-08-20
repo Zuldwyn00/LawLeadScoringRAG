@@ -15,7 +15,7 @@ class CacheEntry(ABC):
     """
 
     source_file: Path
-    client: str  # the client used for the call from clients_config ie: (gpt-o4-mini, gpt-4o)
+    client: str  # the client used for the call from clients_config ie: (o4-mini, gpt-4o)
     created_at: datetime = field(default_factory=datetime.now)
     tokens: Optional[int] = None
 

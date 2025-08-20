@@ -1,17 +1,22 @@
 {
   "azure_clients": {
-    "gpt-o4-mini": {
+    "o4-mini": {
       "deployment_name": "o4-mini",
       "api_version": "2025-01-01-preview",
       "supports_tools": true,
-      "description": "gpt-o4-mini standard deployment for general tasks"
+      "description": "o4-mini standard deployment for general tasks"
     },
     "gpt-4.1": {
       "deployment_name": "gpt-4.1",
       "api_version": "2025-01-01-preview",
       "supports_tools": false,
-      "description": "gpt-4.1 standard deployment for general tasks, higher costs than gpt-o4-mini"
-    }
+      "description": "gpt-4.1 standard deployment for general tasks, higher costs than o4-mini"
+    },
+    "gpt-5-chat": {
+      "deployment_name": "gpt-5-chat",
+      "api_version": "2025-01-01-preview",
+      "description": "gpt-5-chat standard deployment for general tasks, lower input cost but higher output cost than gpt-4.1, must do more testing before fully using and find the real pricing online"
+    }  
   },
   
   "embedding_clients": {

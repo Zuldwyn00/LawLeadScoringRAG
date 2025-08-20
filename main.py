@@ -51,7 +51,7 @@ logger = setup_logger(__name__, config)
 
 def embedding_test(filepath: str, case_id: int):
     ensure_directories()
-    metadata_agent = MetadataAgent(client=AzureClient(client_config="gpt-o4-mini"))
+    metadata_agent = MetadataAgent(client=AzureClient(client_config="o4-mini"))
     embedding_agent = AzureClient(client_config="text_embedding_3_large")
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
@@ -182,7 +182,7 @@ def score_test():
     ensure_directories()
     qdrant_client = QdrantManager()
     embedding_client = AzureClient(client_config="text_embedding_3_small")
-    summarizer = SummarizationAgent(AzureClient(client_config="gpt-o4-mini"))
+    summarizer = SummarizationAgent(AzureClient(client_config="o4-mini"))
 
     scorer_kwargs = {
         "confidence_threshold": 99,
@@ -190,7 +190,7 @@ def score_test():
         "final_model_temperature": 0.0,
     }
     scorer = LeadScoringAgent(
-        AzureClient(client_config="gpt-o4-mini"), summarizer=summarizer, **scorer_kwargs
+        AzureClient(client_config="o4-mini"), summarizer=summarizer, **scorer_kwargs
     )
 
     new_lead_description = (

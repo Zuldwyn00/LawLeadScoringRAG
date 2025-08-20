@@ -63,7 +63,7 @@ class LeadScoringHandler:
         # Initialize agents
         summarization_client = SummarizationAgent(summarizer_client)
         scorer_kwargs = {
-            "confidence_threshold": 85,
+            "confidence_threshold": 85,#
             "final_model": "gpt-5-chat",
             "final_model_temperature": 0.0,
         }

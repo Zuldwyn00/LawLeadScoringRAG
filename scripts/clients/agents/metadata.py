@@ -28,7 +28,7 @@ class MetadataAgent:
             "Initialized %s with %s", self.__class__.__name__, client.__class__.__name__
         )
 
-    def extract_metadata(self, text: str, filepath: str, case_id: str, retries: int = 2):
+    def define_metadata(self, text: str, filepath: str, case_id: str, retries: int = 2):
         self.rate_limit_flag = False
         if (
             self.rate_limit_flag

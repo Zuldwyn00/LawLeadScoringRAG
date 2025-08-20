@@ -330,8 +330,7 @@ def settlement_value_test():
 
 def main():
 
-    jurisdiction_score_test()
-
+   process_all_case_folders(r'C:\Users\Justin\Desktop\testdocsmain')
 
 if __name__ == "__main__":
     main()

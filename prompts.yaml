@@ -150,7 +150,8 @@ lead_scoring:
        - Do NOT make a tool call to the same file multiple times, only once per file.
        - Make tool calls to gather additional information from case files
        - Target specific case files using the exact "source" field paths from historical context
-       - YOU MAY MAKE MULTIPLE TOOL-CALLS AT ONCE IN A BATCH. Ensure that you do not exceed your tool call limit when using a batch call of tools.
+       - YOU MAY MAKE MULTIPLE TOOL-CALLS AT ONCE IN A BATCH
+       ** If calling tools in a batch, ensure that your current tool useage count does not exceed the tool useage limit if multiple tools are called in a batch.
     
     4. **Post-Tool Assessment**: 
        - After each tool call, re-evaluate your confidence level

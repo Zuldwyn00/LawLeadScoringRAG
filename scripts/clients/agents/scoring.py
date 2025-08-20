@@ -411,7 +411,7 @@ class LeadScoringAgent:
                     f"Tool usage count: {self.tool_manager.tool_call_count}/{self.tool_manager.tool_call_limit}. "
                     f"You MUST use get_file_context to examine specific case files from the historical context provided above. "
                     f"Target files that are most relevant to this lead's circumstances (similar injury types, jurisdictions, or case outcomes). "
-                    f"Review the historical context and select 1-2 specific files to examine."
+                    f"Review the historical context and select files to examine."
                 )
                 # if no tool calls were found, inform the AI it needs to make more and give it the historical context again.
                 continue_message = SystemMessage(content=continue_message_text)
@@ -459,16 +459,9 @@ class LeadScoringAgent:
             AIMessage: The final lead scoring response.
         """
         base_messages = messages  # [system, historical, user]
-        tool_context_msg = self._build_tool_context_message(exclude_ids=set())
 
         # Ensure any pending tool calls on the last assistant message are resolved
         tool_call_responses = None
-        if getattr(self.current_lead_score, "tool_calls", None):
-            tool_call_responses = self.tool_manager.batch_tool_call(
-                self.current_lead_score.tool_calls
-            )
-            # Record tool messages in history
-            self.client.add_message(tool_call_responses)
 
         # Create a detailed tool usage summary message for the AI to reference in its final response
         tool_usage_details = self.tool_manager.get_tool_usage_summary()
@@ -481,7 +474,6 @@ class LeadScoringAgent:
             base_messages,
             last_response=self.current_lead_score,
             tool_call_responses=tool_call_responses,
-            tool_context_msg=tool_context_msg,
             extra_messages=[validation_msg, tool_usage_summary_msg],
         )
 

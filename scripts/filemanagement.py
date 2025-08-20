@@ -1,6 +1,8 @@
 # ─── STANDARD LIBRARY IMPORTS ──────────────────────────────────────────────────────
 from functools import wraps
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Tuple
+from pathlib import Path
+import re
 
 # ─── THIRD-PARTY IMPORTS ────────────────────────────────────────────────────────────
 import ocrmypdf
@@ -94,6 +96,94 @@ def get_text_from_file(filepath: str, **kwargs):
     request_options = {"timeout": 300}  # Set timeout to 5 minutes (300 seconds)
     parsed_file = parser.from_file(filepath, requestOptions=request_options, **kwargs)
     return parsed_file
+
+
+def discover_case_folders(main_folder_path: str) -> List[Tuple[str, int]]:
+    """
+    Discovers all case subfolders and extracts case IDs from filenames.
+    
+    This function scans a main folder containing subfolders of case documents.
+    Each subfolder contains files named with a case ID prefix (e.g., "1989212 04-24-2024 (1).pdf" 
+    or "1989212 04-24-2024.docx"). Supports PDF, DOC, and DOCX files.
+    All files in a subfolder share the same case ID.
+    
+    Args:
+        main_folder_path (str): Path to the main folder containing case subfolders
+        
+    Returns:
+        List[Tuple[str, int]]: List of tuples containing (subfolder_path, case_id)
+        
+    Raises:
+        FileNotFoundError: If the main folder doesn't exist
+        ValueError: If no valid case ID can be extracted from any files in a subfolder
+    """
+    main_path = Path(main_folder_path)
+    
+    if not main_path.exists():
+        raise FileNotFoundError("Main folder not found: %s" % main_folder_path)
+    
+    if not main_path.is_dir():
+        raise ValueError("Path is not a directory: %s" % main_folder_path)
+    
+    case_folders = []
+    
+    # Iterate through all subdirectories
+    for subfolder in main_path.iterdir():
+        if not subfolder.is_dir():
+            continue
+            
+        logger.info("Processing subfolder: %s" % subfolder.name)
+        
+        # Get all supported document files in the subfolder (PDF, DOC, DOCX)
+        document_files = []
+        document_files.extend(list(subfolder.glob("*.pdf")))
+        document_files.extend(list(subfolder.glob("*.doc")))
+        document_files.extend(list(subfolder.glob("*.docx")))
+        
+        if not document_files:
+            logger.warning("No document files (PDF, DOC, DOCX) found in %s, skipping" % subfolder.name)
+            continue
+        
+        # Extract case ID from the first document file (all should have the same case ID)
+        first_file = document_files[0]
+        case_id = extract_case_id_from_filename(first_file.name)
+        
+        if case_id is None:
+            logger.warning("Could not extract case ID from %s, skipping folder %s" % (first_file.name, subfolder.name))
+            continue
+        
+        case_folders.append((str(subfolder), case_id))
+        logger.info("Found case folder: %s with case ID: %s" % (subfolder.name, case_id))
+    
+    logger.info("Discovered %s case folders" % len(case_folders))
+    return case_folders
+
+
+def extract_case_id_from_filename(filename: str) -> int | None:
+    """
+    Extracts the case ID from a filename.
+    
+    Case IDs are expected to be at the beginning of the filename,
+    followed by a space (e.g., "1989212 04-24-2024 (1).pdf").
+    
+    Args:
+        filename (str): The filename to extract the case ID from
+        
+    Returns:
+        int | None: The extracted case ID, or None if no valid case ID found
+    """
+    # Match one or more digits at the start of the filename
+    match = re.match(r'^(\d+)', filename)
+    
+    if match:
+        try:
+            return int(match.group(1))
+        except ValueError:
+            logger.error("Failed to convert extracted case ID to int: %s" % match.group(1))
+            return None
+    
+    logger.warning("No case ID pattern found in filename: %s" % filename)
+    return None
 
 
 class FileManager:

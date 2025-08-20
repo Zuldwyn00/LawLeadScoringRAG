@@ -206,25 +206,27 @@ def load_from_json(
 
 def find_files(directory: Path) -> List[Path]:
     """
-    Finds all .pdf files in a specified directory and its subdirectories.
+    Finds all document files (.pdf, .doc, .docx) in a specified directory and its subdirectories.
 
     Args:
         directory (Path): The directory to search.
 
     Returns:
-        List[Path]: A list of Path objects for the found PDF files.
+        List[Path]: A list of Path objects for the found document files.
     """
     if not directory.is_dir():
         return []
 
-    pdf_files = list(directory.rglob("*.pdf")) + list(directory.rglob("*.docx"))
-    non_duplicate_pdf_files = []
-    for file in pdf_files:
+    document_files = (list(directory.rglob("*.pdf")) + 
+                     list(directory.rglob("*.doc")) + 
+                     list(directory.rglob("*.docx")))
+    non_duplicate_document_files = []
+    for file in document_files:
         if not file.stem.endswith(
             ")"
         ):  # avoiding duplicate files that are copies ending with (1).pdf...(2).pdf...etc
-            non_duplicate_pdf_files.append(file)
-    return non_duplicate_pdf_files
+            non_duplicate_document_files.append(file)
+    return non_duplicate_document_files
 
 
 def count_tokens(text: str, encodingbase: str = None) -> int:

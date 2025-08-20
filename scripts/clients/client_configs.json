@@ -17,8 +17,15 @@
   "embedding_clients": {
     "text_embedding_3_small": {
       "deployment_name": "text-embedding-3-small",
-      "api_version": "2023-05-15", 
+      "api_version": "2023-05-15",
+      "supports_tools": false, 
       "description": "Smaller embedding model for efficiency"
-         }
+    },
+    "text_embedding_3_large": {
+      "deployment_name": "text-embedding-3-large",
+      "api_version": "2023-05-15",
+      "supports_tools": false,
+      "description": "Larger embedding model for accuracy"
+    }
    }
 }

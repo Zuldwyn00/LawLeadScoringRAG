@@ -208,12 +208,7 @@ class LeadScoringAgent:
 
                 # Add explanation and replace the last message with the modified response
                 self.client.add_message(modifier_explanation)
-                # Replace the last message (the original response) with the modified one
-                if self.client.message_history:
-                    self.client.message_history[-1] = modified_response_message
-                    self.logger.debug(
-                        "Added modifier explanation and replaced final response with modified version"
-                    )
+                self.client.add_message(modified_response_message)
 
             # Return both response and chat log filename
             return response, self.last_chat_log_filename

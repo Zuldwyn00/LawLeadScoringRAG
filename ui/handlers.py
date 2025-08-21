@@ -54,7 +54,7 @@ class LeadScoringHandler:
         self.qdrant_manager = QdrantManager()
 
         # Initialize embedding and chat clients using AzureClient
-        embedding_client = AzureClient("text_embedding_3_large")####2121
+        embedding_client = AzureClient("text_embedding_3_large")
         chat_client = AzureClient("gpt-5-mini")
 
         # Use a separate chat client for summarization

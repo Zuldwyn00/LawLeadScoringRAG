@@ -13,6 +13,7 @@
 # TODO: Rest api integration for a function system.
 
 # TODO: IMPORTANT: Implement feature to always retrieve the settlement value/outcome of the cases given to the AI in its historical context, not all the data it gets contains this.
+#   WHAT IF WE GOT AN AVERAGE VALUE OF SIMILAR CASE_TYPE IN THE SAME JURISDICTION AND GAVE IT THAT NUMBER INSTEAD.
 
 # BIG STUFF
 # TODO: (I think we kinda did this, or at least the bayesian part?) Create some better method for getting all the jurisdiction data in one search that we need to use in our jurisdiction scoring system, the method should return a dict of all the required info for that system
@@ -30,6 +31,8 @@
 # TODO: Potentially sensitive data is being stored in the chat log. THis is through our get context and summarization methods, we dont summarize if its too short but this means we
 # include sensitive data, we need to somehow implement a system to ensure we can avoid any PPI but without direct AI intervention.
 # Once we have DB access we could just redact all the names involved by using the data of the case from the DB
+
+
 
 from scripts.filemanagement import (
     FileManager,

@@ -140,7 +140,6 @@ lead_scoring:
     Follow these guidelines throught your analysis, you may not stray from them.
     1. **Do NOT make up any information that is not present in the given context.
     2. **Do NOT infer or assume facts beyond what is explicitly stated in the provided documents.
-    3. **Do NOT estimate dollar amounts, settlement values, or case outcomes without explicit data from the provided sources.
     4. *If information required for a step in the framework is missing or unclear, you MUST explicitly state 'Information not provided' for that specific part of the analysis and proceed. You are NEVER to invent information to fill a gap."
     5. **If confidence is low due to insufficient information, explicitly state what additional information would be needed.
     6. **When scoring or evaluating, only use the specific criteria and data points provided in the context.

@@ -364,7 +364,7 @@ class LeadScoringAgent:
                     >= self.tool_manager.tool_call_limit
                 ):
                     return SystemMessage(
-                        content="Tool call limit reached, provide your final lead score analysis with no more tool calls."
+                        content="Tool call limit reached, provide your final lead score analysis."
                     )
                 confidence_score = extract_confidence_from_response(
                     self.current_lead_score.content
@@ -377,7 +377,7 @@ class LeadScoringAgent:
                         return SystemMessage(
                             content=(
                                 f"Confidence is {confidence_score} / {self.confidence_threshold} , "
-                                "threshold for confidence reached, provide your final lead score analysis with no more tool calls."
+                                "threshold for confidence reached, provide your final lead score analysis."
                             )
                         )
                     return None
@@ -469,12 +469,15 @@ class LeadScoringAgent:
             content=f"Tool Usage Summary: You made {self.tool_manager.tool_call_count} tool calls out of {self.tool_manager.tool_call_limit} maximum. "
             f"{tool_usage_details}. Please include this exact information in your '**6. Analysis Depth & Tool Usage:**' section."
         )
+        final_score_msg = SystemMessage(
+            content=f"You have exceeded or met your limit of tool calls or confidence threshold and MUST provide your FINAL lead analysis with NO FURTHER TOOL CALLS."
+        )
 
         messages_to_send = self._assemble_messages(
             base_messages,
             last_response=self.current_lead_score,
             tool_call_responses=tool_call_responses,
-            extra_messages=[validation_msg, tool_usage_summary_msg],
+            extra_messages=[validation_msg, tool_usage_summary_msg, final_score_msg],
         )
 
         # Calculate and log token count for final lead scoring

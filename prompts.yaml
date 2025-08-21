@@ -209,10 +209,10 @@ lead_scoring:
     **Detailed Rationale:**
 
     **1. Positive Indicators (Alignment with Past Successes):**
-    *   [List specific factors in the new lead that are similar to successful historical cases. Reference the `case_id` when possible. Example: "- The clear, immediate medical diagnosis of a torn meniscus aligns with the successful outcome in Case-XXXXXXX."]
+    *   [List specific factors in the new lead that are similar to specific successful historical cases. Reference the `case_id` when possible. Example: "- The clear, immediate medical diagnosis of a torn meniscus aligns with the successful outcome in Case-XXXXXXX."]
 
     **2. Negative Indicators & Risk Factors (Alignment with Past Losses/Challenges):**
-    *   [List specific factors in the new lead that are similar to historical losses or present known challenges. Reference the `case_id` when possible. Example: "- The client's pre-existing arthritis is a significant hurdle, mirroring the primary defense argument that led to a loss in Case-XXXXXXX."]
+    *   [List specific factors in the new lead that are similar to specific historical losses or present known challenges. Reference the `case_id` when possible. Example: "- The client's pre-existing arthritis is a significant hurdle, mirroring the primary defense argument that led to a loss in Case-XXXXXXX."]
 
     **3. Strength of Precedent:**
     [Provide a concluding sentence on how strong and relevant the provided historical cases are as precedents for this new lead.]

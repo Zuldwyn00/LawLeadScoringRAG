@@ -438,6 +438,7 @@ class LeadScoringAgent:
             return get_response_recursive()
 
         final_lead = get_response_recursive()
+        
         chat_log_filename = dump_chat_log(self.client.message_history)
 
         # Store the chat log filename in the client instance for UI access
@@ -463,21 +464,22 @@ class LeadScoringAgent:
         # Ensure any pending tool calls on the last assistant message are resolved
         tool_call_responses = None
 
+        # Create a copy of the last response without tool calls for final scoring
+        final_response = AIMessage(content=self.current_lead_score.content)
+        final_response.tool_calls = None  # Explicitly remove tool calls
+
         # Create a detailed tool usage summary message for the AI to reference in its final response
         tool_usage_details = self.tool_manager.get_tool_usage_summary()
         tool_usage_summary_msg = SystemMessage(
             content=f"Tool Usage Summary: You made {self.tool_manager.tool_call_count} tool calls out of {self.tool_manager.tool_call_limit} maximum. "
-            f"{tool_usage_details}. Please include this exact information in your '**6. Analysis Depth & Tool Usage:**' section."
-        )
-        final_score_msg = SystemMessage(
-            content=f"You have exceeded or met your limit of tool calls or confidence threshold and MUST provide your FINAL lead analysis with NO FURTHER TOOL CALLS."
+            f"{tool_usage_details}. Please include this exact information in your '**6. Analysis Depth & Tool Usage:' section."
         )
 
         messages_to_send = self._assemble_messages(
             base_messages,
-            last_response=self.current_lead_score,
+            last_response=final_response,  # Use the cleaned response without tool calls
             tool_call_responses=tool_call_responses,
-            extra_messages=[validation_msg, tool_usage_summary_msg, final_score_msg],
+            extra_messages=[validation_msg, tool_usage_summary_msg]
         )
 
         # Calculate and log token count for final lead scoring
@@ -491,6 +493,10 @@ class LeadScoringAgent:
             final_lead = self.final_client.invoke(messages_to_send)
         else:
             final_lead = self.client.invoke(messages_to_send)
+            
+                    
+        # Add the final lead response to the chat history before dumping the log since its from the fnal clients chat history
+        self.client.add_message(final_lead)
         return final_lead
 
 

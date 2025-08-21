@@ -12,8 +12,6 @@
 
 # TODO: Rest api integration for a function system.
 
- #TODO: Why is AI able to make 6 tool calls instead of 5? Might be an issue with the confidence checking where it still allows an extra tool call.
-
 # TODO: IMPORTANT: Implement feature to always retrieve the settlement value/outcome of the cases given to the AI in its historical context, not all the data it gets contains this.
 
 # BIG STUFF
@@ -26,13 +24,12 @@
 # this way we can easily grab all the data we need from the AI instance rather than having to return things from certain functions and making it confusing.
 # TODO: We can use the elapsed time that the manager tracks to use for a better loading bar, but this might not matter really because we are not going to have this be using a UI
 
-
-# TODO: FILE INTAKE - IMPLEMENTING CHUNKING FOR LARGE FILES
-
 # small stuff
 # TODO: Clear All button does nothing
 # TODO: Get rid of tika, its slow as hell but rememebr that we changed to it because the other option gave too much garbage text like /n/n/n
-# TODO: Potentially ensitive data is stored in the chat logs currently, primarily the LLM summaries, figure out a non-llm way to redact this.
+# TODO: Potentially sensitive data is being stored in the chat log. THis is through our get context and summarization methods, we dont summarize if its too short but this means we
+        # include sensitive data, we need to somehow implement a system to ensure we can avoid any PPI but without direct AI intervention.
+        # Once we have DB access we could just redact all the names involved by using the data of the case from the DB
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file, discover_case_folders
 from scripts.vectordb import QdrantManager

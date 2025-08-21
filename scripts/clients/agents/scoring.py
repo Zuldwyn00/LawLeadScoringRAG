@@ -360,8 +360,8 @@ class LeadScoringAgent:
         def get_response_recursive() -> AIMessage:
             def _validate_confidence_threshold_and_tool_limit() -> SystemMessage | None:
                 if (
-                    self.tool_manager.tool_call_limit
-                    == self.tool_manager.tool_call_count
+                    self.tool_manager.tool_call_count
+                    >= self.tool_manager.tool_call_limit
                 ):
                     return SystemMessage(
                         content="Tool call limit reached, provide your final lead score analysis with no more tool calls."

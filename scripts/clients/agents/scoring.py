@@ -364,7 +364,7 @@ class LeadScoringAgent:
                     == self.tool_manager.tool_call_count
                 ):
                     return SystemMessage(
-                        content="Tool call limit reached, provide your final lead score analysis."
+                        content="Tool call limit reached, provide your final lead score analysis with no more tool calls."
                     )
                 confidence_score = extract_confidence_from_response(
                     self.current_lead_score.content
@@ -377,7 +377,7 @@ class LeadScoringAgent:
                         return SystemMessage(
                             content=(
                                 f"Confidence is {confidence_score} / {self.confidence_threshold} , "
-                                "threshold for confidence reached, provide your final lead score analysis "
+                                "threshold for confidence reached, provide your final lead score analysis with no more tool calls."
                             )
                         )
                     return None

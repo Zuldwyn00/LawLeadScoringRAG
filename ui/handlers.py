@@ -54,7 +54,7 @@ class LeadScoringHandler:
         self.qdrant_manager = QdrantManager()
 
         # Initialize embedding and chat clients using AzureClient
-        embedding_client = AzureClient("text_embedding_3_small")
+        embedding_client = AzureClient("text_embedding_3_large")
         chat_client = AzureClient("gpt-5-mini")
 
         # Use a separate chat client for summarization
@@ -192,7 +192,7 @@ class LeadScoringHandler:
                     time.time() - start_time,
                 )
             search_results = qdrant_manager.search_vectors(
-                collection_name="case_files",
+                collection_name="case_files_large",
                 query_vector=question_vector,
                 vector_name="chunk",
                 limit=10,

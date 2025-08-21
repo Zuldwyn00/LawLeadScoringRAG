@@ -28,17 +28,28 @@
 # TODO: Clear All button does nothing
 # TODO: Get rid of tika, its slow as hell but rememebr that we changed to it because the other option gave too much garbage text like /n/n/n
 # TODO: Potentially sensitive data is being stored in the chat log. THis is through our get context and summarization methods, we dont summarize if its too short but this means we
-        # include sensitive data, we need to somehow implement a system to ensure we can avoid any PPI but without direct AI intervention.
-        # Once we have DB access we could just redact all the names involved by using the data of the case from the DB
+# include sensitive data, we need to somehow implement a system to ensure we can avoid any PPI but without direct AI intervention.
+# Once we have DB access we could just redact all the names involved by using the data of the case from the DB
 
-from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file, discover_case_folders
+from scripts.filemanagement import (
+    FileManager,
+    ChunkData,
+    apply_ocr,
+    get_text_from_file,
+    discover_case_folders,
+)
 from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
 from qdrant_client.http import models
 
 from utils import *
-from scripts.clients import SummarizationAgent, LeadScoringAgent, MetadataAgent, AzureClient
+from scripts.clients import (
+    SummarizationAgent,
+    LeadScoringAgent,
+    MetadataAgent,
+    AzureClient,
+)
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -53,7 +64,7 @@ def embedding_test(filepath: str, case_id: int):
     qdrantmanager = QdrantManager()
 
     vector_config = {
-    "chunk": models.VectorParams(size=3072, distance=models.Distance.COSINE),
+        "chunk": models.VectorParams(size=3072, distance=models.Distance.COSINE),
     }
     qdrantmanager.create_collection("case_files_large", vector_config=vector_config)
     files = find_files(Path(filepath))
@@ -116,59 +127,59 @@ def embedding_test(filepath: str, case_id: int):
 def process_all_case_folders(main_folder_path: str) -> None:
     """
     Automatically processes all case folders in a main directory.
-    
+
     This function discovers all subfolders containing case documents,
     extracts the case ID from filenames, and runs embedding_test
     for each folder automatically.
-    
+
     Args:
         main_folder_path (str): Path to the main folder containing case subfolders
                                (e.g., "C:\\Users\\Justin\\Desktop\\testdocsmain")
-    
+
     Example:
         process_all_case_folders("C:\\Users\\Justin\\Desktop\\testdocsmain")
-        
+
         This will automatically process:
         - testdocsmain/testdocs/ with case_id extracted from filenames
-        - testdocsmain/testdocs2/ with case_id extracted from filenames  
+        - testdocsmain/testdocs2/ with case_id extracted from filenames
         - testdocsmain/testdocs3/ with case_id extracted from filenames
         - etc.
     """
     try:
         # Discover all case folders and their case IDs
         case_folders = discover_case_folders(main_folder_path)
-        
+
         if not case_folders:
             print("No valid case folders found in %s" % main_folder_path)
             return
-        
+
         print("Found %s case folders to process:" % len(case_folders))
         for folder_path, case_id in case_folders:
             print("  - %s: Case ID %s" % (Path(folder_path).name, case_id))
-        
+
         # Process each case folder
         for i, (folder_path, case_id) in enumerate(case_folders, 1):
             folder_name = Path(folder_path).name
-            print("\n" + "="*60)
+            print("\n" + "=" * 60)
             print("Processing folder %s/%s: %s" % (i, len(case_folders), folder_name))
             print("Case ID: %s" % case_id)
             print("Path: %s" % folder_path)
-            print("="*60)
-            
+            print("=" * 60)
+
             try:
                 # Call embedding_test for this folder
                 embedding_test(folder_path, case_id)
                 print("✓ Successfully processed %s" % folder_name)
-                
+
             except Exception as e:
                 print("✗ Error processing %s: %s" % (folder_name, e))
                 logger.error("Failed to process folder %s: %s" % (folder_path, e))
                 continue
-        
-        print("\n" + "="*60)
+
+        print("\n" + "=" * 60)
         print("Completed processing all %s case folders!" % len(case_folders))
-        print("="*60)
-        
+        print("=" * 60)
+
     except Exception as e:
         print("Error in process_all_case_folders: %s" % e)
         logger.error("Failed to process case folders: %s" % e)
@@ -326,7 +337,8 @@ def settlement_value_test():
 
 def main():
 
-   process_all_case_folders(r'C:\Users\Justin\Desktop\testdocsmain')
+    process_all_case_folders(r"C:\Users\Justin\Desktop\testdocsmain")
+
 
 if __name__ == "__main__":
     main()

@@ -9,7 +9,7 @@ logger:
   level: "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)
   format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"  # Log message format
   datefmt: "%Y-%m-%d %H:%M:%S"  # Date format for log messages
-  filename: "pdf_scraper.log"  # Log file name
+  filename: "legal_lead.log"  # Log file name
   max_bytes: 2000000 # 2MB
   backup_count: 5
 

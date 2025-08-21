@@ -217,9 +217,11 @@ def find_files(directory: Path) -> List[Path]:
     if not directory.is_dir():
         return []
 
-    document_files = (list(directory.rglob("*.pdf")) + 
-                     list(directory.rglob("*.doc")) + 
-                     list(directory.rglob("*.docx")))
+    document_files = (
+        list(directory.rglob("*.pdf"))
+        + list(directory.rglob("*.doc"))
+        + list(directory.rglob("*.docx"))
+    )
     non_duplicate_document_files = []
     for file in document_files:
         if not file.stem.endswith(

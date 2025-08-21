@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from typing import Optional
 from langchain_core.messages import SystemMessage, HumanMessage
@@ -13,15 +12,16 @@ class MetadataAgent:
     """
     An agent for extracting specific metadata fields in a specified format with an LLM.
     """
+
     def __init__(self, client: BaseClient):
-        
+
         if client.__class__ == BaseClient:
             raise ValueError(
                 "Cannot use BaseClient directly. Please provide a concrete implementation "
                 "that inherits from BaseClient (e.g., AzureClient)."
             )
         self.client = client
-        self.prompt = load_prompt('metadata_extraction')
+        self.prompt = load_prompt("metadata_extraction")
         self.rate_limit_flag = False
         self.logger = setup_logger(self.__class__.__name__, load_config())
         self.logger.info(
@@ -75,11 +75,13 @@ class MetadataAgent:
         raise Exception(
             f"Failed to extract metadata for {filepath} after {retries} attempts."
         )
-    
+
     def wait_for_rate_limit(self, seconds_to_wait: int = 120) -> None:
         """
         Waits for a specified amount of time to avoid rate limiting, defaults to 120 seconds.
         """
-        self.logger.debug(f"Waiting for {seconds_to_wait} seconds to avoid rate limiting...")
+        self.logger.debug(
+            f"Waiting for {seconds_to_wait} seconds to avoid rate limiting..."
+        )
         time.sleep(seconds_to_wait)
         self.logger.debug("Done waiting.")

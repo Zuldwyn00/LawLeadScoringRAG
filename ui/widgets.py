@@ -1297,11 +1297,21 @@ class GuidelinesWidget(ExpandableFrame):
         self.guidelines_textbox.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
 
         # Configure color tags for different confidence levels
-        self.guidelines_textbox.tag_configure("high_confidence", foreground="#00ff00")      # Green
-        self.guidelines_textbox.tag_configure("medium_confidence", foreground="#ffff00")   # Yellow
-        self.guidelines_textbox.tag_configure("low_confidence", foreground="#ff8c00")      # Orange
-        self.guidelines_textbox.tag_configure("very_low_confidence", foreground="#ff0000") # Red
-        self.guidelines_textbox.tag_configure("header", foreground=COLORS["accent_orange"]) # Orange for headers
+        self.guidelines_textbox.tag_configure(
+            "high_confidence", foreground="#00ff00"
+        )  # Green
+        self.guidelines_textbox.tag_configure(
+            "medium_confidence", foreground="#ffff00"
+        )  # Yellow
+        self.guidelines_textbox.tag_configure(
+            "low_confidence", foreground="#ff8c00"
+        )  # Orange
+        self.guidelines_textbox.tag_configure(
+            "very_low_confidence", foreground="#ff0000"
+        )  # Red
+        self.guidelines_textbox.tag_configure(
+            "header", foreground=COLORS["accent_orange"]
+        )  # Orange for headers
 
         # Insert content with color coding
         self._insert_colored_content()
@@ -1333,7 +1343,11 @@ class GuidelinesWidget(ExpandableFrame):
         self.guidelines_textbox.insert("end", ": Very low potential\n\n", "")
 
         self.guidelines_textbox.insert("end", "Border Colors:\n", "header")
-        self.guidelines_textbox.insert("end", "Each lead has a colored border based on the AI's confidence score:\n", "")
+        self.guidelines_textbox.insert(
+            "end",
+            "Each lead has a colored border based on the AI's confidence score:\n",
+            "",
+        )
         self.guidelines_textbox.insert("end", "• ", "")
         self.guidelines_textbox.insert("end", "Green border", "high_confidence")
         self.guidelines_textbox.insert("end", ": High confidence (75-100)\n", "")
@@ -1349,33 +1363,67 @@ class GuidelinesWidget(ExpandableFrame):
 
         self.guidelines_textbox.insert("end", "Instructions:\n", "header")
         self.guidelines_textbox.insert("end", "\n", "")
-        self.guidelines_textbox.insert("end", "1. Enter a detailed lead description\n", "")
-        self.guidelines_textbox.insert("end", "   • Try different formats to experiment with AI analysis quality\n", "")
-        self.guidelines_textbox.insert("end", "   • Test bulleted lists, paragraph summaries, or structured formats\n", "")
-        self.guidelines_textbox.insert("end", "     - Vary your approach for testing results\n", "")
+        self.guidelines_textbox.insert(
+            "end", "1. Enter a detailed lead description\n", ""
+        )
+        self.guidelines_textbox.insert(
+            "end",
+            "   • Try different formats to experiment with AI analysis quality\n",
+            "",
+        )
+        self.guidelines_textbox.insert(
+            "end",
+            "   • Test bulleted lists, paragraph summaries, or structured formats\n",
+            "",
+        )
+        self.guidelines_textbox.insert(
+            "end", "     - Vary your approach for testing results\n", ""
+        )
         self.guidelines_textbox.insert("end", "\n", "")
-        self.guidelines_textbox.insert("end", "2. Click \"Score Lead\" to analyze\n", "")
+        self.guidelines_textbox.insert("end", '2. Click "Score Lead" to analyze\n', "")
         self.guidelines_textbox.insert("end", "\n", "")
-        self.guidelines_textbox.insert("end", "3. Watch the progress bar and status updates\n", "")
+        self.guidelines_textbox.insert(
+            "end", "3. Watch the progress bar and status updates\n", ""
+        )
         self.guidelines_textbox.insert("end", "\n", "")
-        self.guidelines_textbox.insert("end", "4. AI Analysis Phase (3-5 minutes):\n", "")
-        self.guidelines_textbox.insert("end", "   • The longest step with animated progress\n", "")
+        self.guidelines_textbox.insert(
+            "end", "4. AI Analysis Phase (3-5 minutes):\n", ""
+        )
+        self.guidelines_textbox.insert(
+            "end", "   • The longest step with animated progress\n", ""
+        )
         self.guidelines_textbox.insert("end", "   • Shows current analysis task\n", "")
         self.guidelines_textbox.insert("end", "   • Displays elapsed time\n", "")
         self.guidelines_textbox.insert("end", "\n", "")
         self.guidelines_textbox.insert("end", "5. View results in the main panel\n", "")
         self.guidelines_textbox.insert("end", "\n", "")
-        self.guidelines_textbox.insert("end", "6. Click on any scored lead to see full analysis\n", "")
+        self.guidelines_textbox.insert(
+            "end", "6. Click on any scored lead to see full analysis\n", ""
+        )
         self.guidelines_textbox.insert("end", "\n", "")
-        self.guidelines_textbox.insert("end", "7. Border color shows AI confidence in the analysis\n\n", "")
+        self.guidelines_textbox.insert(
+            "end", "7. Border color shows AI confidence in the analysis\n\n", ""
+        )
 
         self.guidelines_textbox.insert("end", "AI Analysis Details:\n", "header")
-        self.guidelines_textbox.insert("end", "During the AI Analysis phase, the system:\n", "")
-        self.guidelines_textbox.insert("end", "🧠 Analyzes case details and evidence strength\n", "")
-        self.guidelines_textbox.insert("end", "📚 Compares with historical precedents\n", "")
-        self.guidelines_textbox.insert("end", "⚖️ Evaluates liability factors and damages\n", "")
-        self.guidelines_textbox.insert("end", "🔍 Reviews jurisdictional considerations\n", "")
-        self.guidelines_textbox.insert("end", "📊 Calculates confidence and final scores\n", "")
+        self.guidelines_textbox.insert(
+            "end", "During the AI Analysis phase, the system:\n", ""
+        )
+        self.guidelines_textbox.insert(
+            "end", "🧠 Analyzes case details and evidence strength\n", ""
+        )
+        self.guidelines_textbox.insert(
+            "end", "📚 Compares with historical precedents\n", ""
+        )
+        self.guidelines_textbox.insert(
+            "end", "⚖️ Evaluates liability factors and damages\n", ""
+        )
+        self.guidelines_textbox.insert(
+            "end", "🔍 Reviews jurisdictional considerations\n", ""
+        )
+        self.guidelines_textbox.insert(
+            "end", "📊 Calculates confidence and final scores\n", ""
+        )
         self.guidelines_textbox.insert("end", "⏱️ Typical Duration: 3-5 minutes", "")
 
 

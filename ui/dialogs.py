@@ -566,9 +566,9 @@ class LogViewerDialog(ctk.CTkToplevel):
         """Get list of available log files."""
         log_files = []
 
-        # Only show the main log file (pdf_scraper.log) for session filtering
+        # Only show the main log file (legal_lead.log) for session filtering
         project_root = Path(__file__).resolve().parents[1]
-        main_log = project_root / "logs" / "pdf_scraper.log"
+        main_log = project_root / "logs" / "legal_lead.log"
         if main_log.exists():
             log_files.append(("Current Session", main_log))
 

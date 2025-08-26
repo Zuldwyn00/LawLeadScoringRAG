@@ -1,39 +1,74 @@
-# TODO:
+# ─── TODO: PROJECT ORGANIZATION ──────────────────────────────────────────────────
 
-# Overall we need a better way to handle the metadata. We could temporalily remove a lot of the metadata fields and just use the case_id to link the chunks to the case and maybe
-# the source file and other mandatory fields.
+# ─── ARCHITECTURE & INFRASTRUCTURE ───────────────────────────────────────────────
+# TODO: Implement database storage for metadata
+#   - Use a DB to store all the metadata, while qdrant only stores the ID
+#   - Use the ID to get the real metadata in the DB
+#   - This will help with the metadata handling issues mentioned below
 
-# Use a DB to store all the metadata, while qdrant only stores the ID, we use the ID to get the real metadata in the DB.
+# TODO: Improve metadata handling system
+#   - We need a better way to handle the metadata
+#   - Could temporarily remove many metadata fields and just use case_id to link chunks to cases
+#   - Include source file and other mandatory fields
 
-# Make rate limiting logic more robust, perhaps gradually increasing the timer after each failed request.
+# ─── AI & SCORING IMPROVEMENTS ──────────────────────────────────────────────────
+# TODO: Enhance AI prompt for scoring agent
+#   - Add steps for the scoring agent to score each section separately
+#   - Combine section scores to get a final score rather than one main arbitrary score
+#   - Give the AI more consistent output by following well-defined scoring rules
 
-# TODO: AI PROMPT CHANGE: Add steps for the scoring agent to perhaps score each section and then combine the scores to get a final score rather an one main arbitrary score. This might be better for the scoring agent.
-# give the AI a more consistent output by following more well-defined scoring rules.
+# TODO: Implement settlement value/outcome retrieval
+#   - IMPORTANT: Always retrieve settlement value/outcome of cases given to AI in historical context
+#   - Not all data contains this information
+#   - Consider getting average value of similar case_type in same jurisdiction as fallback
 
-# TODO: Rest api integration for a function system.
+# TODO: Complete jurisdiction scoring system
+#   - Create better method for getting all jurisdiction data in one search
+#   - Method should return dict of all required info for the jurisdiction scoring system
+#   - Re-use data without weird calls and roundabout ways
+#   - Complete the BAYESIAN_SHRINKAGE() method (currently placeholder based on hard-coded values)
+#   - Currently overwrites original scores after processing and then applies bayesian
 
-# TODO: IMPORTANT: Implement feature to always retrieve the settlement value/outcome of the cases given to the AI in its historical context, not all the data it gets contains this.
-#   WHAT IF WE GOT AN AVERAGE VALUE OF SIMILAR CASE_TYPE IN THE SAME JURISDICTION AND GAVE IT THAT NUMBER INSTEAD.
+# ─── API & INTEGRATION ──────────────────────────────────────────────────────────
+# TODO: REST API integration for function system
 
-# BIG STUFF
-# TODO: (I think we kinda did this, or at least the bayesian part?) Create some better method for getting all the jurisdiction data in one search that we need to use in our jurisdiction scoring system, the method should return a dict of all the required info for that system
-# This way we can re-use all that data without having to do weird calls and roundabout ways to get it.
-# TODO: After doing this, complete the (BAYESIAN_SHRINKAGE()) method so its not just tbe current placeholder based on hard-coded values.
-# currently it overwrites the original scores after processing them and then applies the bayesian
+# ─── PERFORMANCE & OPTIMIZATION ──────────────────────────────────────────────────
+# TODO: Improve rate limiting logic
+#   - Make rate limiting logic more robust
+#   - Perhaps gradually increase timer after each failed request
 
-# TODO: METRICS TRACKING - Implement data tracking system for AI, each client or agent should have its own data tracker, we can use this to track any data we want like the chat log name, etc
-# this way we can easily grab all the data we need from the AI instance rather than having to return things from certain functions and making it confusing.
-# TODO: We can use the elapsed time that the manager tracks to use for a better loading bar, but this might not matter really because we are not going to have this be using a UI
+# TODO: Replace Tika with faster alternative
+#   - Get rid of Tika, it's slow as hell
+#   - Remember we changed to it because other options gave too much garbage text like /n/n/n
+#   - Find better balance between speed and text quality
 
-# small stuff
-# TODO: Clear All button does nothing
-# TODO: Get rid of tika, its slow as hell but rememebr that we changed to it because the other option gave too much garbage text like /n/n/n
-# TODO: Potentially sensitive data is being stored in the chat log. THis is through our get context and summarization methods, we dont summarize if its too short but this means we
-# include sensitive data, we need to somehow implement a system to ensure we can avoid any PPI but without direct AI intervention.
-# Once we have DB access we could just redact all the names involved by using the data of the case from the DB
-# TODO: DISABLED QUALITY MULTIPLIER FOR NOW BY COMMENTING IT OUT, IS IT NECESSARY? SEEMS LIKE WE ARE JUST MAKING THE SCORING MORE COMPLICATED
-# FOR NO REASON, HOW DOES IT HELP? WHY WOULD WE HAVE CERTAIN CASES AFFECT THE SCORE LESS JUST BECAUSE THAT CHUNK HAS LESS DATA POINTS? THAT
-# DOES NOT MEAN THE ENTIRE CASE DOESNT HAVE THAT DATA, SEEMS REDUNDANT.
+# ─── DATA TRACKING & METRICS ────────────────────────────────────────────────────
+# TODO: Implement metrics tracking system
+#   - Implement data tracking system for AI
+#   - Each client or agent should have its own data tracker
+#   - Track data like chat log name, etc.
+#   - Easily grab all needed data from AI instance rather than returning from functions
+#   - Use elapsed time that manager tracks for better loading bar (though may not matter for non-UI usage)
+
+# ─── DATA QUALITY & SECURITY ────────────────────────────────────────────────────
+# TODO: Address sensitive data in chat logs
+#   - Potentially sensitive data is being stored in chat logs
+#   - This happens through get_context and summarization methods
+#   - We don't summarize if too short, which means including sensitive data
+#   - Implement system to avoid PPI without direct AI intervention
+#   - Once we have DB access, could redact all names using case data from DB
+
+# TODO: Evaluate quality multiplier necessity
+#   - DISABLED QUALITY MULTIPLIER FOR NOW BY COMMENTING IT OUT
+#   - Is it necessary? Seems like making scoring more complicated for no reason
+#   - How does it help? Why would certain cases affect score less just because chunk has fewer data points?
+#   - That doesn't mean entire case doesn't have that data, seems redundant
+#   - We already have de-duplication implemented
+#   - Leave for now and determine in future if we want it on case-level rather than chunk-level
+
+# ─── UI & USER EXPERIENCE ───────────────────────────────────────────────────────
+# TODO: Fix Clear All button functionality
+#   - Clear All button does nothing
 
 from scripts.filemanagement import (
     FileManager,
@@ -192,16 +227,16 @@ def process_all_case_folders(main_folder_path: str) -> None:
 def score_test():
     ensure_directories()
     qdrant_client = QdrantManager()
-    embedding_client = AzureClient(client_config="text_embedding_3_small")
+    embedding_client = AzureClient(client_config="text_embedding_3_large")
     summarizer = SummarizationAgent(AzureClient(client_config="o4-mini"))
 
     scorer_kwargs = {
-        "confidence_threshold": 99,
-        "final_model": "gpt-4.1",
+        "confidence_threshold": 85,
+        "final_model": "gpt-5-chat",
         "final_model_temperature": 0.0,
     }
     scorer = LeadScoringAgent(
-        AzureClient(client_config="o4-mini"), summarizer=summarizer, **scorer_kwargs
+        AzureClient(client_config="gpt-5-mini"), summarizer=summarizer, **scorer_kwargs
     )
 
     new_lead_description = (

@@ -120,7 +120,7 @@ class JurisdictionScoreManager:
 
             # Calculate case weight (recency x quality)
             recency_mult = self.calculate_recency_multiplier(case_data)
-            quality_mult = self.calculate_quality_multiplier(case_data)
+            quality_mult = 1 #self.calculate_quality_multiplier(case_data) #TODO: IS QUALITY MULTIPLIER NECESSARY?
 
             case_weight = (
                 recency_mult * quality_mult

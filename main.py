@@ -31,8 +31,9 @@
 # TODO: Potentially sensitive data is being stored in the chat log. THis is through our get context and summarization methods, we dont summarize if its too short but this means we
 # include sensitive data, we need to somehow implement a system to ensure we can avoid any PPI but without direct AI intervention.
 # Once we have DB access we could just redact all the names involved by using the data of the case from the DB
-
-
+# TODO: DISABLED QUALITY MULTIPLIER FOR NOW BY COMMENTING IT OUT, IS IT NECESSARY? SEEMS LIKE WE ARE JUST MAKING THE SCORING MORE COMPLICATED
+# FOR NO REASON, HOW DOES IT HELP? WHY WOULD WE HAVE CERTAIN CASES AFFECT THE SCORE LESS JUST BECAUSE THAT CHUNK HAS LESS DATA POINTS? THAT
+# DOES NOT MEAN THE ENTIRE CASE DOESNT HAVE THAT DATA, SEEMS REDUNDANT.
 
 from scripts.filemanagement import (
     FileManager,
@@ -340,7 +341,7 @@ def settlement_value_test():
 
 def main():
 
-    process_all_case_folders(r"C:\Users\Justin\Desktop\testdocsmain")
+    jurisdiction_score_test()
 
 
 if __name__ == "__main__":

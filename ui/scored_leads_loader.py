@@ -140,7 +140,14 @@ def parse_scoring_response(response_text: str) -> Dict[str, Any]:
 def load_scored_lead_from_file(file_path: Path) -> Optional[ScoredLead]:
     """
     Load and parse a single scored lead from a chat log JSON file.
-
+    
+    This function loads the original AI scoring response and then checks for
+    user feedback to apply corrected scores and edited analysis text.
+    
+    Priority order for scores:
+    1. User-corrected score from feedback (if available)
+    2. Original AI score (fallback)
+    
     Args:
         file_path (Path): Path to the chat log JSON file.
 
@@ -172,16 +179,26 @@ def load_scored_lead_from_file(file_path: Path) -> Optional[ScoredLead]:
         # Get the assistant message with the highest index
         latest_assistant_msg = max(assistant_messages, key=lambda x: x.get("index", 0))
         original_scoring_response = latest_assistant_msg.get("content", "")
-        scoring_response = original_scoring_response
 
-        # If feedback exists for this chat log, capture edited analysis separately
+        # Parse the original scoring response to get base scores
+        parsed_data = parse_scoring_response(original_scoring_response)
+        original_ai_score = parsed_data["lead_score"]
+        original_confidence = parsed_data["confidence_score"]
+
+        # Initialize variables for feedback data
+        selected_feedback: Optional[Dict[str, Any]] = None
+        existing_feedback_filename: Optional[str] = None
+        edited_analysis_text: Optional[str] = None
+        
+        # Start with original AI scores, then apply feedback corrections if available
+        final_lead_score = original_ai_score
+        final_confidence_score = original_confidence
+
+        # Check if feedback exists for this chat log
         chat_log_filename = file_path.name
         feedback_manager = FeedbackManager()
-        feedback_entries = feedback_manager.load_feedback_for_chat_log(
-            chat_log_filename
-        )
-        selected_feedback: Dict[str, Any] | None = None
-        existing_feedback_filename: Optional[str] = None
+        feedback_entries = feedback_manager.load_feedback_for_chat_log(chat_log_filename)
+
         if feedback_entries:
             # Pick the most recent feedback by timestamp if available
             try:
@@ -196,34 +213,22 @@ def load_scored_lead_from_file(file_path: Path) -> Optional[ScoredLead]:
                 selected_feedback = feedback_entries[-1]
 
             # Find the corresponding feedback filename for this lead
-            # The lead_index should match what's in the feedback data
             lead_index = selected_feedback.get("lead_index", 0)
             key = f"{chat_log_filename}_{lead_index}"
             existing_feedback_filename = feedback_manager.saved_feedback_files.get(key)
 
-        edited_analysis_text: Optional[str] = None
-        if selected_feedback:
-            # Keep original_scoring_response as the base AI analysis
-            # Store the replaced text separately so the UI can apply it with highlights
-            replaced_text = selected_feedback.get("replaced_analysis_text") or ""
-            original_analysis_text = (
-                selected_feedback.get("original_analysis_text") or ""
-            )
-            if replaced_text.strip():
-                edited_analysis_text = replaced_text
-            elif original_analysis_text.strip():
-                edited_analysis_text = original_analysis_text
-
-        # Parse the scoring response
-        parsed_data = parse_scoring_response(scoring_response)
-        original_ai_score = parsed_data["lead_score"]  # Store the original AI score
-
-        # If feedback provided a corrected score, prefer it
-        if selected_feedback:
+            # Apply corrected score if available
             corrected_score = selected_feedback.get("corrected_score")
             if isinstance(corrected_score, int) and corrected_score > 0:
-                parsed_data["lead_score"] = corrected_score
-            # We keep confidence from the original assistant response
+                final_lead_score = corrected_score
+
+            # Note: Confidence scores are not currently editable in feedback
+            # We keep the original AI confidence score
+
+            # Get edited analysis text
+            replaced_text = selected_feedback.get("replaced_analysis_text", "")
+            if replaced_text.strip():
+                edited_analysis_text = replaced_text
 
         # Extract timestamp: prefer feedback timestamp if available, else file mtime
         if selected_feedback and selected_feedback.get("timestamp"):
@@ -234,12 +239,12 @@ def load_scored_lead_from_file(file_path: Path) -> Optional[ScoredLead]:
         else:
             timestamp = datetime.fromtimestamp(file_path.stat().st_mtime)
 
-        # Create simplified ScoredLead object
+        # Create ScoredLead object with proper score handling
         scored_lead = ScoredLead(
             case_summary=case_summary,
-            lead_score=parsed_data["lead_score"],
-            confidence_score=parsed_data["confidence_score"],
-            detailed_rationale=original_scoring_response,
+            lead_score=final_lead_score,  # Use corrected score if available, otherwise original AI score
+            confidence_score=final_confidence_score,  # Always use original AI confidence score
+            detailed_rationale=original_scoring_response,  # Keep original AI response for reference
             file_path=str(file_path),
             timestamp=timestamp,
             has_feedback=bool(selected_feedback),
@@ -248,8 +253,9 @@ def load_scored_lead_from_file(file_path: Path) -> Optional[ScoredLead]:
                 if selected_feedback
                 else None
             ),
-            edited_analysis=edited_analysis_text,
+            edited_analysis=edited_analysis_text,  # Store edited analysis text if feedback exists
             existing_feedback_filename=existing_feedback_filename,
+            original_ai_score=original_ai_score,  # Store the original AI score for comparison
         )
 
         return scored_lead
@@ -300,6 +306,9 @@ def load_all_scored_leads(
 def get_scored_leads_summary(scored_leads: List[ScoredLead]) -> Dict[str, Any]:
     """
     Generate a summary of all scored leads for dashboard display.
+    
+    Note: This summary will use corrected scores from feedback when available,
+    providing a more accurate representation of the final lead quality.
 
     Args:
         scored_leads (List[ScoredLead]): List of scored leads.

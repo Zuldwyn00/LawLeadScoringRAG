@@ -375,8 +375,134 @@ def settlement_value_test():
 
 
 def main():
-
-    jurisdiction_score_test()
+    """
+    Simple script to search vector database by case_id and retrieve settlement information.
+    """
+    #TODO: WHY WAS 1821438 HAVE A SETTLEMENT_VALUE OF 3 MILLION FROM THE SETTLEMENT_VALUE_TEST, MAYBE ITS SOME GLITCH WITH THE CASE_FILES INSTEAD OF 
+    #USING CASE_FILES_LARGE
+    # Initialize the vector database manager
+    qdrant_manager = QdrantManager()
+    
+    # Get user input for case_id
+    case_id = 1821438
+    
+    if not case_id:
+        print("No case_id provided. Exiting.")
+        return
+    
+    print(f"\nSearching for case_id: {case_id}")
+    print("-" * 50)
+    
+    try:
+        # Create payload index for case_id field if it doesn't exist
+        try:
+            qdrant_manager.client.create_payload_index(
+                collection_name="case_files_large",
+                field_name="case_id",
+                field_schema=models.PayloadSchemaType.KEYWORD,
+            )
+            print("Created payload index for case_id field")
+        except Exception as index_error:
+            # Index might already exist, which is fine
+            print(f"Note: case_id index creation: {index_error}")
+        
+        # Search for all items with the specified case_id
+        # We'll use a filter to search by case_id in the payload
+        search_filter = models.Filter(
+            must=[
+                models.FieldCondition(
+                    key="case_id", 
+                    match=models.MatchValue(value=case_id)
+                )
+            ]
+        )
+        
+        # Scroll through all results for this case_id
+        all_items = []
+        offset = None
+        
+        while True:
+            result = qdrant_manager.client.scroll(
+                collection_name="case_files",  # Assuming this is the collection name
+                scroll_filter=search_filter,
+                limit=1000,
+                offset=offset,
+                with_payload=True,
+                with_vectors=False,
+            )
+            
+            points, next_offset = result
+            
+            # Extract items with settlement values
+            for point in points:
+                payload = point.payload
+                settlement_value = payload.get("settlement_value")
+                
+                # Only include items that have a settlement value
+                if settlement_value and settlement_value != "null" and settlement_value != "":
+                    item_info = {
+                        "case_id": payload.get("case_id"),
+                        "source": payload.get("source") or payload.get("communication_channel", "Unknown"),
+                        "settlement_value": settlement_value,
+                        "jurisdiction": payload.get("jurisdiction", "Unknown"),
+                        "case_type": payload.get("case_type", "Unknown"),
+                        "incident_date": payload.get("incident_date", "Unknown")
+                    }
+                    all_items.append(item_info)
+            
+            if next_offset is None:
+                break
+            offset = next_offset
+        
+        # Display results
+        if all_items:
+            print(f"Found {len(all_items)} items with settlement values for case_id: {case_id}")
+            print("\nSettlement Information:")
+            print("-" * 50)
+            
+            for i, item in enumerate(all_items, 1):
+                print(f"\nItem {i}:")
+                print(f"  Source: {item['source']}")
+                print(f"  Settlement Value: ${item['settlement_value']:,.2f}" if item['settlement_value'].replace('.', '').replace(',', '').isdigit() else f"  Settlement Value: {item['settlement_value']}")
+                print(f"  Jurisdiction: {item['jurisdiction']}")
+                print(f"  Case Type: {item['case_type']}")
+                print(f"  Incident Date: {item['incident_date']}")
+            
+            # Summary statistics
+            print("\n" + "=" * 50)
+            print("SUMMARY:")
+            print(f"Total items with settlements: {len(all_items)}")
+            
+            # Try to calculate total settlement value if all are numeric
+            numeric_settlements = []
+            for item in all_items:
+                try:
+                    # Remove commas and convert to float
+                    value = float(item['settlement_value'].replace(',', ''))
+                    numeric_settlements.append(value)
+                except (ValueError, AttributeError):
+                    pass
+            
+            if numeric_settlements:
+                total_settlement = sum(numeric_settlements)
+                avg_settlement = total_settlement / len(numeric_settlements)
+                print(f"Total settlement value: ${total_settlement:,.2f}")
+                print(f"Average settlement value: ${avg_settlement:,.2f}")
+                print(f"Highest settlement: ${max(numeric_settlements):,.2f}")
+                print(f"Lowest settlement: ${min(numeric_settlements):,.2f}")
+        
+        else:
+            print(f"No items with settlement values found for case_id: {case_id}")
+            print("This could mean:")
+            print("  - The case_id doesn't exist in the database")
+            print("  - The case exists but has no settlement values")
+            print("  - The settlement values are stored as null/empty strings")
+    
+    except Exception as e:
+        print(f"Error occurred while searching: {e}")
+        logger.error(f"Error in main() settlement search: {e}")
+    
+    print("\nScript completed.")
 
 
 if __name__ == "__main__":

@@ -370,6 +370,57 @@ class QdrantManager:
             )
             raise Exception(f"Error retrieving case IDs by jurisdiction: {e}")
 
+    def get_chunks_by_caseid(self, case_id: int, collection_name: str = 'case_files_large') -> List[Dict[str, Any]]:
+        """
+        Retrieve all chunks for a specific case ID with their complete metadata.
+
+        Args:
+            collection_name (str): Name of the collection to search.
+            case_id (int): Case ID to filter by.
+
+        Returns:
+            List[Dict[str, Any]]: List of chunk metadata dictionaries for the case ID.
+        """
+        try:
+            # Scroll through all data and filter by case_id manually (same approach as get_all_case_ids_by_jurisdiction)
+            all_chunks = []
+            offset = None
+
+            while True:
+                result = self.client.scroll(
+                    collection_name=collection_name,
+                    limit=10000,
+                    offset=offset,
+                    with_payload=True,
+                    with_vectors=False,  # We don't need vectors, just payload data
+                )
+
+                points, next_offset = result
+
+                # Extract case_id from each point's payload and filter
+                for point in points:
+                    case_id_from_db = point.payload.get("case_id")
+                    
+                    if case_id_from_db and case_id_from_db == case_id:
+                        all_chunks.append(point.payload)
+
+                if next_offset is None:
+                    break
+                offset = next_offset
+
+            logger.info(
+                "Found %d chunks for case_id %d", len(all_chunks), case_id
+            )
+            
+            return all_chunks
+
+        except Exception as e:
+            logger.error(
+                "Error retrieving chunks for case_id %d: %s", case_id, e
+            )
+            raise Exception(f"Error retrieving chunks by case_id: {e}")
+
+
     def get_context(self, search_results: list) -> str:
         """
         Constructs a JSON-like context string from search results.

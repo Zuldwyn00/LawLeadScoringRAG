@@ -71,6 +71,8 @@
 #   - Clear All button does nothing
 
 from multiprocessing import process
+
+import qdrant_client
 from scripts.filemanagement import (
     FileManager,
     ChunkData,
@@ -90,6 +92,7 @@ from scripts.clients import (
     MetadataAgent,
     AzureClient,
 )
+from scripts.clients.agents.utils import CaseContextEnricher
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
 config = load_config()
@@ -207,6 +210,11 @@ def process_all_case_folders(main_folder_path: str) -> None:
             print("=" * 60)
 
             try:
+                # Apply OCR to all PDF files in the folder first
+                print("Applying OCR to PDF files in %s..." % folder_name)
+                run_ocr_on_folder(folder_path)
+                print("✓ OCR processing completed for %s" % folder_name)
+                
                 # Call embedding_test for this folder
                 embedding_test(folder_path, case_id)
                 print("✓ Successfully processed %s" % folder_name)
@@ -271,11 +279,15 @@ def score_test():
         "her injuries."
     )
     question_vector = embedding_client.get_embeddings(new_lead_description)
+    
+    # Get chunk limit from config
+    chunk_limit = config.get("aiconfig", {}).get("vector_search", {}).get("default_chunk_limit", 10)
+    
     search_results = qdrant_client.search_vectors(
         collection_name="case_files",
         query_vector=question_vector,
         vector_name="chunk",
-        limit=10,
+        limit=chunk_limit,
     )
 
     historical_context = qdrant_client.get_context(search_results)
@@ -296,19 +308,19 @@ def jurisdiction_score_test():
 
     # Step 1: Calculate raw jurisdiction scores
     jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction(
-        "case_files", "Suffolk County"
+        "case_files_large", "Suffolk County"
     )
     score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
     scores["Suffolk County"] = score.get("jurisdiction_score")
 
     jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction(
-        "case_files", "Nassau County"
+        "case_files_large", "Nassau County"
     )
     score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
     scores["Nassau County"] = score.get("jurisdiction_score")
 
     jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction(
-        "case_files", "Queens County"
+        "case_files_large", "Queens County"
     )
     score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
     scores["Queens County"] = score.get("jurisdiction_score")
@@ -325,7 +337,7 @@ def jurisdiction_score_test():
 
     # Step 2: Apply Bayesian shrinkage
     print("\nApplying Bayesian shrinkage...")
-    case_counts = qdrant_manager.get_all_case_ids_by_jurisdiction("case_files")
+    case_counts = qdrant_manager.get_all_case_ids_by_jurisdiction("case_files_large")
     adjusted_scores = jurisdiction_manager.bayesian_shrinkage(case_counts)
 
     # Step 3: Get final modifiers (now uses Bayesian-adjusted scores)
@@ -366,17 +378,14 @@ def run_ocr_on_folder(folder_path: str):
             logger.error(f"An error occurred while processing {pdf_file.name}: {e}")
 
 
-def settlement_value_test():
-    qdrant_manager = QdrantManager()
-    cases = qdrant_manager.get_cases_by_jurisdiction("case_files", "Suffolk County")
-    settlements = qdrant_manager.get_case_settlements(cases)
-    # give the AI the information from extract_highest_settlements so it always knows the outcome of cases it gets
-    values = extract_highest_settlements(settlements)
-    print(values)
+def test_case_enrichment(case_id: int):
+    qdrant_client = QdrantManager()
+    context_enricher = CaseContextEnricher(qdrant_client)
+    print(context_enricher.build_context_message(case_id))
 
 
 def main():
-    process_all_case_folders("C:\\Users\\Justin\\Desktop\\testdocsmain")
+    jurisdiction_score_test()
 
 if __name__ == "__main__":
     main()

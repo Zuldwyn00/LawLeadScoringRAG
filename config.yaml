@@ -15,6 +15,14 @@ logger:
 
 aiconfig:
   default_encoding: "o200k_base"
+  vector_search:
+    default_chunk_limit: 10  # Default number of chunks returned from vector search
+
+lead_scoring:
+  case_enrichment:
+    required_fields: # The fields from the metadata in the vectorDB that we want to ALWAYS search for and get for the given case_ids from the historical context
+      - settlement_value
+      - case_outcome
 
 jurisdiction_scoring:
   field_weights: { # the importance value of if a field is present in the data for a case, 0 means we place no value on this field being present

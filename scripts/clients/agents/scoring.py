@@ -1,6 +1,9 @@
 from typing import Optional, List
 from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage, AIMessage
 import re
+import json
+
+from sqlalchemy import Case
 
 from scripts.clients.utils.chatlog import dump_chat_log
 
@@ -10,11 +13,12 @@ from utils import load_prompt, count_tokens, setup_logger, load_config
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from ..tools import get_file_context, ToolManager
 from .utils.summarization_registry import set_summarization_client
+from .utils.context_enrichment import CaseContextEnricher
 
 
 class LeadScoringAgent:
 
-    def __init__(self, client: BaseClient, summarizer=None, **kwargs):
+    def __init__(self, client: BaseClient, summarizer=None, context_enricher:CaseContextEnricher=None, **kwargs):
         """
         Initialize the LeadScoringAgent.
 
@@ -46,6 +50,8 @@ class LeadScoringAgent:
         self.summarizer = summarizer
         if self.summarizer:
             set_summarization_client(self.summarizer)
+
+        self.context_enricher = context_enricher
 
         self.logger = setup_logger(self.__class__.__name__, load_config())
         self.logger.info(
@@ -117,6 +123,10 @@ class LeadScoringAgent:
         self.current_lead_score = (
             None  # Reset the current lead score to ensure fresh scoring
         )
+
+        # Extract case_ids from historical_context
+        case_ids = extract_case_ids_from_historical_context(historical_context)
+        self.logger.debug("Extracted case_ids from historical_context: %s", case_ids)
 
         system_prompt_content = self.prompt
         self.logger.debug(
@@ -498,6 +508,38 @@ class LeadScoringAgent:
         # Add the final lead response to the chat history before dumping the log since its from the fnal clients chat history
         self.client.add_message(final_lead)
         return final_lead
+
+
+def extract_case_ids_from_historical_context(historical_context: str) -> set[str]:
+    """
+    Extract all case_ids from the historical_context JSON string.
+
+    Args:
+        historical_context (str): A JSON string containing a list of case dictionaries.
+
+    Returns:
+        set[str]: A set of unique case_ids found in the historical context.
+    """
+    case_ids = set()
+    
+    try:
+        # Parse the JSON string to get the list of case dictionaries
+        cases = json.loads(historical_context)
+        
+        # Extract case_id from each case dictionary
+        for case in cases:
+            if isinstance(case, dict) and "case_id" in case:
+                case_id = case["case_id"]
+                if case_id is not None:
+                    # Convert to string to ensure consistent type
+                    case_ids.add(str(case_id))
+                    
+    except (json.JSONDecodeError, TypeError) as e:
+        # If parsing fails, return empty set
+        # Could add logging here if needed
+        pass
+    
+    return case_ids
 
 
 def extract_score_from_response(response: str) -> int:

@@ -148,6 +148,7 @@ class LeadScoringHandler:
     def score_lead_process(
         self,
         lead_description: str,
+        chunk_limit: int = 10,
         progress_callback=None,
         completion_callback=None,
         error_callback=None,
@@ -157,6 +158,7 @@ class LeadScoringHandler:
 
         Args:
             lead_description (str): The lead description to score
+            chunk_limit (int): Number of chunks to retrieve from vector search (default: 10)
             progress_callback (callable): Callback for progress updates (progress, status, elapsed_time)
             completion_callback (callable): Callback for completion (score, confidence, analysis)
             error_callback (callable): Callback for errors (error_message)
@@ -195,7 +197,7 @@ class LeadScoringHandler:
                 collection_name="case_files_large",
                 query_vector=question_vector,
                 vector_name="chunk",
-                limit=10,
+                limit=chunk_limit,
             )
 
             # Step 4: Get historical context
@@ -366,8 +368,12 @@ class UIEventHandler:
             # Show progress and start processing
             self.app.after(0, self.app.progress_widget.show)
 
+            # Get chunk limit from UI
+            chunk_limit = self.app.get_chunk_limit()
+            
             self.business_logic.score_lead_process(
                 lead_text.strip(),
+                chunk_limit=chunk_limit,
                 progress_callback=progress_update,
                 completion_callback=completion_callback,
                 error_callback=error_callback,

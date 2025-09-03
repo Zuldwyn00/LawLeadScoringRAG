@@ -125,7 +125,7 @@ class LeadScoringApp:
         """Create the left panel with input and results."""
         left_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=0)
-        left_frame.grid_rowconfigure(5, weight=1)
+        left_frame.grid_rowconfigure(6, weight=1)
         left_frame.grid_columnconfigure(0, weight=1)
 
         # Input section
@@ -159,10 +159,54 @@ class LeadScoringApp:
         # Clear placeholder text when clicked
         self.lead_text.bind("<Button-1>", self._clear_placeholder)
 
+        # Vector search settings section
+        self.create_vector_search_settings(parent)
+
+    def create_vector_search_settings(self, parent):
+        """Create the vector search settings section."""
+        # Load default chunk limit from config
+        from utils import load_config
+        config = load_config()
+        default_limit = config.get("aiconfig", {}).get("vector_search", {}).get("default_chunk_limit", 10)
+        
+        # Settings frame
+        settings_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
+        settings_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(10, 0))
+        settings_frame.grid_columnconfigure(1, weight=1)
+        
+        # Label for chunk limit
+        chunk_limit_label = ctk.CTkLabel(
+            settings_frame,
+            text="Vector Search Chunks:",
+            font=FONTS()["body"],
+            text_color=COLORS["text_white"],
+        )
+        chunk_limit_label.grid(row=0, column=0, sticky="w", padx=(15, 10), pady=10)
+        
+        # Chunk limit entry
+        self.chunk_limit_var = ctk.StringVar(value=str(default_limit))
+        self.chunk_limit_entry = ctk.CTkEntry(
+            settings_frame,
+            textvariable=self.chunk_limit_var,
+            width=80,
+            font=FONTS()["body"],
+            placeholder_text="10",
+        )
+        self.chunk_limit_entry.grid(row=0, column=1, sticky="w", padx=(0, 15), pady=10)
+        
+        # Help text
+        help_label = ctk.CTkLabel(
+            settings_frame,
+            text="Number of similar cases to retrieve (1-50)",
+            font=FONTS()["small"],
+            text_color=COLORS["text_gray"],
+        )
+        help_label.grid(row=0, column=2, sticky="w", padx=(10, 15), pady=10)
+
     def create_button_section(self, parent):
         """Create the button section."""
         button_frame = ctk.CTkFrame(parent, **get_frame_style("transparent"))
-        button_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=10)
+        button_frame.grid(row=3, column=0, sticky="ew", padx=20, pady=10)
         button_frame.grid_columnconfigure(3, weight=1)
 
         self.score_button = ctk.CTkButton(
@@ -202,7 +246,7 @@ class LeadScoringApp:
             font=FONTS()["heading"],
             text_color=COLORS["text_white"],
         )
-        results_label.grid(row=4, column=0, sticky="w", padx=20, pady=(20, 10))
+        results_label.grid(row=5, column=0, sticky="w", padx=20, pady=(20, 10))
 
         # Scrollable frame for results
         self.results_frame = ctk.CTkScrollableFrame(
@@ -211,7 +255,7 @@ class LeadScoringApp:
             scrollbar_button_color=COLORS["accent_orange"],
             scrollbar_button_hover_color=COLORS["accent_orange_hover"],
         )
-        self.results_frame.grid(row=5, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        self.results_frame.grid(row=6, column=0, sticky="nsew", padx=20, pady=(0, 20))
         self.results_frame.grid_columnconfigure(0, weight=1)
 
     def create_right_panel(self, parent):
@@ -262,6 +306,32 @@ class LeadScoringApp:
             == "Enter the detailed description of the potential case..."
         ):
             self.lead_text.delete("1.0", "end")
+
+    def get_chunk_limit(self):
+        """
+        Get the chunk limit from the UI with validation.
+        
+        Returns:
+            int: The validated chunk limit (1-50), defaults to 10 if invalid.
+        """
+        try:
+            limit = int(self.chunk_limit_var.get())
+            if 1 <= limit <= 50:
+                return limit
+            else:
+                # Reset to default if out of range
+                from utils import load_config
+                config = load_config()
+                default_limit = config.get("aiconfig", {}).get("vector_search", {}).get("default_chunk_limit", 10)
+                self.chunk_limit_var.set(str(default_limit))
+                return default_limit
+        except (ValueError, TypeError):
+            # Reset to default if invalid input
+            from utils import load_config
+            config = load_config()
+            default_limit = config.get("aiconfig", {}).get("vector_search", {}).get("default_chunk_limit", 10)
+            self.chunk_limit_var.set(str(default_limit))
+            return default_limit
 
     def _score_lead_clicked(self):
         """Handle the Score Lead button click."""

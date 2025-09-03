@@ -127,6 +127,7 @@ class LeadScoringAgent:
         # Extract case_ids from historical_context
         case_ids = extract_case_ids_from_historical_context(historical_context)
         self.logger.debug("Extracted case_ids from historical_context: %s", case_ids)
+        case_enriched_context_message = SystemMessage(content=self.context_enricher.build_context_message(case_ids))
 
         system_prompt_content = self.prompt
         self.logger.debug(
@@ -152,9 +153,10 @@ class LeadScoringAgent:
         user_message = HumanMessage(content=new_lead_description)
         messages_to_send = [
             system_message,
-            initial_tool_usage_message,
-            historical_context_message,
             user_message,
+            historical_context_message,
+            case_enriched_context_message,
+            initial_tool_usage_message,
         ]
 
         # Add all initial messages to message history so they appear in chat logs
@@ -510,7 +512,7 @@ class LeadScoringAgent:
         return final_lead
 
 
-def extract_case_ids_from_historical_context(historical_context: str) -> set[str]:
+def extract_case_ids_from_historical_context(historical_context: str) -> set[int]:
     """
     Extract all case_ids from the historical_context JSON string.
 
@@ -518,7 +520,7 @@ def extract_case_ids_from_historical_context(historical_context: str) -> set[str
         historical_context (str): A JSON string containing a list of case dictionaries.
 
     Returns:
-        set[str]: A set of unique case_ids found in the historical context.
+        set[int]: A set of unique case_ids found in the historical context.
     """
     case_ids = set()
     
@@ -531,10 +533,10 @@ def extract_case_ids_from_historical_context(historical_context: str) -> set[str
             if isinstance(case, dict) and "case_id" in case:
                 case_id = case["case_id"]
                 if case_id is not None:
-                    # Convert to string to ensure consistent type
-                    case_ids.add(str(case_id))
+                    # Convert to integer to ensure consistent type
+                    case_ids.add(int(case_id))
                     
-    except (json.JSONDecodeError, TypeError) as e:
+    except (json.JSONDecodeError, TypeError, ValueError) as e:
         # If parsing fails, return empty set
         # Could add logging here if needed
         pass

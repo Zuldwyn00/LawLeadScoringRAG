@@ -23,6 +23,7 @@ from .widgets import (
     StatsWidget,
     GuidelinesWidget,
     FeedbackGuidelinesWidget,
+    CostTrackingWidget,
 )
 from .handlers import UIEventHandler
 from .dialogs import LogViewerDialog
@@ -291,9 +292,13 @@ class LeadScoringApp:
         spacer = ctk.CTkFrame(expandable_container, fg_color="transparent", height=1)
         spacer.grid(row=2, column=0, sticky="nsew")
 
+        # Cost tracking section
+        self.cost_tracking_widget = CostTrackingWidget(right_frame)
+        self.cost_tracking_widget.grid(row=1, column=0, sticky="ew", padx=20, pady=(5, 10))
+
         # Statistics section (positioned at the very bottom with minimal space)
         self.stats_widget = StatsWidget(right_frame)
-        self.stats_widget.grid(row=1, column=0, sticky="ew", padx=20, pady=(5, 20))
+        self.stats_widget.grid(row=2, column=0, sticky="ew", padx=20, pady=(5, 20))
 
         # Set up mutual exclusion for expandable widgets
         self._setup_expandable_mutual_exclusion()

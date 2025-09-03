@@ -16,6 +16,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 
 from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.clients import AzureClient, LeadScoringAgent, SummarizationAgent
+from scripts.clients.agents.utils.context_enrichment import CaseContextEnricher
 from scripts.clients.agents.scoring import (
     extract_score_from_response,
     extract_confidence_from_response,
@@ -44,6 +45,7 @@ class LeadScoringHandler:
         self.embedding_client = None
         self.processing_logs = []
         self.ai_analysis_running = False
+        self.current_lead_telemetry_managers = []  # Track telemetry managers for current lead
 
     def initialize_managers(self):
         """Initialize all required managers using the new modular client/agent setup."""
@@ -62,18 +64,43 @@ class LeadScoringHandler:
 
         # Initialize agents
         summarization_client = SummarizationAgent(summarizer_client)
+        context_enricher = CaseContextEnricher(self.qdrant_manager)
         scorer_kwargs = {
             "confidence_threshold": 90,
             "final_model": "gpt-5-chat",
             "final_model_temperature": 0.0,
         }
         self.lead_scoring_client = LeadScoringAgent(
-            chat_client, summarizer=summarization_client, **scorer_kwargs
+            chat_client, 
+            summarizer=summarization_client, 
+            context_enricher=context_enricher,
+            **scorer_kwargs
         )
         self.embedding_client = embedding_client
 
+        # Collect telemetry managers for cost tracking
+        self.current_lead_telemetry_managers = [
+            embedding_client.telemetry_manager,
+            chat_client.telemetry_manager,
+            summarizer_client.telemetry_manager,
+        ]
+
         self.managers_initialized = True
         return self.qdrant_manager, self.lead_scoring_client, self.embedding_client
+
+    def get_current_lead_cost(self) -> float:
+        """Get the total cost for the current lead from all telemetry managers."""
+        if not self.current_lead_telemetry_managers:
+            return 0.0
+        
+        total_cost = sum(manager.total_price for manager in self.current_lead_telemetry_managers)
+        print(f"Calculated total cost: ${total_cost:.6f} from {len(self.current_lead_telemetry_managers)} managers")  # Debug logging
+        return total_cost
+
+    def reset_current_lead_cost(self):
+        """Reset the cost tracking for all telemetry managers."""
+        for manager in self.current_lead_telemetry_managers:
+            manager.total_price = 0.0
 
     def get_example_lead(self):
         """Get the example lead data."""
@@ -152,6 +179,7 @@ class LeadScoringHandler:
         progress_callback=None,
         completion_callback=None,
         error_callback=None,
+        cost_callback=None,
     ):
         """
         Process the lead scoring with progress updates.
@@ -162,9 +190,12 @@ class LeadScoringHandler:
             progress_callback (callable): Callback for progress updates (progress, status, elapsed_time)
             completion_callback (callable): Callback for completion (score, confidence, analysis)
             error_callback (callable): Callback for errors (error_message)
+            cost_callback (callable): Callback for cost updates (current_cost)
         """
         try:
             start_time = time.time()
+
+            # Note: Cost tracking reset happens at the start of process_lead() in UIEventHandler
 
             # Step 1: Initialize managers
             if progress_callback:
@@ -185,6 +216,11 @@ class LeadScoringHandler:
                     time.time() - start_time,
                 )
             question_vector = embedding_client.get_embeddings(lead_description)
+            
+            # Update cost tracking after embeddings
+            if cost_callback:
+                current_cost = self.get_current_lead_cost()
+                cost_callback(current_cost)
 
             # Step 3: Search for similar cases
             if progress_callback:
@@ -235,6 +271,11 @@ class LeadScoringHandler:
             finally:
                 self.ai_analysis_running = False
                 time.sleep(0.5)
+                
+            # Update cost tracking after AI analysis
+            if cost_callback:
+                current_cost = self.get_current_lead_cost()
+                cost_callback(current_cost)
 
             # Step 6: Extract metrics
             if progress_callback:
@@ -253,6 +294,11 @@ class LeadScoringHandler:
                     "✅ Lead scoring completed successfully!",
                     time.time() - start_time,
                 )
+
+            # Final cost update before completion
+            if cost_callback:
+                final_cost = self.get_current_lead_cost()
+                cost_callback(final_cost)
 
             if completion_callback:
                 completion_callback(
@@ -338,6 +384,12 @@ class UIEventHandler:
 
         # Start processing in a separate thread
         def process_lead():
+            # Reset current lead cost at the start of processing
+            self.app.after(0, self.app.cost_tracking_widget.reset_current_lead_cost)
+            
+            # Reset telemetry managers for new lead
+            self.business_logic.reset_current_lead_cost()
+            
             def progress_update(progress, status, elapsed_time):
                 self.app.after(
                     0,
@@ -346,9 +398,19 @@ class UIEventHandler:
                     ),
                 )
 
+            def cost_update(current_cost):
+                print(f"Cost update called with: ${current_cost:.6f}")  # Debug logging
+                self.app.after(
+                    0,
+                    lambda: self.app.cost_tracking_widget.update_current_lead_cost(current_cost)
+                )
+
             def completion_callback(
                 score, confidence, analysis, chat_log_filename=None
             ):
+                # Get final cost for this lead
+                final_cost = self.business_logic.get_current_lead_cost()
+                
                 # Create new lead
                 new_lead = {
                     "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -357,10 +419,11 @@ class UIEventHandler:
                     "confidence": confidence,
                     "analysis": analysis,
                     "chat_log_filename": chat_log_filename,  # Link to specific chat log
+                    "cost": final_cost,  # Add cost to lead data
                 }
 
                 # Update UI on main thread
-                self.app.after(0, lambda: self._handle_scoring_completion(new_lead))
+                self.app.after(0, lambda: self._handle_scoring_completion(new_lead, final_cost))
 
             def error_callback(error_message):
                 self.app.after(0, lambda: self._handle_scoring_error(error_message))
@@ -377,6 +440,7 @@ class UIEventHandler:
                 progress_callback=progress_update,
                 completion_callback=completion_callback,
                 error_callback=error_callback,
+                cost_callback=cost_update,
             )
 
         thread = threading.Thread(target=process_lead, daemon=True)
@@ -384,8 +448,13 @@ class UIEventHandler:
 
         return True, "Processing started..."
 
-    def _handle_scoring_completion(self, new_lead):
+    def _handle_scoring_completion(self, new_lead, final_cost):
         """Handle successful completion of lead scoring."""
+        # Add cost to session total
+        self.app.cost_tracking_widget.add_to_session_total(final_cost)
+        
+        # Note: Don't reset current lead cost here - it will be reset at the start of the next lead
+        
         # Extract example leads to keep them at the bottom
         example_leads = [
             lead for lead in self.app.scored_leads if lead.get("is_example", False)
@@ -437,6 +506,10 @@ class UIEventHandler:
         self.app.scored_leads = example_leads
         self.app.refresh_results()
         self.app.stats_widget.update(self.app.scored_leads)
+
+        # Reset cost tracking
+        self.app.cost_tracking_widget.reset_current_lead_cost()
+        self.app.cost_tracking_widget.reset_session_total()
 
         # Reset session time and hide view logs button since we're clearing results
         self.app.current_session_start_time = None

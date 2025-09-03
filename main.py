@@ -15,11 +15,8 @@
 # TODO: Enhance AI prompt for scoring agent
 #   - Add steps for the scoring agent to score each section separately
 #   - Combine section scores to get a final score rather than one main arbitrary score
-#   - Give the AI more consistent output by following well-defined scoring rules
 
 # TODO: Implement settlement value/outcome retrieval
-#   - IMPORTANT: Always retrieve settlement value/outcome of cases given to AI in historical context
-#   - Not all data contains this information
 #   - Consider getting average value of similar case_type in same jurisdiction as fallback
 
 # TODO: Complete jurisdiction scoring system
@@ -44,9 +41,6 @@
 
 # ─── DATA TRACKING & METRICS ────────────────────────────────────────────────────
 # TODO: Implement metrics tracking system
-#   - Implement data tracking system for AI
-#   - Each client or agent should have its own data tracker
-#   - Track data like chat log name, etc.
 #   - Easily grab all needed data from AI instance rather than returning from functions
 #   - Use elapsed time that manager tracks for better loading bar (though may not matter for non-UI usage)
 

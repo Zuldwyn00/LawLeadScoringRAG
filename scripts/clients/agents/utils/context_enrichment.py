@@ -101,7 +101,7 @@ class CaseContextEnricher:
             return wrapper
         return decorator
 
-    def build_context_message(self, case_ids: int | set[int]) -> Dict[str, Any] | List[Dict[str, Any]]:
+    def build_context_message(self, case_ids: int | set[int]) -> str:
         """
         Builds formatted messages combining all required fields for AI context.
         Can process either a single case or multiple cases.
@@ -110,11 +110,9 @@ class CaseContextEnricher:
             case_ids (int | set[int]): Either a single case identifier or a set of case identifiers.
             
         Returns:
-            Dict[str, Any] | List[Dict[str, Any]]: 
-                - For single case: Dictionary containing the case_id and formatted context message.
-                - For multiple cases: List of dictionaries, each containing a case_id and its context message.
+            str: Formatted context message that clearly identifies which context belongs to which case ID.
         """
-        def build_single_case_context(case_id: int) -> Dict[str, Any]:
+        def build_single_case_context(case_id: int) -> str:
             """
             Builds a formatted context message for a single case.
             
@@ -122,7 +120,7 @@ class CaseContextEnricher:
                 case_id (int): The case identifier.
                 
             Returns:
-                Dict[str, Any]: Dictionary containing the case_id and formatted context message.
+                str: Formatted context message for the case.
             """
             # Retrieve all required metadata for the case
             metadata = self.get_all_required_metadata(case_id)
@@ -139,25 +137,29 @@ class CaseContextEnricher:
                     self.logger.debug("Skipping empty field '%s' for case '%s'", field, case_id)
             
             # Combine all parts into a single context string
-            context_message = " | ".join(context_parts) if context_parts else "No additional context available"
+            if context_parts:
+                # Add introductory message to clarify the purpose of this context data
+                intro_message = "Additional case context (supplements historical data with key information):"
+                context_message = f"{intro_message} {' | '.join(context_parts)}"
+            else:
+                context_message = "No additional context available"
             
-            # Return as dictionary format with case_id for linking - optimized for AI context
-            return {
-                "case_id": case_id,
-                "context": context_message
-            }
+            return context_message
         
         # Handle single case
         if isinstance(case_ids, int):
             return build_single_case_context(case_ids)
         
-        # Handle multiple cases
+        # Handle multiple cases - format for clear AI understanding
         case_contexts = []
         for case_id in case_ids:
             case_context = build_single_case_context(case_id)
-            case_contexts.append(case_context)
+            # Format each case context with clear case ID identification
+            formatted_case_context = f"**Case ID {case_id}:** {case_context}"
+            case_contexts.append(formatted_case_context)
         
-        return case_contexts
+        # Join all case contexts with clear separation
+        return "\n\n".join(case_contexts)
 
     # ─── METADATA RETRIEVAL METHODS ──────────────────────────────────────────────────────────
     

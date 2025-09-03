@@ -11,6 +11,10 @@ class TelemetryManager:
 
         self.config = load_config()
         self.logger = setup_logger(self.__class__.__name__, self.config)
+        
+        # Debug logging to check pricing configuration
+        self.logger.info("TelemetryManager initialized with pricing - Input: $%.2f, Output: $%.2f", 
+                        self.input_price, self.output_price)
 
 
     def calculate_price(self, text: str | List, is_input: bool):

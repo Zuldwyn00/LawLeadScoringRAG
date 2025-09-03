@@ -6,8 +6,10 @@ from langchain_core.messages import (
 )
 from .base import BaseClient
 import os
+from dotenv import load_dotenv
 
 from utils import *
+from .telemetry_tracking.telemetry import TelemetryManager
 
 
 class AzureClient(BaseClient):
@@ -30,6 +32,9 @@ class AzureClient(BaseClient):
         """
         super().__init__(**kwargs)
 
+        # Load environment variables from .env file
+        load_dotenv()
+
         self.client_config = self.load_client_config(client_config)
         self.client_type = client_config
 
@@ -40,8 +45,10 @@ class AzureClient(BaseClient):
         else:
             # Default to chat client for all other sections (azure_clients, etc.)
             self.langchain_client_class = AzureChatOpenAI
-
+    
         self.client = self._initialize_client()
+        self.telemetry_manager = TelemetryManager(self.client_config)
+
 
     def _initialize_client(self):
         """Initialize the appropriate LangChain client based on configuration."""
@@ -79,9 +86,13 @@ class AzureClient(BaseClient):
                 if msg not in self.message_history:
                     self.message_history.append(msg)
 
+        self.telemetry_manager.calculate_price(messages, True) #calculate price of input text
         try:
             self.logger.info("Invoking message for '%s'.", self.client_type)
             response = self.client.invoke(messages)
+
+            self.telemetry_manager.calculate_price(response.content, False) #calculate price of output text
+
             self.add_message(response)
             return response
         except Exception as e:

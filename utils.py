@@ -148,6 +148,10 @@ def load_prompt(prompt_name: str, prompts_path: Optional[Path] = None) -> str:
         with prompts_path.open("r", encoding="utf-8") as f:
             prompts_data = yaml.safe_load(f)
 
+        if prompts_data is None:
+            logging.error(f"Prompts file is empty or contains no valid YAML data at {prompts_path}")
+            return ""
+            
         prompt_text = prompts_data[prompt_name]["prompt"]
         return prompt_text
 

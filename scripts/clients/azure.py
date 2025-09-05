@@ -91,6 +91,10 @@ class AzureClient(BaseClient):
             response = self.client.invoke(messages)
 
             # Calculate price for output text - handle both content and tool calls
+            self.logger.debug("Response content length: %d", len(response.content) if response.content else 0)
+            self.logger.debug("Response has tool_calls: %s", hasattr(response, 'tool_calls') and bool(response.tool_calls))
+            
+            # Ensure that we get the price of tool_calls if content is empty
             if response.content:
                 # Regular text response
                 self.telemetry_manager.calculate_price(response.content, False)
@@ -101,6 +105,7 @@ class AzureClient(BaseClient):
             else:
                 # Empty response
                 self.telemetry_manager.calculate_price("", False)
+
 
             self.add_message(response)
             return response

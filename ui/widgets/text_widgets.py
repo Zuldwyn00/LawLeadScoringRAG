@@ -7,7 +7,56 @@ This module contains custom text widgets that allow inline editing with visual f
 import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox
+import re
 from ..styles import COLORS, FONTS
+
+
+# ─── TEXT PARSING UTILITIES ────────────────────────────────────────────────────
+def parse_and_color_analysis_text(text_widget, text: str):
+    """
+    Parse analysis text and apply orange color coding to important headings.
+    
+    Args:
+        text_widget: The tkinter Text widget to apply formatting to
+        text: The analysis text to parse and format
+    """
+    # Define important headings that should be color-coded in orange
+    important_headings = [
+        r'\*\*Lead Score:\*\*',
+        r'\*\*Confidence Score:\*\*', 
+        r'\*\*Reasoning Assurance Score:\*\*',
+        r'\*\*⚠️ Disclaimer:\*\*',
+        r'\*\*Jurisdiction:\*\*',
+        r'\*\*Recommendation:\*\*',
+        r'\*\*Missing Information:\*\*',
+        r'\*\*Executive Summary:\*\*',
+        r'\*\*Detailed Rationale:\*\*',
+        r'\*\*Positive Indicators.*?\*\*',
+        r'\*\*Negative Indicators.*?\*\*',
+        r'\*\*Strength of Precedent:\*\*',
+        r'\*\*Geographic & Jurisdictional Analysis:\*\*',
+        r'\*\*Case ID of cases given in the context:\*\*',
+        r'\*\*Analysis Depth & Tool Usage:\*\*',
+        r'\*\*Reasoning Assurance Rationale:\*\*',
+        r'\*\*Overall Evidence Strength:\*\*'
+    ]
+    
+    # Configure the orange heading tag
+    text_widget.tag_configure("orange_heading", foreground=COLORS["accent_orange"], font=FONTS()["small"])
+    
+    # Clear existing text and insert new text
+    text_widget.delete("1.0", "end")
+    text_widget.insert("1.0", text)
+    
+    # Apply color coding to each important heading
+    for pattern in important_headings:
+        # Find all matches of this pattern in the text
+        for match in re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE):
+            start_pos = f"1.0+{match.start()}c"
+            end_pos = f"1.0+{match.end()}c"
+            
+            # Apply the orange heading tag
+            text_widget.tag_add("orange_heading", start_pos, end_pos)
 
 
 # ─── INLINE EDITABLE TEXT WIDGET ───────────────────────────────────────────────
@@ -125,8 +174,8 @@ class InlineEditableText(tk.Text):
 
     def set_text(self, text: str):
         """Set the initial text content and auto-size the widget."""
-        self.delete("1.0", "end")
-        self.insert("1.0", text)
+        # Use the color parsing function to apply formatting
+        parse_and_color_analysis_text(self, text)
         self.configure(state="normal")  # Keep editable for selection
 
         # Auto-size the widget based on content
@@ -245,6 +294,10 @@ class InlineEditableText(tk.Text):
         # Update edit record with new end position (use start_pos for consistency)
         edit_record["new_end_pos"] = new_end_pos
         edit_record["start_pos"] = start_pos  # Update to use the original start_pos
+
+        # Re-apply color coding to the entire text after edit
+        current_text = self.get("1.0", "end-1c")
+        parse_and_color_analysis_text(self, current_text)
 
         # Resize to fit new content
         self._resize_to_content()

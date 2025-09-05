@@ -98,6 +98,7 @@ def setup_logger(
     log_level = level or config["logger"]["level"]
     logger.setLevel(getattr(logging, log_level))
 
+    logger.propagate = False
     # Prevent adding duplicate handlers
     if logger.hasHandlers():
         logger.handlers.clear()

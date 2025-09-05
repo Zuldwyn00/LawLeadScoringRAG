@@ -208,6 +208,7 @@ lead_scoring:
     Provide your response as a single, complete analysis. Do not output any other text. Your response must follow this structure exactly:
 
     ---
+    **Title:** [Provide a concise, descriptive title for this scored lead (e.g., "Auto Accident - Whiplash Injury in Suffolk County")]
     **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as: "Lead Score: 0/100"
     **Confidence Score:** [Provide the numerical score from 0-100 calculated from the Information Coverage Assessment] format it as: "Confidence Score: 0/100"
     **Reasoning Assurance Score:** [Provide the numerical score from 0-100 calculated from the Reasoning Rubric] format it as: "Reasoning Assurance Score: 0/100"

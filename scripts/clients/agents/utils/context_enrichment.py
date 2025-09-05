@@ -219,7 +219,8 @@ class CaseContextEnricher:
 
         total_value = sum(settlement_values) if settlement_values else 0.0
         if total_value == 0.0:
-            self.logger.error("Could not get total_settlement value, returned as '%f' instead.", total_value)
+            self.logger.debug("No settlement value found for case '%s', returning 'None/Unknown'", case_id)
+            return "None/Unknown"
         
         return total_value
 

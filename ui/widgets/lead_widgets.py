@@ -540,6 +540,11 @@ class LeadItem(ctk.CTkFrame):
                     "new_text": new_text,
                 }
                 self.analysis_textbox.edit_history.append(edit_record)
+                
+            # Re-apply color coding after loading feedback highlights
+            from .text_widgets import parse_and_color_analysis_text
+            current_text = self.analysis_textbox.get("1.0", "end-1c")
+            parse_and_color_analysis_text(self.analysis_textbox, current_text)
         except Exception:
             # Best-effort; ignore failures silently to avoid breaking UI
             pass

@@ -84,6 +84,10 @@ class LeadScoringHandler:
             chat_client.telemetry_manager,
             summarizer_client.telemetry_manager,
         ]
+        
+        # Add final_client telemetry manager if it exists
+        if hasattr(self.lead_scoring_client, 'final_client') and self.lead_scoring_client.final_client:
+            self.current_lead_telemetry_managers.append(self.lead_scoring_client.final_client.telemetry_manager)
 
         self.managers_initialized = True
         return self.qdrant_manager, self.lead_scoring_client, self.embedding_client

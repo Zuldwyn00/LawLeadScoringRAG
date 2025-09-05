@@ -163,9 +163,10 @@ class LeadScoringAgent:
         self.client.add_message(
             [
                 system_message,
-                initial_tool_usage_message,
-                historical_context_message,
                 user_message,
+                historical_context_message,
+                case_enriched_context_message,
+                initial_tool_usage_message,
             ]
         )
 

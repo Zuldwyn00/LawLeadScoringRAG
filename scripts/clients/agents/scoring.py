@@ -3,8 +3,6 @@ from langchain_core.messages import SystemMessage, HumanMessage, ToolMessage, AI
 import re
 import json
 
-from sqlalchemy import Case
-
 from scripts.clients.utils.chatlog import dump_chat_log
 
 from ..base import BaseClient

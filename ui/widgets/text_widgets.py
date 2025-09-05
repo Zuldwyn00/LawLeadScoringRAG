@@ -14,49 +14,57 @@ from ..styles import COLORS, FONTS
 # ─── TEXT PARSING UTILITIES ────────────────────────────────────────────────────
 def parse_and_color_analysis_text(text_widget, text: str):
     """
-    Parse analysis text and apply orange color coding to important headings.
+    Parse analysis text and apply orange color coding to all text with ** ** formatting.
+    Removes the ** markers from display while preserving the original data.
+    Preserves all other formatting including blank lines and spacing.
     
     Args:
         text_widget: The tkinter Text widget to apply formatting to
         text: The analysis text to parse and format
     """
-    # Define important headings that should be color-coded in orange
-    important_headings = [
-        r'\*\*Lead Score:\*\*',
-        r'\*\*Confidence Score:\*\*', 
-        r'\*\*Reasoning Assurance Score:\*\*',
-        r'\*\*⚠️ Disclaimer:\*\*',
-        r'\*\*Jurisdiction:\*\*',
-        r'\*\*Recommendation:\*\*',
-        r'\*\*Missing Information:\*\*',
-        r'\*\*Executive Summary:\*\*',
-        r'\*\*Detailed Rationale:\*\*',
-        r'\*\*Positive Indicators.*?\*\*',
-        r'\*\*Negative Indicators.*?\*\*',
-        r'\*\*Strength of Precedent:\*\*',
-        r'\*\*Geographic & Jurisdictional Analysis:\*\*',
-        r'\*\*Case ID of cases given in the context:\*\*',
-        r'\*\*Analysis Depth & Tool Usage:\*\*',
-        r'\*\*Reasoning Assurance Rationale:\*\*',
-        r'\*\*Overall Evidence Strength:\*\*'
-    ]
-    
-    # Configure the orange heading tag
+    # Configure the orange heading tag with font styling
     text_widget.tag_configure("orange_heading", foreground=COLORS["accent_orange"], font=FONTS()["small"])
     
-    # Clear existing text and insert new text
-    text_widget.delete("1.0", "end")
-    text_widget.insert("1.0", text)
+    # Create a display version of the text with ** markers removed
+    display_text = text
+    pattern = r'\*\*(.*?)\*\*'
     
-    # Apply color coding to each important heading
-    for pattern in important_headings:
-        # Find all matches of this pattern in the text
-        for match in re.finditer(pattern, text, re.IGNORECASE | re.MULTILINE):
-            start_pos = f"1.0+{match.start()}c"
-            end_pos = f"1.0+{match.end()}c"
+    # Find all ** ** patterns and prepare for replacement
+    matches = list(re.finditer(pattern, text, re.MULTILINE | re.DOTALL))
+    
+    # Replace ** markers in display text (work backwards to maintain positions)
+    for match in reversed(matches):
+        # Extract the content between ** markers
+        content = match.group(1)
+        # Replace the full match (including ** markers) with just the content
+        display_text = display_text[:match.start()] + content + display_text[match.end():]
+    
+    # Clear existing text and insert the display text (preserving all other formatting)
+    text_widget.delete("1.0", "end")
+    text_widget.insert("1.0", display_text)
+    
+    # Apply orange coloring to the content that was between ** markers
+    # We need to find these positions in the display text
+    current_pos = 0
+    for match in matches:
+        # Calculate the position in the display text (after ** removal)
+        # The content starts at match.start() + 2 (after **) and ends at match.end() - 2 (before **)
+        content_start = match.start() + 2
+        content_end = match.end() - 2
+        content_length = content_end - content_start
+        
+        # Find this content in the display text
+        content_text = match.group(1)
+        search_start = display_text.find(content_text, current_pos)
+        if search_start != -1:
+            start_pos = f"1.0+{search_start}c"
+            end_pos = f"1.0+{search_start + content_length}c"
             
-            # Apply the orange heading tag
+            # Apply the orange heading tag with font styling
             text_widget.tag_add("orange_heading", start_pos, end_pos)
+            
+            # Update current position to avoid overlapping matches
+            current_pos = search_start + content_length
 
 
 # ─── INLINE EDITABLE TEXT WIDGET ───────────────────────────────────────────────

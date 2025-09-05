@@ -208,14 +208,16 @@ lead_scoring:
     Provide your response as a single, complete analysis. Do not output any other text. Your response must follow this structure exactly:
 
     ---
+    **Recommendation:** [Provide a one to two sentence summary of your recommendation. e.g., "High-potential case, recommend immediate follow-up."]
+
     **Title:** [Provide a concise, descriptive title for this scored lead (e.g., "Auto Accident - Whiplash Injury in Suffolk County")]
+    **Jurisdiction:** [Provide the jurisdiction/county for this case] format it as: "Jurisdiction: [County Name]"
+
     **Lead Score:** [Provide a numerical score from 1 to 100, where 1 is extremely low potential and 100 is extremely high potential] format it as: "Lead Score: 0/100"
     **Confidence Score:** [Provide the numerical score from 0-100 calculated from the Information Coverage Assessment] format it as: "Confidence Score: 0/100"
     **Reasoning Assurance Score:** [Provide the numerical score from 0-100 calculated from the Reasoning Rubric] format it as: "Reasoning Assurance Score: 0/100"
+    
     **⚠️ Disclaimer:** The Confidence Score reflects data completeness, not prediction accuracy. This analysis must be reviewed by a qualified legal professional.
-
-    **Jurisdiction:** [Provide the jurisdiction/county for this case] format it as: "Jurisdiction: [County Name]"
-    **Recommendation:** [Provide a one-sentence summary of your recommendation. e.g., "High-potential case, recommend immediate follow-up."]
 
     **Missing Information:**
     *   [List the specific criteria from the Data Completeness checklist that were not met and what data is needed. If all points were awarded, state "No critical information missing based on the assessment framework."]

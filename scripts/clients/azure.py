@@ -49,7 +49,6 @@ class AzureClient(BaseClient):
         self.client = self._initialize_client()
         self.telemetry_manager = TelemetryManager(self.client_config)
 
-
     def _initialize_client(self):
         """Initialize the appropriate LangChain client based on configuration."""
         params = {
@@ -91,7 +90,17 @@ class AzureClient(BaseClient):
             self.logger.info("Invoking message for '%s'.", self.client_type)
             response = self.client.invoke(messages)
 
-            self.telemetry_manager.calculate_price(response.content, False) #calculate price of output text
+            # Calculate price for output text - handle both content and tool calls
+            if response.content:
+                # Regular text response
+                self.telemetry_manager.calculate_price(response.content, False)
+            elif hasattr(response, 'tool_calls') and response.tool_calls:
+                # Tool call response - count tokens for tool calls
+                tool_calls_text = str(response.tool_calls)
+                self.telemetry_manager.calculate_price(tool_calls_text, False)
+            else:
+                # Empty response
+                self.telemetry_manager.calculate_price("", False)
 
             self.add_message(response)
             return response

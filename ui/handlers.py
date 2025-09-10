@@ -47,9 +47,15 @@ class LeadScoringHandler:
         self.ai_analysis_running = False
         self.current_lead_telemetry_managers = []  # Track telemetry managers for current lead
 
-    def initialize_managers(self):
+    def initialize_managers(self, process_model: str = "gpt-5-mini", final_model: str = "gpt-5", 
+                           process_temperature: float = None, final_temperature: float = None):
         """Initialize all required managers using the new modular client/agent setup."""
-        if self.managers_initialized:
+        # Check if we need to reinitialize due to model or temperature change
+        if (self.managers_initialized and 
+            hasattr(self, 'current_process_model') and hasattr(self, 'current_final_model') and 
+            hasattr(self, 'current_process_temperature') and hasattr(self, 'current_final_temperature') and
+            self.current_process_model == process_model and self.current_final_model == final_model and
+            self.current_process_temperature == process_temperature and self.current_final_temperature == final_temperature):
             return self.qdrant_manager, self.lead_scoring_client, self.embedding_client
 
         ensure_directories()
@@ -57,9 +63,9 @@ class LeadScoringHandler:
 
         # Initialize embedding and chat clients using AzureClient
         embedding_client = AzureClient("text_embedding_3_large")
-        chat_client = AzureClient("gpt-5-mini")
+        chat_client = AzureClient(process_model)
 
-        # Use a separate chat client for summarization
+        # Use a separate chat client for summarization (keep o4-mini for efficiency)
         summarizer_client = AzureClient("o4-mini")
 
         # Initialize agents
@@ -67,9 +73,13 @@ class LeadScoringHandler:
         context_enricher = CaseContextEnricher(self.qdrant_manager)
         scorer_kwargs = {
             "confidence_threshold": 90,
-            "final_model": "gpt-5-chat",
-            "final_model_temperature": 0.0,
+            "final_model": final_model,  # Use selected final model for final scoring
+            "final_model_temperature": final_temperature,  # Use selected final temperature
         }
+        
+        # Add process temperature if specified
+        if process_temperature is not None:
+            scorer_kwargs["temperature"] = process_temperature
         self.lead_scoring_client = LeadScoringAgent(
             chat_client, 
             summarizer=summarization_client, 
@@ -90,6 +100,10 @@ class LeadScoringHandler:
             self.current_lead_telemetry_managers.append(self.lead_scoring_client.final_client.telemetry_manager)
 
         self.managers_initialized = True
+        self.current_process_model = process_model
+        self.current_final_model = final_model
+        self.current_process_temperature = process_temperature
+        self.current_final_temperature = final_temperature
         return self.qdrant_manager, self.lead_scoring_client, self.embedding_client
 
     def get_current_lead_cost(self) -> float:
@@ -100,6 +114,21 @@ class LeadScoringHandler:
         total_cost = sum(manager.total_price for manager in self.current_lead_telemetry_managers)
         print(f"Calculated total cost: ${total_cost:.6f} from {len(self.current_lead_telemetry_managers)} managers")  # Debug logging
         return total_cost
+
+    def get_current_lead_cost_by_model(self) -> dict:
+        """Get the cost breakdown by model for the current lead."""
+        if not self.current_lead_telemetry_managers:
+            return {}
+        
+        model_costs = {}
+        for manager in self.current_lead_telemetry_managers:
+            # Extract model name from client config
+            model_name = manager.config.get("deployment_name", "unknown")
+            if model_name not in model_costs:
+                model_costs[model_name] = 0.0
+            model_costs[model_name] += manager.total_price
+        
+        return model_costs
 
     def reset_current_lead_cost(self):
         """Reset the cost tracking for all telemetry managers."""
@@ -388,6 +417,15 @@ class UIEventHandler:
 
         # Start processing in a separate thread
         def process_lead():
+            # Get selected models and temperatures from UI
+            process_model = self.app.get_selected_process_model()
+            final_model = self.app.get_selected_final_model()
+            process_temperature = self.app.get_process_temperature()
+            final_temperature = self.app.get_final_temperature()
+            
+            # Initialize managers with selected models and temperatures
+            self.business_logic.initialize_managers(process_model, final_model, process_temperature, final_temperature)
+            
             # Reset current lead cost at the start of processing
             self.app.after(0, self.app.cost_tracking_widget.reset_current_lead_cost)
             
@@ -408,6 +446,14 @@ class UIEventHandler:
                     0,
                     lambda: self.app.cost_tracking_widget.update_current_lead_cost(current_cost)
                 )
+                
+                # Update model-specific costs
+                model_costs = self.business_logic.get_current_lead_cost_by_model()
+                for model_name, model_cost in model_costs.items():
+                    self.app.after(
+                        0,
+                        lambda m=model_name, c=model_cost: self.app.cost_tracking_widget.update_model_cost(m, c)
+                    )
 
             def completion_callback(
                 score, confidence, analysis, chat_log_filename=None
@@ -456,6 +502,11 @@ class UIEventHandler:
         """Handle successful completion of lead scoring."""
         # Add cost to session total
         self.app.cost_tracking_widget.add_to_session_total(final_cost)
+        
+        # Add model-specific costs to session total
+        model_costs = self.business_logic.get_current_lead_cost_by_model()
+        for model_name, model_cost in model_costs.items():
+            self.app.cost_tracking_widget.update_model_cost(model_name, model_cost)
         
         # Note: Don't reset current lead cost here - it will be reset at the start of the next lead
         
@@ -514,6 +565,7 @@ class UIEventHandler:
         # Reset cost tracking
         self.app.cost_tracking_widget.reset_current_lead_cost()
         self.app.cost_tracking_widget.reset_session_total()
+        self.app.cost_tracking_widget.reset_model_costs()
 
         # Reset session time and hide view logs button since we're clearing results
         self.app.current_session_start_time = None

@@ -24,6 +24,7 @@ from .widgets import (
     GuidelinesWidget,
     FeedbackGuidelinesWidget,
     CostTrackingWidget,
+    ModelSelectorWidget,
 )
 from .handlers import UIEventHandler
 from .dialogs import LogViewerDialog
@@ -160,8 +161,22 @@ class LeadScoringApp:
         # Clear placeholder text when clicked
         self.lead_text.bind("<Button-1>", self._clear_placeholder)
 
+        # Model selection section
+        self.create_model_selection_section(parent)
+
         # Vector search settings section
         self.create_vector_search_settings(parent)
+
+    def create_model_selection_section(self, parent):
+        """Create the model selection section."""
+        # Model selection frame
+        model_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
+        model_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(10, 0))
+        model_frame.grid_columnconfigure(1, weight=1)
+        
+        # Create model selector widget
+        self.model_selector = ModelSelectorWidget(model_frame)
+        self.model_selector.grid(row=0, column=0, columnspan=2, sticky="ew", padx=15, pady=10)
 
     def create_vector_search_settings(self, parent):
         """Create the vector search settings section."""
@@ -172,7 +187,7 @@ class LeadScoringApp:
         
         # Settings frame
         settings_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
-        settings_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(10, 0))
+        settings_frame.grid(row=3, column=0, sticky="ew", padx=20, pady=(10, 0))
         settings_frame.grid_columnconfigure(1, weight=1)
         
         # Label for chunk limit
@@ -207,7 +222,7 @@ class LeadScoringApp:
     def create_button_section(self, parent):
         """Create the button section."""
         button_frame = ctk.CTkFrame(parent, **get_frame_style("transparent"))
-        button_frame.grid(row=3, column=0, sticky="ew", padx=20, pady=10)
+        button_frame.grid(row=4, column=0, sticky="ew", padx=20, pady=10)
         button_frame.grid_columnconfigure(3, weight=1)
 
         self.score_button = ctk.CTkButton(
@@ -247,7 +262,7 @@ class LeadScoringApp:
             font=FONTS()["heading"],
             text_color=COLORS["text_white"],
         )
-        results_label.grid(row=5, column=0, sticky="w", padx=20, pady=(20, 10))
+        results_label.grid(row=6, column=0, sticky="w", padx=20, pady=(20, 10))
 
         # Scrollable frame for results
         self.results_frame = ctk.CTkScrollableFrame(
@@ -256,7 +271,7 @@ class LeadScoringApp:
             scrollbar_button_color=COLORS["accent_orange"],
             scrollbar_button_hover_color=COLORS["accent_orange_hover"],
         )
-        self.results_frame.grid(row=6, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        self.results_frame.grid(row=7, column=0, sticky="nsew", padx=20, pady=(0, 20))
         self.results_frame.grid_columnconfigure(0, weight=1)
 
     def create_right_panel(self, parent):
@@ -337,6 +352,60 @@ class LeadScoringApp:
             default_limit = config.get("aiconfig", {}).get("vector_search", {}).get("default_chunk_limit", 10)
             self.chunk_limit_var.set(str(default_limit))
             return default_limit
+
+    def get_selected_process_model(self):
+        """
+        Get the currently selected process AI model.
+        
+        Returns:
+            str: The selected process model name.
+        """
+        return self.model_selector.get_selected_process_model()
+
+    def get_selected_final_model(self):
+        """
+        Get the currently selected final AI model.
+        
+        Returns:
+            str: The selected final model name.
+        """
+        return self.model_selector.get_selected_final_model()
+
+    def get_process_model_config(self):
+        """
+        Get the configuration for the currently selected process model.
+        
+        Returns:
+            dict: The process model configuration dictionary.
+        """
+        return self.model_selector.get_process_model_config()
+
+    def get_final_model_config(self):
+        """
+        Get the configuration for the currently selected final model.
+        
+        Returns:
+            dict: The final model configuration dictionary.
+        """
+        return self.model_selector.get_final_model_config()
+
+    def get_process_temperature(self):
+        """
+        Get the currently selected process temperature.
+        
+        Returns:
+            float or None: The process temperature, or None if not set.
+        """
+        return self.model_selector.get_process_temperature()
+
+    def get_final_temperature(self):
+        """
+        Get the currently selected final temperature.
+        
+        Returns:
+            float or None: The final temperature, or None if not set.
+        """
+        return self.model_selector.get_final_temperature()
 
     def _score_lead_clicked(self):
         """Handle the Score Lead button click."""

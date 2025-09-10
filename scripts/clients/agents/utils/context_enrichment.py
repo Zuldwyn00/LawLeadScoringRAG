@@ -181,9 +181,10 @@ class CaseContextEnricher:
         
         for chunk in chunks:
             case_outcome = chunk.get(field_name)
-            if case_outcome and case_outcome.strip():
-                self.logger.debug("Found case outcome '%s' for '%s'", case_outcome, case_id)
-                case_outcomes.add(case_outcome.strip())
+            if case_outcome is not "null" and case_outcome not in case_outcomes:
+                if case_outcome and case_outcome.strip():
+                    self.logger.debug("Found case outcome '%s' for '%s'", case_outcome, case_id)
+                    case_outcomes.add(case_outcome.strip())
         
         # Return unique values as a comma-separated string
         return ", ".join(sorted(case_outcomes)) if case_outcomes else ""

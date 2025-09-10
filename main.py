@@ -294,36 +294,22 @@ def score_test():
     print(final_analysis)
     print(f"Chat log saved as: {chat_log_filename}")
 
-
 def jurisdiction_score_test():
     qdrant_manager = QdrantManager()
     jurisdiction_manager = JurisdictionScoreManager()
     scores = {}
+    jurisdictions_to_process = [
+        "Suffolk County",
+        "Nassau County",
+        "Queens County",
+        "Kings County"
+    ]
 
-    # Step 1: Calculate raw jurisdiction scores
-    jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction(
-        "case_files_large", "Suffolk County"
-    )
-    score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
-    scores["Suffolk County"] = score.get("jurisdiction_score")
+    for jurisdiction in jurisdictions_to_process:
+        jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction('case_files_large', jurisdiction)
+        score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
+        scores[jurisdiction] = score.get("jurisdiction_score")
 
-    jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction(
-        "case_files_large", "Nassau County"
-    )
-    score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
-    scores["Nassau County"] = score.get("jurisdiction_score")
-
-    jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction(
-        "case_files_large", "Queens County"
-    )
-    score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
-    scores["Queens County"] = score.get("jurisdiction_score")
-
-    # jurisdiction_cases = qdrant_manager.get_cases_by_jurisdiction('case_files', 'Kings County')
-    # score = jurisdiction_manager.score_jurisdiction(jurisdiction_cases)
-    # scores['Kings County'] = score.get('jurisdiction_score')
-
-    # Save raw scores first
     jurisdiction_manager.save_to_json(data=scores)
     print("Raw jurisdiction scores:")
     for jurisdiction, score in scores.items():
@@ -334,18 +320,9 @@ def jurisdiction_score_test():
     case_counts = qdrant_manager.get_all_case_ids_by_jurisdiction("case_files_large")
     adjusted_scores = jurisdiction_manager.bayesian_shrinkage(case_counts)
 
-    # Step 3: Get final modifiers (now uses Bayesian-adjusted scores)
     print("\nFinal modifiers:")
-    print(
-        f"Suffolk County: {jurisdiction_manager.get_jurisdiction_modifier('Suffolk County'):.3f}x"
-    )
-    print(
-        f"Nassau County: {jurisdiction_manager.get_jurisdiction_modifier('Nassau County'):.3f}x"
-    )
-    print(
-        f"Queens County: {jurisdiction_manager.get_jurisdiction_modifier('Queens County'):.3f}x"
-    )
-
+    for jurisdiction in jurisdictions_to_process:
+        print(f"{jurisdiction}: {jurisdiction_manager.get_jurisdiction_modifier(jurisdiction):.3f}x")
 
 def run_ocr_on_folder(folder_path: str):
     """

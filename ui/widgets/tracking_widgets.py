@@ -16,6 +16,7 @@ class CostTrackingWidget(ctk.CTkFrame):
         super().__init__(parent, fg_color=COLORS["tertiary_black"], **kwargs)
         self.current_lead_cost = 0.0
         self.total_session_cost = 0.0
+        self.model_costs = {}  # Track costs per model
         self.setup_widgets()
 
     def setup_widgets(self):
@@ -42,7 +43,17 @@ class CostTrackingWidget(ctk.CTkFrame):
             font=FONTS()["body"],
             text_color=COLORS["text_gray"],
         )
-        self.total_cost_label.pack(pady=(2, 10))
+        self.total_cost_label.pack(pady=2)
+        
+        # Model breakdown label (initially hidden)
+        self.model_breakdown_label = ctk.CTkLabel(
+            self,
+            text="",
+            font=FONTS()["small"],
+            text_color=COLORS["text_gray"],
+            wraplength=250,
+        )
+        self.model_breakdown_label.pack(pady=(2, 10))
 
     def update_current_lead_cost(self, cost: float):
         """Update the current lead cost display."""
@@ -71,6 +82,35 @@ class CostTrackingWidget(ctk.CTkFrame):
     def get_session_total_cost(self) -> float:
         """Get the session total cost."""
         return self.total_session_cost
+
+    def update_model_cost(self, model_name: str, cost: float):
+        """Update cost for a specific model."""
+        if model_name not in self.model_costs:
+            self.model_costs[model_name] = 0.0
+        self.model_costs[model_name] += cost
+        self._update_model_breakdown()
+
+    def _update_model_breakdown(self):
+        """Update the model breakdown display."""
+        if not self.model_costs:
+            self.model_breakdown_label.configure(text="")
+            return
+        
+        breakdown_lines = []
+        for model, cost in self.model_costs.items():
+            if cost > 0:
+                breakdown_lines.append(f"{model}: ${cost:.6f}")
+        
+        if breakdown_lines:
+            breakdown_text = "Models used:\n" + "\n".join(breakdown_lines)
+            self.model_breakdown_label.configure(text=breakdown_text)
+        else:
+            self.model_breakdown_label.configure(text="")
+
+    def reset_model_costs(self):
+        """Reset all model costs."""
+        self.model_costs = {}
+        self._update_model_breakdown()
 
 
 # ─── STATISTICS WIDGET ──────────────────────────────────────────────────────────

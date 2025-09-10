@@ -40,7 +40,17 @@
         "input": 1.25,
         "output": 10.00
       }
-    }  
+    },
+    "gpt-5": {
+      "deployment_name": "gpt-5",
+      "api_version": "2025-04-01-preview",
+      "supports_tools": true,
+      "description": "The primary level gpt-5 deployment for general tasks, highest costs of the gpt-5 family.",
+      "pricing": {
+        "input": 1.25,
+        "output": 10.00
+      }
+    }
   },
   
   "embedding_clients": {

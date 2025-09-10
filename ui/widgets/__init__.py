@@ -27,6 +27,9 @@ from .expandable_widgets import (
     FeedbackGuidelinesWidget,
 )
 
+# ─── MODEL SELECTION WIDGETS ────────────────────────────────────────────────────
+from .model_selector import ModelSelectorWidget
+
 # ─── EXPORT ALL WIDGETS ─────────────────────────────────────────────────────────
 __all__ = [
     # Progress widgets
@@ -50,4 +53,7 @@ __all__ = [
     "ExpandableFrame",
     "GuidelinesWidget",
     "FeedbackGuidelinesWidget",
+    
+    # Model selection widgets
+    "ModelSelectorWidget",
 ]

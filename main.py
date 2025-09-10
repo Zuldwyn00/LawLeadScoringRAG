@@ -64,10 +64,15 @@
 # TODO: Fix Clear All button functionality
 #   - Clear All button does nothing
 
+
+
+#TODO: Implement caching functionality for the processed_files, we will quickly hit a data issue if we try and push this to a full-production state. Just do the same thing we do for the s
+#the summaries, cache the results and use a hashing function.
+
 from multiprocessing import process
 
 import qdrant_client
-from scripts.filemanagement import (
+from scripts.file_management.filemanagement import (
     FileManager,
     ChunkData,
     apply_ocr,

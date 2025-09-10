@@ -14,7 +14,7 @@ import sys
 # Add the project root to the path so we can import our modules
 sys.path.append(str(Path(__file__).parent.parent))
 
-from scripts.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
+from scripts.file_management.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.clients import AzureClient, LeadScoringAgent, SummarizationAgent
 from scripts.clients.agents.utils.context_enrichment import CaseContextEnricher
 from scripts.clients.agents.scoring import (

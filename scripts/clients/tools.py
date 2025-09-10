@@ -2,7 +2,7 @@
 
 from typing import List, Callable
 from utils import count_tokens, setup_logger, load_config
-from scripts.filemanagement import get_text_from_file
+from scripts.file_management.filemanagement import get_text_from_file
 from .agents.utils.summarization_registry import get_summarization_client
 
 from langchain_core.tools import tool

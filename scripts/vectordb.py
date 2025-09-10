@@ -438,7 +438,6 @@ class QdrantManager:
             context_dict = {
                 "case_id": payload.get("case_id"),
                 "jurisdiction": payload.get("jurisdiction"),
-                "case_type": payload.get("case_type"),
                 "incident_date": payload.get("incident_date"),
                 "incident_location": payload.get("incident_location"),
                 "mentioned_locations": payload.get("mentioned_locations", []),
@@ -453,14 +452,7 @@ class QdrantManager:
                     "property_damage_mentioned", []
                 ),
                 "entities_mentioned": payload.get("entities_mentioned", []),
-                "insurance_mentioned": payload.get("insurance_mentioned"),
                 "witnesses_mentioned": payload.get("witnesses_mentioned"),
-                "prior_legal_representation_mentioned": payload.get(
-                    "prior_legal_representation_mentioned"
-                ),
-                "case_outcome": payload.get("case_outcome"),
-                "settlement_value": payload.get("settlement_value"),
-                "communication_channel": payload.get("communication_channel"),
                 "source": payload.get("source"),
                 "key_phrases": payload.get("key_phrases", []),
                 "summary": payload.get("summary"),

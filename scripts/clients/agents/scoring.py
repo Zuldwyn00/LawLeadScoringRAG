@@ -102,14 +102,15 @@ class LeadScoringAgent:
                 self.final_client.client.temperature = self.final_model_temperature
 
     def score_lead(
-        self, new_lead_description: str, case_ids: set[int]
+        self, new_lead_description: str, case_ids: set[int], historical_context: str
     ) -> tuple[str, str]:
         """
-        Scores a new lead using case IDs for context enrichment.
+        Scores a new lead using case IDs for context enrichment and historical context for additional metadata.
 
         Args:
             new_lead_description (str): A detailed description of the new lead.
             case_ids (set[int]): A set of case IDs to use for context enrichment.
+            historical_context (str): A formatted string containing search results with metadata like source, summary, etc.
 
         Returns:
             tuple[str, str]: A tuple containing (response_text, chat_log_filename).
@@ -128,7 +129,7 @@ class LeadScoringAgent:
 
         system_prompt_content = self.prompt
         self.logger.debug(
-            f"Token count: {count_tokens(new_lead_description) + count_tokens(system_prompt_content)}"
+            f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}"
         )
 
         # Create system message with the main prompt
@@ -141,11 +142,17 @@ class LeadScoringAgent:
         )
         initial_tool_usage_message = SystemMessage(content=initial_tool_usage_text)
 
+        # Create historical context as a separate system message
+        historical_context_message = SystemMessage(
+            content=f"**Historical Case Summaries for Reference:**\n{historical_context}"
+        )
+
         # Create user message with only the new lead description
         user_message = HumanMessage(content=new_lead_description)
         messages_to_send = [
             system_message,
             user_message,
+            historical_context_message,
             case_enriched_context_message,
             initial_tool_usage_message,
         ]
@@ -155,6 +162,7 @@ class LeadScoringAgent:
             [
                 system_message,
                 user_message,
+                historical_context_message,
                 case_enriched_context_message,
                 initial_tool_usage_message,
             ]

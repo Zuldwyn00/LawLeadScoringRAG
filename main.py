@@ -294,9 +294,12 @@ def score_test():
     # Extract case_ids directly from search_results
     case_ids = extract_case_ids_from_search_results(search_results)
 
+    # Get historical context for additional metadata like source
+    historical_context = qdrant_client.get_context(search_results)
+
     # score_lead now returns (analysis, chat_log_filename)
     final_analysis, chat_log_filename = scorer.score_lead(
-        new_lead_description=new_lead_description, case_ids=case_ids
+        new_lead_description=new_lead_description, case_ids=case_ids, historical_context=historical_context
     )
     # No need to call dump_chat_log here since score_lead already does it
     print(final_analysis)

@@ -274,7 +274,9 @@ class LeadScoringHandler:
                 progress_callback(
                     60, "📚 Retrieving historical context...", time.time() - start_time
                 )
-            historical_context = qdrant_manager.get_context(search_results)
+            # Extract case_ids directly from search_results
+            from scripts.clients.agents.scoring import extract_case_ids_from_search_results
+            case_ids = extract_case_ids_from_search_results(search_results)
 
             # Step 5: AI analysis with animation
             if progress_callback:
@@ -298,7 +300,7 @@ class LeadScoringHandler:
                 # score_lead now returns (analysis, chat_log_filename)
                 final_analysis, chat_log_filename = lead_scoring_client.score_lead(
                     new_lead_description=lead_description,
-                    historical_context=historical_context,
+                    case_ids=case_ids,
                 )
 
             finally:

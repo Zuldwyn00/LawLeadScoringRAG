@@ -102,14 +102,14 @@ class LeadScoringAgent:
                 self.final_client.client.temperature = self.final_model_temperature
 
     def score_lead(
-        self, new_lead_description: str, historical_context: str
+        self, new_lead_description: str, case_ids: set[int]
     ) -> tuple[str, str]:
         """
-        Scores a new lead by comparing it against historical data using a structured prompt.
+        Scores a new lead using case IDs for context enrichment.
 
         Args:
             new_lead_description (str): A detailed description of the new lead.
-            historical_context (str): A formatted string containing search results of similar historical cases.
+            case_ids (set[int]): A set of case IDs to use for context enrichment.
 
         Returns:
             tuple[str, str]: A tuple containing (response_text, chat_log_filename).
@@ -122,14 +122,13 @@ class LeadScoringAgent:
             None  # Reset the current lead score to ensure fresh scoring
         )
 
-        # Extract case_ids from historical_context
-        case_ids = extract_case_ids_from_historical_context(historical_context)
-        self.logger.debug("Extracted case_ids from historical_context: %s", case_ids)
+        # Use case_ids directly for context enrichment
+        self.logger.debug("Using case_ids for context enrichment: %s", case_ids)
         case_enriched_context_message = SystemMessage(content=self.context_enricher.build_context_message(case_ids))
 
         system_prompt_content = self.prompt
         self.logger.debug(
-            f"Token count: {count_tokens(new_lead_description) + count_tokens(historical_context) + count_tokens(system_prompt_content)}"
+            f"Token count: {count_tokens(new_lead_description) + count_tokens(system_prompt_content)}"
         )
 
         # Create system message with the main prompt
@@ -142,17 +141,11 @@ class LeadScoringAgent:
         )
         initial_tool_usage_message = SystemMessage(content=initial_tool_usage_text)
 
-        # Create historical context as a separate system message
-        historical_context_message = SystemMessage(
-            content=f"**Historical Case Summaries for Reference:**\n{historical_context}"
-        )
-
         # Create user message with only the new lead description
         user_message = HumanMessage(content=new_lead_description)
         messages_to_send = [
             system_message,
             user_message,
-            historical_context_message,
             case_enriched_context_message,
             initial_tool_usage_message,
         ]
@@ -162,7 +155,6 @@ class LeadScoringAgent:
             [
                 system_message,
                 user_message,
-                historical_context_message,
                 case_enriched_context_message,
                 initial_tool_usage_message,
             ]
@@ -511,32 +503,28 @@ class LeadScoringAgent:
         return final_lead
 
 
-def extract_case_ids_from_historical_context(historical_context: str) -> set[int]:
+def extract_case_ids_from_search_results(search_results: list) -> set[int]:
     """
-    Extract all case_ids from the historical_context JSON string.
+    Extract all case_ids directly from the search results.
 
     Args:
-        historical_context (str): A JSON string containing a list of case dictionaries.
+        search_results (list): A list of search results from the vector database.
 
     Returns:
-        set[int]: A set of unique case_ids found in the historical context.
+        set[int]: A set of unique case_ids found in the search results.
     """
     case_ids = set()
     
     try:
-        # Parse the JSON string to get the list of case dictionaries
-        cases = json.loads(historical_context)
-        
-        # Extract case_id from each case dictionary
-        for case in cases:
-            if isinstance(case, dict) and "case_id" in case:
-                case_id = case["case_id"]
-                if case_id is not None:
-                    # Convert to integer to ensure consistent type
-                    case_ids.add(int(case_id))
+        for result in search_results:
+            payload = result.payload
+            case_id = payload.get("case_id")
+            if case_id is not None:
+                # Convert to integer to ensure consistent type
+                case_ids.add(int(case_id))
                     
-    except (json.JSONDecodeError, TypeError, ValueError) as e:
-        # If parsing fails, return empty set
+    except (TypeError, ValueError, AttributeError) as e:
+        # If extraction fails, return empty set
         # Could add logging here if needed
         pass
     

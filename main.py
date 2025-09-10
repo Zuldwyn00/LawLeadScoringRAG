@@ -91,6 +91,8 @@ from scripts.clients import (
     MetadataAgent,
     AzureClient,
 )
+
+from scripts.clients.agents.scoring import extract_case_ids_from_search_results
 from scripts.clients.agents.utils import CaseContextEnricher
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
@@ -289,11 +291,12 @@ def score_test():
         limit=chunk_limit,
     )
 
-    historical_context = qdrant_client.get_context(search_results)
+    # Extract case_ids directly from search_results
+    case_ids = extract_case_ids_from_search_results(search_results)
 
     # score_lead now returns (analysis, chat_log_filename)
     final_analysis, chat_log_filename = scorer.score_lead(
-        new_lead_description=new_lead_description, historical_context=historical_context
+        new_lead_description=new_lead_description, case_ids=case_ids
     )
     # No need to call dump_chat_log here since score_lead already does it
     print(final_analysis)
@@ -361,7 +364,8 @@ def test_case_enrichment(case_id: int):
 
 
 def main():
-    jurisdiction_score_test()
+    ids = {2500209, 2500191}
+    test_case_enrichment(ids)
 
 if __name__ == "__main__":
     main()

@@ -275,7 +275,8 @@ class JurisdictionScoreManager:
 
     def bayesian_shrinkage(self, jurisdiction_case_counts: dict) -> dict:
         """
-        Apply Bayesian shrinkage to jurisdiction scores to handle sample size bias.
+        Apply Bayesian shrinkage to jurisdiction scores to handle sample size bias
+        Running this overwrites the original data in the jurisdiction_scores.json file with the new values from this function.
 
         Args:
             jurisdiction_case_counts: Dict mapping jurisdiction names to lists of case IDs
@@ -287,6 +288,8 @@ class JurisdictionScoreManager:
             Conservative factor is loaded from config at jurisdiction_scoring.bayesian_shrinkage.conservative_factor
             Higher values = more conservative = more shrinkage toward global average
         """
+        #TODO: This shouldnt overwrite the original data, we should change this to only return the dict and we handle saving seperately, for now we dont really need to as
+        # this is never really used outside of here and we arent needing to track that original data for now, easy enough to change later though so not a priority.
         self.logger.info("Starting Bayesian shrinkage adjustment...")
 
         # Step 1: Load existing jurisdiction scores (raw averages)

@@ -2,7 +2,7 @@
 
 from typing import List, Callable
 from utils import count_tokens, setup_logger, load_config
-from scripts.file_management.filemanagement import get_text_from_file
+from scripts.file_management.filemanagement import get_text_from_file, resolve_relative_path
 from .agents.utils.summarization_registry import get_summarization_client
 
 from langchain_core.tools import tool
@@ -135,7 +135,7 @@ def get_file_context(filepath: str, token_threshold: int = 1000) -> tuple:
     if it surpasses token_threshold.
 
     Args:
-        filepath (str): Path to the file to read.
+        filepath (str): Path to the file to read (can be relative or absolute).
         token_threshold (int): Maximum tokens allowed before summarization client is triggered
 
     Returns:
@@ -144,7 +144,9 @@ def get_file_context(filepath: str, token_threshold: int = 1000) -> tuple:
                - token_count (int): Number of tokens in the content, or 0 on error
     """
     try:
-        parsed = get_text_from_file(filepath)
+        # Convert relative paths to absolute paths
+        absolute_filepath = resolve_relative_path(filepath)
+        parsed = get_text_from_file(absolute_filepath)
         if not parsed or "content" not in parsed:
             error_msg = f"Warning: No content found in file: {filepath}"
             logger.warning(error_msg)
@@ -164,8 +166,8 @@ def get_file_context(filepath: str, token_threshold: int = 1000) -> tuple:
                 token_threshold,
             )
 
-            # Use summarization client with caching support
-            content = summarization_client.summarize_text(content, source_file=filepath)
+            # Use summarization client with caching support  
+            content = summarization_client.summarize_text(content, source_file=absolute_filepath)
             token_count = count_tokens(content)
         else:
             logger.info(

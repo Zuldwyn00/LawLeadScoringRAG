@@ -386,3 +386,126 @@ class ChunkData:
             value (str): The case ID to set.
         """
         self.case_id = value
+
+
+def move_case_files_to_case_data(source_folder_path: str, case_id: int) -> str:
+    """
+    Moves PDF files from source folder to case_data/{case_id}/ directory.
+    
+    Args:
+        source_folder_path (str): Path to the source folder containing PDFs
+        case_id (int): The case ID to use for the destination folder name
+        
+    Returns:
+        str: Path to the new case folder in case_data directory
+        
+    Raises:
+        Exception: If moving files fails
+    """
+    import shutil
+    
+    source_path = Path(source_folder_path)
+    case_data_base = Path(config['directories']['case_data'])
+    case_folder = case_data_base / str(case_id)
+    
+    # Create case folder if it doesn't exist
+    case_folder.mkdir(parents=True, exist_ok=True)
+    logger.info("Created case folder: %s" % case_folder)
+    
+    # Find PDF files in source folder
+    pdf_files = list(source_path.glob("*.pdf"))
+    
+    if not pdf_files:
+        logger.warning("No PDF files found in %s" % source_folder_path)
+        return str(case_folder)
+    
+    print("Moving %s PDF files to case_data folder..." % len(pdf_files))
+    
+    # Move each PDF file
+    for pdf_file in pdf_files:
+        destination_file = case_folder / pdf_file.name
+        
+        # If file already exists in destination, skip it
+        if destination_file.exists():
+            logger.info("File already exists in destination, skipping: %s" % pdf_file.name)
+            continue
+            
+        try:
+            shutil.move(str(pdf_file), str(destination_file))
+            logger.info("Moved %s to %s" % (pdf_file.name, destination_file))
+        except Exception as e:
+            logger.error("Failed to move %s: %s" % (pdf_file.name, e))
+            raise
+    
+    # Also copy the file_list folder for the XLSX metadata
+    file_list_source = source_path / "file_list"
+    file_list_dest = case_folder / "file_list"
+    
+    if file_list_source.exists() and file_list_source.is_dir():
+        if not file_list_dest.exists():
+            shutil.copytree(str(file_list_source), str(file_list_dest))
+            logger.info("Copied file_list folder to %s" % file_list_dest)
+        else:
+            logger.info("file_list folder already exists in destination")
+    
+    print("✓ Successfully moved files to %s" % case_folder)
+    return str(case_folder)
+
+
+def get_relative_path(file_path: Path) -> str:
+    """
+    Creates a relative path from the project root for a given file path.
+    This ensures portability across different computers.
+    
+    Args:
+        file_path (Path): The absolute path to the file
+        
+    Returns:
+        str: Relative path from project root, or fallback path if conversion fails
+    """
+    project_root = Path.cwd()  # Current working directory (project root)
+    try:
+        return str(file_path.relative_to(project_root))
+    except ValueError:
+        # If file is not under project root, use relative to case_data directory
+        case_data_base = Path(config['directories']['case_data'])
+        try:
+            return str(file_path.relative_to(case_data_base.parent))
+        except ValueError:
+            # Fallback to just filename if all else fails
+            logger.warning("Could not create relative path for '%s', using filename only" % str(file_path))
+            return str(file_path.name)
+
+
+def resolve_relative_path(relative_path: str) -> str:
+    """
+    Converts a relative path back to an absolute path for file access.
+    Complements get_relative_path() function.
+    
+    Args:
+        relative_path (str): Relative file path (as stored in metadata)
+        
+    Returns:
+        str: Absolute file path
+        
+    Raises:
+        FileNotFoundError: If file cannot be found
+    """
+    file_path = Path(relative_path)
+    
+    # If already absolute, return as-is
+    if file_path.is_absolute():
+        if file_path.exists():
+            return str(file_path)
+        else:
+            raise FileNotFoundError("File not found: '%s'" % relative_path)
+    
+    # Try relative to project root first
+    project_root = Path.cwd()
+    absolute_path = project_root / file_path
+    if absolute_path.exists():
+        return str(absolute_path)
+    
+    # If not found, assume it's in the expected case_data location
+    # This handles the case where files have been moved to case_data structure
+    raise FileNotFoundError("File not found: '%s'" % relative_path)

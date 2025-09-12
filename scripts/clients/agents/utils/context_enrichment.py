@@ -38,7 +38,8 @@ class CaseContextEnricher:
         context_messages = []
         #read excel file sets as a self value for excel_processor as the current_dataframe, though we could also use the returned dataframe
         # as an input if we want.
-        self.excel_processor.read(r'C:\Users\Justin\Downloads\webDGCase.xlsx') #TODO: Require dataframe as an input instead possibly
+        filepath = self.config.get('lead_scoring', {}).get('case_enrichment', {}).get('primary_case_data_pdf_location')
+        self.excel_processor.read(filepath) #TODO: Require dataframe as an input instead possibly
         for case_id in case_ids:
             try:
                 # Get case data from Excel processor

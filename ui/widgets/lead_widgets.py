@@ -171,7 +171,21 @@ class LeadItem(ctk.CTkFrame):
             font=FONTS()["small_button"],
             command=self.toggle_description,
         )
-        self.view_description_btn.pack(side="left")
+        self.view_description_btn.pack(side="left", padx=(0, 10))
+
+        # View Chat History button - only for non-example leads with valid chat log
+        if not self.lead.get("is_example", False) and self.current_chat_log:
+            self.view_chat_history_btn = ctk.CTkButton(
+                button_frame,
+                text="💬 View Chat History",
+                fg_color=COLORS["tertiary_black"],
+                hover_color=COLORS["border_gray"],
+                border_color=COLORS["border_gray"],
+                border_width=2,
+                font=FONTS()["small_button"],
+                command=self.view_chat_history,
+            )
+            self.view_chat_history_btn.pack(side="left")
 
         # Save feedback button (initially hidden) - include test feedback button for examples
         feedback_button_text = (
@@ -570,3 +584,19 @@ class LeadItem(ctk.CTkFrame):
             else:
                 # Hide the save button
                 self.save_feedback_btn.pack_forget()
+
+    def view_chat_history(self):
+        """Open the chat history dialog for this lead."""
+        if not self.current_chat_log:
+            messagebox.showwarning("No Chat History", "No chat log file available for this lead.")
+            return
+
+        try:
+            # Import the dialog class
+            from ..dialogs import ChatHistoryDialog
+            
+            # Open the chat history dialog
+            dialog = ChatHistoryDialog(self.winfo_toplevel(), self.current_chat_log)
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open chat history: {str(e)}")

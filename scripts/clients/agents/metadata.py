@@ -7,7 +7,9 @@ import json
 from ..base import BaseClient
 from utils import load_prompt, count_tokens, setup_logger, load_config
 
+from warnings import deprecated
 
+@deprecated("Redundant, we now use the excel_processor instead to get real data rather than LLM defined incorrect data.")
 class MetadataAgent:
     """
     An agent for extracting specific metadata fields in a specified format with an LLM.
@@ -27,7 +29,7 @@ class MetadataAgent:
         self.logger.info(
             "Initialized %s with %s", self.__class__.__name__, client.__class__.__name__
         )
-
+    @deprecated("Redundant, we now use the excel_processor instead to get real data rather than LLM defined incorrect data.")
     def define_metadata(self, text: str, filepath: str, case_id: str, retries: int = 2):
         self.rate_limit_flag = False
         if (
@@ -75,7 +77,7 @@ class MetadataAgent:
         raise Exception(
             f"Failed to extract metadata for {filepath} after {retries} attempts."
         )
-
+    @deprecated("Redundant, we now use the excel_processor instead to get real data rather than LLM defined incorrect data.")
     def wait_for_rate_limit(self, seconds_to_wait: int = 120) -> None:
         """
         Waits for a specified amount of time to avoid rate limiting, defaults to 120 seconds.

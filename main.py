@@ -79,6 +79,7 @@ from scripts.file_management.filemanagement import (
     get_text_from_file,
     discover_case_folders,
 )
+from scripts.file_management.excel_processor import ExcelProcessor
 from scripts.vectordb import QdrantManager
 from scripts.jurisdictionscoring import JurisdictionScoreManager
 from pathlib import Path
@@ -213,11 +214,13 @@ def process_all_case_folders(main_folder_path: str) -> None:
             try:
                 # Apply OCR to all PDF files in the folder first
                 print("Applying OCR to PDF files in %s..." % folder_name)
-                run_ocr_on_folder(folder_path)
+                #run_ocr_on_folder(folder_path)
                 print("✓ OCR processing completed for %s" % folder_name)
                 
+                #get dataframe for XLSX document list file
+                
                 # Call embedding_test for this folder
-                embedding_test(folder_path, case_id)
+                test_file_embedding_new(folder_path, case_id)
                 print("✓ Successfully processed %s" % folder_name)
 
             except Exception as e:
@@ -363,6 +366,87 @@ def test_case_enrichment(case_id: int):
     qdrant_client = QdrantManager()
     context_enricher = CaseContextEnricher(qdrant_client)
     print(context_enricher.build_context_message(case_id))
+
+def test_file_embedding_new(filepath: str, case_id: int):
+    ensure_directories()
+    embedding_agent = AzureClient(client_config="text_embedding_3_large")
+    filemanager = FileManager()
+    qdrantmanager = QdrantManager()
+    excel_processor = ExcelProcessor()
+
+    vector_config = {
+        "chunk": models.VectorParams(size=3072, distance=models.Distance.COSINE),
+    }
+    qdrantmanager.create_collection("case_files_large2", vector_config=vector_config)
+    files = find_files(Path(filepath))
+    progress = len(files)
+    print(f"Found {progress} files")
+    processed_files_data = load_from_json()
+    
+    # Find the XLSX file in the nested 'file_list' folder
+    file_list_path = Path(filepath) / 'file_list'
+    xlsx_files = list(file_list_path.glob('*.xlsx'))
+    print(f"DEBUG: Found {len(xlsx_files)} XLSX files: {[str(f) for f in xlsx_files]}")
+    if len(xlsx_files) != 1:
+        raise ValueError(f"Expected exactly 1 XLSX file in {file_list_path}, found {len(xlsx_files)}")
+    xlsx_filepath = xlsx_files[0]
+    print(f"DEBUG: Using XLSX file: {xlsx_filepath}")
+
+    dataframe = excel_processor.read(str(xlsx_filepath))
+    print(f"DEBUG: Successfully loaded dataframe with {len(dataframe)} rows")
+
+    for file in files:
+        filename_str = str(file)
+
+        #CHECK IF COMPLETED _________
+        if (
+            processed_files_data.get(str(case_id))
+            and filename_str in processed_files_data[str(case_id)]
+        ):
+            progress -= 1
+            print(f"Skipping already processed file: {file.name}")
+            continue
+        print(f"Processing file {file.name}")
+        #______________________________
+
+        # Remove file extension for Excel lookup
+        filename_metadata = excel_processor.get_row_filename(file.stem, dataframe)
+        filename_metadata.pop('File Name')
+
+        file_text = get_text_from_file(str(file))
+        file_chunks = filemanager.text_splitter(file_text)
+
+        embeddings = []
+        metadatas = []
+        
+        for i, chunk in enumerate(file_chunks):
+            chunk_embedding = embedding_agent.get_embeddings(chunk.page_content)
+            
+            chunk_metadata = {
+                 "case_id": case_id,
+                 "source": str(file),
+                **filename_metadata
+            }
+            
+            embeddings.append(chunk_embedding)
+            metadatas.append(chunk_metadata)
+
+        qdrantmanager.add_embeddings_batch(
+            collection_name="case_files_large2",
+            embeddings=embeddings,
+            metadatas=metadatas,
+            vector_name="chunk",
+        )
+        print(f"Added {len(embeddings)} embeddings to Qdrant for {file.stem}")
+
+        if str(case_id) not in processed_files_data:
+            processed_files_data[str(case_id)] = []
+
+        processed_files_data[str(case_id)].append(filename_str)
+        save_to_json(processed_files_data)
+        progress -= 1
+        print(f"Progress: {len(files) - progress}/{len(files)}")
+        print(f"Finished processing and marked {file.name} as complete.")
 
 
 def main():

@@ -13,6 +13,7 @@ from tika import parser
 import tiktoken
 import os
 
+from warnings import deprecated
 # ─── LOCAL IMPORTS ──────────────────────────────────────────────────────────────────
 from utils import load_config, setup_logger
 
@@ -100,12 +101,13 @@ def get_text_from_file(filepath: str, **kwargs):
 
 def discover_case_folders(main_folder_path: str) -> List[Tuple[str, int]]:
     """
-    Discovers all case subfolders and extracts case IDs from filenames.
+    Discovers all case subfolders and extracts case IDs from XLSX files in file_list folders.
 
     This function scans a main folder containing subfolders of case documents.
-    Each subfolder contains files named with a case ID prefix (e.g., "1989212 04-24-2024 (1).pdf"
-    or "1989212 04-24-2024.docx"). Supports PDF, DOC, and DOCX files.
-    All files in a subfolder share the same case ID.
+    Each subfolder contains document files (PDF, DOC, DOCX) and a nested "file_list" folder 
+    with an XLSX file that has the case ID as a prefix in its filename 
+    (e.g., "2500207 - Lorraine Richards v. Tiffany Cruz - DocumentsDocuments.xlsx").
+    The case ID is extracted from this XLSX filename.
 
     Args:
         main_folder_path (str): Path to the main folder containing case subfolders
@@ -115,7 +117,7 @@ def discover_case_folders(main_folder_path: str) -> List[Tuple[str, int]]:
 
     Raises:
         FileNotFoundError: If the main folder doesn't exist
-        ValueError: If no valid case ID can be extracted from any files in a subfolder
+        ValueError: If no valid case ID can be extracted from any XLSX files in file_list folders
     """
     main_path = Path(main_folder_path)
 
@@ -147,14 +149,13 @@ def discover_case_folders(main_folder_path: str) -> List[Tuple[str, int]]:
             )
             continue
 
-        # Extract case ID from the first document file (all should have the same case ID)
-        first_file = document_files[0]
-        case_id = extract_case_id_from_filename(first_file.name)
+        # Extract case ID from XLSX file in file_list folder
+        case_id = extract_case_id_from_file_list(subfolder)
 
         if case_id is None:
             logger.warning(
-                "Could not extract case ID from %s, skipping folder %s"
-                % (first_file.name, subfolder.name)
+                "Could not extract case ID from file_list folder, skipping %s"
+                % subfolder.name
             )
             continue
 
@@ -167,12 +168,73 @@ def discover_case_folders(main_folder_path: str) -> List[Tuple[str, int]]:
     return case_folders
 
 
+def extract_case_id_from_file_list(subfolder_path: Path) -> int | None:
+    """
+    Extracts the case ID from an XLSX file in a nested file_list folder.
+
+    This function looks for a 'file_list' subfolder within the given folder,
+    finds XLSX files in it, and extracts the case ID from the first XLSX filename.
+
+    Args:
+        subfolder_path (Path): Path to the case subfolder containing the file_list folder
+
+    Returns:
+        int | None: The extracted case ID, or None if no valid case ID found
+
+    Raises:
+        None: Function handles all exceptions internally and returns None on failure
+    """
+    try:
+        # Look for the nested file_list folder
+        file_list_path = subfolder_path / "file_list"
+        if not file_list_path.exists() or not file_list_path.is_dir():
+            logger.warning(
+                "No 'file_list' folder found in %s" % subfolder_path.name
+            )
+            return None
+
+        # Get all XLSX files in the file_list folder
+        xlsx_files = list(file_list_path.glob("*.xlsx"))
+
+        if not xlsx_files:
+            logger.warning(
+                "No XLSX files found in file_list folder of %s"
+                % subfolder_path.name
+            )
+            return None
+
+        # Extract case ID from the first XLSX file
+        first_xlsx = xlsx_files[0]
+        case_id = extract_case_id_from_filename(first_xlsx.name)
+
+        if case_id is None:
+            logger.warning(
+                "Could not extract case ID from %s in folder %s"
+                % (first_xlsx.name, subfolder_path.name)
+            )
+            return None
+
+        logger.debug(
+            "Extracted case ID %s from %s in %s"
+            % (case_id, first_xlsx.name, subfolder_path.name)
+        )
+        return case_id
+
+    except Exception as e:
+        logger.error(
+            "Error extracting case ID from file_list in %s: %s"
+            % (subfolder_path.name, str(e))
+        )
+        return None
+
+
 def extract_case_id_from_filename(filename: str) -> int | None:
     """
     Extracts the case ID from a filename.
 
     Case IDs are expected to be at the beginning of the filename,
-    followed by a space (e.g., "1989212 04-24-2024 (1).pdf").
+    followed by a space or other separator (e.g., "1989212 04-24-2024 (1).pdf" 
+    or "2500207 - Lorraine Richards v. Tiffany Cruz - DocumentsDocuments.xlsx").
 
     Args:
         filename (str): The filename to extract the case ID from
@@ -224,7 +286,7 @@ class FileManager:
         logger.debug(f"Split into {len(chunks)} chunks.")
         return chunks
 
-
+@deprecated("Redundant and overcomplicated, use a list of dicts like in main.")
 class ChunkData:
     def __init__(self):
         logger.debug("Initializing ChunkData object.")
@@ -234,6 +296,7 @@ class ChunkData:
         self.embeddings = []
         self.case_id = ""
 
+    @deprecated("Do not use ChunkData anymore")
     def get_text(self) -> str:
         """
         Returns the text content.
@@ -242,7 +305,7 @@ class ChunkData:
             str: The text content.
         """
         return self.text
-
+    @deprecated("Do not use ChunkData anymore")
     def set_text(self, value: str) -> None:
         """
         Sets the text content.
@@ -251,7 +314,7 @@ class ChunkData:
             value (str): The text to set.
         """
         self.text = value
-
+    @deprecated("Do not use ChunkData anymore")
     def get_source(self) -> str:
         """
         Returns the source.
@@ -260,7 +323,7 @@ class ChunkData:
             str: The source.
         """
         return self.source
-
+    @deprecated("Do not use ChunkData anymore")
     def set_source(self, value: str) -> None:
         """
         Sets the source.
@@ -269,7 +332,7 @@ class ChunkData:
             value (str): The source to set.
         """
         self.source = value
-
+    @deprecated("Do not use ChunkData anymore")
     def get_metadata(self) -> dict:
         """
         Returns the metadata.
@@ -278,7 +341,7 @@ class ChunkData:
             dict: The metadata dictionary.
         """
         return self.metadata
-
+    @deprecated("Do not use ChunkData anymore")
     def set_metadata(self, value: dict) -> None:
         """
         Sets the metadata.
@@ -287,7 +350,7 @@ class ChunkData:
             value (dict): The metadata dictionary to set.
         """
         self.metadata = value
-
+    @deprecated("Do not use ChunkData anymore")
     def get_embeddings(self) -> list:
         """
         Returns the embeddings.
@@ -296,7 +359,7 @@ class ChunkData:
             list: The embeddings list.
         """
         return self.embeddings
-
+    @deprecated("Do not use ChunkData anymore")
     def set_embeddings(self, value: list) -> None:
         """
         Sets the embeddings.
@@ -305,7 +368,7 @@ class ChunkData:
             value (list): The embeddings list to set.
         """
         self.embeddings = value
-
+    @deprecated("Do not use ChunkData anymore")
     def get_case_id(self) -> str:
         """
         Returns the case ID.
@@ -314,7 +377,7 @@ class ChunkData:
             str: The case ID.d
         """
         return self.case_id
-
+    @deprecated("Do not use ChunkData anymore")
     def set_case_id(self, value: str) -> None:
         """
         Sets the case ID.

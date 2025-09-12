@@ -1,6 +1,4 @@
 # ─── STANDARD LIBRARY IMPORTS ──────────────────────────────────────────────────────
-from pathlib import Path
-from typing import Dict, Any, List, Union, Optional
 
 # ─── THIRD-PARTY IMPORTS ────────────────────────────────────────────────────────────
 import pandas as pd
@@ -8,10 +6,6 @@ import pandas as pd
 # ─── LOCAL IMPORTS ──────────────────────────────────────────────────────────────────
 from utils import load_config, setup_logger
 
-
-# ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
-config = load_config()
-logger = setup_logger(__name__, config)
 
 
 # ─── EXCEL PROCESSING CLASS ─────────────────────────────────────────────────────────
@@ -25,25 +19,42 @@ class ExcelProcessor:
     
     def __init__(self):
         """Initialize the ExcelProcessor with configuration and logging."""
-        self.config = config
-        logger.info("ExcelProcessor initialized successfully")
-
-        self.df = None
+        self.config = load_config()
+        self.logger = setup_logger(__name__, self.config)
+        self.logger.info("ExcelProcessor initialized successfully")
 
     def read(self, filepath: str):
         dataframe = pd.read_excel(filepath)
-        self.df = dataframe
         return dataframe
     
-    def get_row_caseid(self, caseid: int, df:pd.DataFrame = None):
+    def get_row_filename(self, filename: str, df:pd.DataFrame) -> dict:
         if df is None:
+            self.logger.debug("No dataframe given as value, using 'self.df' as dataframe.")
             df = self.df
-
-        result = df.loc[df['Case No'] == caseid]
+        
+        result = df.loc[df['File Name'] == filename]
 
         if not result.empty:
+            row_data = result.to_dict(orient = 'records')[0]
+            self.logger.info("Filename '%s' found in dataframe, returning row_data.", filename)
+            return row_data
+        else:
+            self.logger.error("Filename '%s' could not be found in dataframe, returning 'None'.", filename)
+            return None
+    
+    def get_row_caseid(self, case_id: int, df:pd.DataFrame = None):
+        if df is None:
+            self.logger.debug("No dataframe given as value, using 'self.df' as dataframe.")
+            df = self.df
+
+        result = df.loc[df['Case No'] == case_id]
+
+        if not result.empty:
+            self.logger.info("Case ID '%i' found in dataframe, returning row_data.", case_id)
             #create a nested dict structure
             row_data = result.to_dict(orient = 'records')[0]
             return row_data
         else:
+            self.logger.info("Case ID '%i' could not be found in dataframe, returning 'None'.", case_id)
             return None
+    

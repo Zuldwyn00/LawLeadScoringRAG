@@ -36,14 +36,13 @@ class CaseContextEnricher:
             case_ids = {case_ids}
         
         context_messages = []
-        #read excel file sets as a self value for excel_processor as the current_dataframe, though we could also use the returned dataframe
-        # as an input if we want.
+
         filepath = self.config.get('lead_scoring', {}).get('case_enrichment', {}).get('primary_case_data_pdf_location')
-        self.excel_processor.read(filepath) #TODO: Require dataframe as an input instead possibly
+        dataframe = self.excel_processor.read(filepath)
         for case_id in case_ids:
             try:
                 # Get case data from Excel processor
-                case_data = self.excel_processor.get_row_caseid(case_id)
+                case_data = self.excel_processor.get_row_caseid(case_id, dataframe)
                 
                 if case_data:
                     context_messages.append(case_data)

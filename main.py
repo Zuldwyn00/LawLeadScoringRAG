@@ -78,6 +78,9 @@ from scripts.file_management.filemanagement import (
     apply_ocr,
     get_text_from_file,
     discover_case_folders,
+    move_case_files_to_case_data,
+    get_relative_path,
+    resolve_relative_path,
 )
 from scripts.file_management.excel_processor import ExcelProcessor
 from scripts.vectordb import QdrantManager
@@ -137,7 +140,7 @@ def embedding_test(filepath: str, case_id: int):
 
             datachunk = ChunkData()
             datachunk.set_case_id(case_id)
-            datachunk.set_source(str(file))
+            datachunk.set_source(get_relative_path(file))
             datachunk.set_text(chunk.page_content)
 
             chunk_metadata = metadata_agent.define_metadata(
@@ -174,8 +177,8 @@ def process_all_case_folders(main_folder_path: str) -> None:
     Automatically processes all case folders in a main directory.
 
     This function discovers all subfolders containing case documents,
-    extracts the case ID from filenames, and runs embedding_test
-    for each folder automatically.
+    extracts the case ID from filenames, moves PDF files to case_data/{case_id}/ 
+    folders, and runs embedding_test for each folder automatically.
 
     Args:
         main_folder_path (str): Path to the main folder containing case subfolders
@@ -186,9 +189,8 @@ def process_all_case_folders(main_folder_path: str) -> None:
 
         This will automatically process:
         - testdocsmain/testdocs/ with case_id extracted from filenames
-        - testdocsmain/testdocs2/ with case_id extracted from filenames
-        - testdocsmain/testdocs3/ with case_id extracted from filenames
-        - etc.
+        - Move PDFs to scripts/data/case_data/{case_id}/
+        - Process files from the new location
     """
     try:
         # Discover all case folders and their case IDs
@@ -208,19 +210,21 @@ def process_all_case_folders(main_folder_path: str) -> None:
             print("\n" + "=" * 60)
             print("Processing folder %s/%s: %s" % (i, len(case_folders), folder_name))
             print("Case ID: %s" % case_id)
-            print("Path: %s" % folder_path)
+            print("Original Path: %s" % folder_path)
             print("=" * 60)
 
             try:
-                # Apply OCR to all PDF files in the folder first
-                print("Applying OCR to PDF files in %s..." % folder_name)
-                #run_ocr_on_folder(folder_path)
-                print("✓ OCR processing completed for %s" % folder_name)
+                # Move PDF files to case_data folder structure
+                case_data_folder = move_case_files_to_case_data(folder_path, case_id)
+                print("✓ Files moved to case_data folder: %s" % case_data_folder)
                 
-                #get dataframe for XLSX document list file
+                # Apply OCR to all PDF files in the new location
+                print("Applying OCR to PDF files in case_data folder...")
+                #run_ocr_on_folder(case_data_folder)
+                print("✓ OCR processing completed")
                 
-                # Call embedding_test for this folder
-                test_file_embedding_new(folder_path, case_id)
+                # Call embedding_test for the new folder location
+                test_file_embedding_new(case_data_folder, case_id)
                 print("✓ Successfully processed %s" % folder_name)
 
             except Exception as e:
@@ -396,7 +400,8 @@ def test_file_embedding_new(filepath: str, case_id: int):
     print(f"DEBUG: Successfully loaded dataframe with {len(dataframe)} rows")
 
     for file in files:
-        filename_str = str(file)
+        # Create relative path for processed files tracking
+        filename_str = get_relative_path(file)
 
         #CHECK IF COMPLETED _________
         if (
@@ -422,9 +427,12 @@ def test_file_embedding_new(filepath: str, case_id: int):
         for i, chunk in enumerate(file_chunks):
             chunk_embedding = embedding_agent.get_embeddings(chunk.page_content)
             
+            # Create relative path from project root
+            relative_source = get_relative_path(file)
+            
             chunk_metadata = {
                  "case_id": case_id,
-                 "source": str(file),
+                 "source": relative_source,
                 **filename_metadata
             }
             

@@ -4,6 +4,7 @@ import re
 import json
 
 from scripts.clients.utils.chatlog import dump_chat_log
+from scripts.file_management.excel_processor import ExcelProcessor
 
 from ..base import BaseClient
 from ..azure import AzureClient

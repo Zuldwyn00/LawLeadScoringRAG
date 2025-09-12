@@ -36,7 +36,9 @@ class CaseContextEnricher:
             case_ids = {case_ids}
         
         context_messages = []
-        excel_data = self.excel_processor.read(r'C:\Users\Justin\Downloads\webDGCase.xlsx') #TODO: Require dataframe as an input instead possibly
+        #read excel file sets as a self value for excel_processor as the current_dataframe, though we could also use the returned dataframe
+        # as an input if we want.
+        self.excel_processor.read(r'C:\Users\Justin\Downloads\webDGCase.xlsx') #TODO: Require dataframe as an input instead possibly
         for case_id in case_ids:
             try:
                 # Get case data from Excel processor

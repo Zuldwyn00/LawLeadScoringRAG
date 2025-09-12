@@ -56,7 +56,7 @@ class JurisdictionScoreManager:
 
         Args:
             jurisdiction_cases (list): List of case dictionaries containing settlement
-                and metadata information from get_cases_by_jurisdiction.
+                and metadata information
 
         Returns:
             dict: Contains jurisdiction_score (weighted average settlement),

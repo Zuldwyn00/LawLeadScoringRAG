@@ -6,6 +6,7 @@ from qdrant_client.http.exceptions import ResponseHandlingException
 from typing import List, Dict, Any
 import uuid
 import json
+from warnings import deprecated
 
 from utils import load_config, setup_logger
 
@@ -157,77 +158,7 @@ class QdrantManager:
         except Exception as e:
             raise Exception(f"Error searching vectors: {e}")
 
-    def get_case_settlements(
-        self, jurisdiction_cases: List[Dict[str, Any]]
-    ) -> Dict[str, Dict[str, Any]]:
-        """
-        Extract case IDs and their associated settlement values with corresponding sources from jurisdiction case data.
-
-        Args:
-            jurisdiction_cases (List[Dict[str, Any]]): List of case metadata dicts from get_cases_by_jurisdiction()
-
-        Returns:
-            Dict[str, Dict[str, Any]]: Dictionary where keys are case_ids and values are dicts containing:
-                                      - 'settlement_data': List of dicts with 'value' and 'source' for each settlement
-                                      - 'case_count': Number of chunks for this case
-        """
-        case_data = {}
-        processed_count = 0
-        skipped_count = 0
-
-        for case_metadata in jurisdiction_cases:
-            case_id = case_metadata.get("case_id")
-            settlement_value = case_metadata.get("settlement_value")
-            source = case_metadata.get("source") or case_metadata.get(
-                "communication_channel"
-            )
-
-            # Skip cases without case_id
-            if not case_id:
-                skipped_count += 1
-                continue
-
-            # Initialize case entry if it doesn't exist
-            if case_id not in case_data:
-                case_data[case_id] = {"settlement_data": [], "case_count": 0}
-
-            # Increment case count (number of chunks/entries for this case)
-            case_data[case_id]["case_count"] += 1
-
-            # Handle settlement_value with its source
-            if (
-                settlement_value is not None
-                and settlement_value != "null"
-                and settlement_value != ""
-            ):
-                try:
-                    settlement_numeric = float(settlement_value)
-                    if settlement_numeric > 0:
-                        settlement_entry = {
-                            "value": settlement_value,
-                            "source": source or "unknown",
-                        }
-
-                        # Add settlement entry if this exact combination doesn't already exist
-                        if (
-                            settlement_entry
-                            not in case_data[case_id]["settlement_data"]
-                        ):
-                            case_data[case_id]["settlement_data"].append(
-                                settlement_entry
-                            )
-                            processed_count += 1
-                except (ValueError, TypeError):
-                    # Skip invalid settlement values that can't be converted to numbers
-                    pass
-
-        logger.info(
-            f"Processed {processed_count} settlement entries, skipped {skipped_count} cases without case_id"
-        )
-        logger.info(f"Found {len(case_data)} unique case IDs")
-
-        return case_data
-
+    @deprecated("Transfer to begin using the excel table to retrieve case data that isnt the documents.")
     def get_cases_by_jurisdiction(
         self, collection_name: str, jurisdiction: str
     ) -> List[Dict[str, Any]]:
@@ -291,6 +222,7 @@ class QdrantManager:
             )
             raise Exception(f"Error retrieving cases by jurisdiction: {e}")
 
+    @deprecated("Transfer to begin using the excel table to retrieve case data that isnt the documents.")
     def get_all_case_ids_by_jurisdiction(
         self, collection_name: str
     ) -> Dict[str, List[str]]:
@@ -369,57 +301,6 @@ class QdrantManager:
                 f"Error retrieving case IDs by jurisdiction from collection '{collection_name}': {e}"
             )
             raise Exception(f"Error retrieving case IDs by jurisdiction: {e}")
-
-    def get_chunks_by_caseid(self, case_id: int, collection_name: str = 'case_files_large') -> List[Dict[str, Any]]:
-        """
-        Retrieve all chunks for a specific case ID with their complete metadata.
-
-        Args:
-            collection_name (str): Name of the collection to search.
-            case_id (int): Case ID to filter by.
-
-        Returns:
-            List[Dict[str, Any]]: List of chunk metadata dictionaries for the case ID.
-        """
-        try:
-            # Scroll through all data and filter by case_id manually (same approach as get_all_case_ids_by_jurisdiction)
-            all_chunks = []
-            offset = None
-
-            while True:
-                result = self.client.scroll(
-                    collection_name=collection_name,
-                    limit=10000,
-                    offset=offset,
-                    with_payload=True,
-                    with_vectors=False,  # We don't need vectors, just payload data
-                )
-
-                points, next_offset = result
-
-                # Extract case_id from each point's payload and filter
-                for point in points:
-                    case_id_from_db = point.payload.get("case_id")
-                    
-                    if case_id_from_db and case_id_from_db == case_id:
-                        all_chunks.append(point.payload)
-
-                if next_offset is None:
-                    break
-                offset = next_offset
-
-            logger.info(
-                "Found %d chunks for case_id %d", len(all_chunks), case_id
-            )
-            
-            return all_chunks
-
-        except Exception as e:
-            logger.error(
-                "Error retrieving chunks for case_id %d: %s", case_id, e
-            )
-            raise Exception(f"Error retrieving chunks by case_id: {e}")
-
 
     def get_context(self, search_results: list) -> str:
         """

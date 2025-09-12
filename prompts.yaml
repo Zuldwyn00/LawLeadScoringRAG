@@ -13,57 +13,6 @@ metadata_extraction:
 
     ### Case & Incident Facts
     - **jurisdiction**: The jurisdiction of the case. Use your general knowledge of the United States to determine the jurisdiction. The jurisdiction is the county the town or city is in where the incident occurred and will be one of the following, use your general knowledge to ascertain what county the referenced towns/cities are located and must be one of the following. ('Suffolk County', 'Nassau County', 'Queens County', 'Bronx County', 'Kings County', 'Richmond County').
-    - **case_type**: The type of incident described in the case. You may use only the following types, do not use other types not defined here:
-      # Auto Accidents
-      - 'Auto Accident'
-      - 'Auto Accident Death'
-      - 'Auto Accident Federal'
-      - 'Auto Accident Minor'
-      - 'Auto Accident Municipal'
-      - 'Auto Accident Municipal Death'
-      - 'Auto Accident Property Damage Only'
-      - 'Auto Accident School Construction Authority'
-      - 'Auto Accident Triborough Bridge and Tunnel Authority TBTA'
-      - 'Auto Accident UIM'
-      - 'Auto Accident UM/UIM'
-      # Construction Accidents
-      - 'Construction Accident'
-      - 'Construction Accident Death'
-      - 'Construction Accident Federal'
-      - 'Construction Accident Municpal'
-      # Intentional Torts
-      - 'Intentional Tort'
-      - 'Intentional Tort - Federal'
-      - 'Intentional Tort - Muncipal'
-      # Negligence
-      - 'Negligence'
-      - 'Negligence Death'
-      - 'Negligence Federal'
-      - 'Negligence Minor'
-      - 'Negligence Municipal'
-      # Premises Liability
-      - 'Premises'
-      - 'Premises Death'
-      - 'Premises Federal'
-      - 'Premises Minor'
-      - 'Premises Municipal'
-      - 'Premises School Construction Authority'
-      - 'Premises TriBorough Bridge and Tunnel Authority TBTA'
-      # Other
-      - 'Breach of Contract'
-      - 'Class Action'
-      - 'Immigration'
-      - 'Medical Malpractice'
-      - 'Nursing Home'
-      - 'Probate'
-      - 'Product Liability'
-      - 'Real Estate'
-      - 'SSD/SSI'
-      - 'Toxic Tort'
-      - 'Workers Compensation Case'
-    - **document_type**: The type of document the text is from (e.g., 'lawsuit', 'medical_report', 'police_report', 'summons', 'other').
-    - **incident_date**: The date the incident occurred, formatted as YYYY-MM-DD. Use 'unknown' if not specified.
-    - **incident_location**: The city and state where the incident occurred (e.g., 'Houston, TX').
     - **mentioned_locations**: A list of locations mentioned in the text (e.g., ['Houston, TX', 'Austin, TX']).
     - **injuries_described**: A list of specific injuries mentioned by the client (e.g., ['broken arm', 'concussion', 'whiplash']).
     - **medical_treatment_mentioned**: A list of medical treatments received (e.g., ['emergency_room', 'surgery', 'physical_therapy']).
@@ -72,17 +21,9 @@ metadata_extraction:
 
     ### Parties & Entities
     - **entities_mentioned**: A list of companies, or organizations involved, do not include peoples names. (e.g., ['Walmart', 'City of Anytown']).
-    - **insurance_mentioned**: Boolean indicating if insurance was mentioned (`true`, `false`).
     - **witnesses_mentioned**: Boolean indicating if witnesses were mentioned (`true`, `false`).
-    - **prior_legal_representation_mentioned**: Boolean indicating if another attorney was involved (`true`, `false`).
-
-    ### Case Outcome & Value
-    - **case_outcome**: The final resolution of the case (e.g., 'settled_pre_litigation', 'settled_post_litigation', 'verdict_for_plaintiff', 'verdict_for_defendant', 'case_dismissed', 'ongoing', 'null'). Do not use 'ongoing' if unknown, use 'null'.
-    - **settlement_value**: The $ value of the reached settlement outcome if mentioned. (e.g. '45,678.34', 'null')
-
 
     ### Source & Summary
-    - **communication_channel**: How the information was received (e.g., 'email', 'phone_transcript', 'web_form').
     - **key_phrases**: A list of up to 5 direct quotes that capture the essence of the event, include at minimum 2 direct quotes. You MUST anonymize all names and PII in these quotes by replacing them with placeholders like 'Claimant' or 'Defendant'. Do not include any identifying information of the client.
     - **summary**: A brief, neutral, one-paragraph summary of the incident/document. You MUST anonymize all names and PII in this summary by replacing them with placeholders like 'Claimant' or 'Defendant'. Do not include any identifying information of the client.
 
@@ -96,21 +37,14 @@ metadata_extraction:
     ## Example Output Format:
     ```json
     {
-        "case_type": "Auto Accident Minor",
-        "incident_date": "2024-03-15",
-        "incident_location": "Austin, TX",
+        "jurisdiction": "Suffolk County"
         "mentioned_locations": ["Austin, TX", "Houston, TX"],
         "injuries_described": ["whiplash", "bruised ribs"],
         "medical_treatment_mentioned": ["emergency_room", "chiropractor"],
         "employment_impact_mentioned": ["missed_work_days"],
         "property_damage_mentioned": ["vehicle"],
-        "entities_mentioned": ["Geico"],
-        "insurance_mentioned": true,
-        "witnesses_mentioned": false,
-        "prior_legal_representation_mentioned": false,
-        "case_outcome": "settled_pre_litigation",
-        "settlement_value": "45,678.34",
-        "communication_channel": "web_form",
+        "entities_mentioned": ["Stop & Shop, Walmart"],
+        "witnesses_mentioned": "False"
         "key_phrases": ["the other driver ran a red light", "my car is totaled"].
         "summary": "The client was involved in a car accident where the other driver allegedly ran a red light, resulting in injury and property damage. The client was not at fault."
     }
@@ -165,8 +99,7 @@ lead_scoring:
     2.  **Context Verification: Before comparison, explicitly confirm which historical cases are present in the provided context. If the context is empty, state this clearly. Any case not listed in the user's context must be treated as non-existent.
 
     3.  **Tool Usage Decision**:
-        - If confidence is 20-79: YOU MUST USE TOOLS - proceed to step 3
-        - If confidence is 80+: Tool usage is optional - you may skip to final analysis
+        - If confidence threshold message has not been given: YOU MUST USE TOOLS - proceed to step 3
 
     4.  **Tool Call Execution**:
         - ONLY call tools that have been explicitly provided to you.
@@ -182,9 +115,9 @@ lead_scoring:
         - Document what the tool call revealed and how it affects your analysis
 
     6.  **Continuation Decision**:
-        - If confidence is still below 80% AND you haven't made 5 tool calls yet: RETURN TO STEP 3
-        - If confidence reaches 80+ OR you've made 5 tool calls: Proceed to final analysis
-        - If confidence is below 80% but you are not equipped with tools or tool calls fail, you must proceed to the final analysis anyway. Your Confidence Score must reflect the lack of information.
+        - If confidence threshold message hasn't been given AND you haven't recieved the tool call limit reached message: RETURN TO STEP 3
+        - If confidence threshold message is given OR you've recieved the tool call limit reached message: Proceed to final analysis
+        - If confidence threshold message is not given but you are not equipped with tools or tool calls fail, you must proceed to the final analysis anyway. Your Confidence Score must reflect the lack of information.
 
     **CONFIDENCE SCORING REFERENCE (Based on Information Coverage):**
     *   **20-40**: Insufficient evidence, major gaps - **MANDATORY tool usage**
@@ -194,8 +127,8 @@ lead_scoring:
     *   **90-100**: Comprehensive Evidence - **OPTIONAL tool usage**
 
     **BEFORE PROVIDING YOUR FINAL ANALYSIS**: Confirm you have either:
-    - Reached 80%+ confidence, OR
-    - Made 5 tool calls (maximum limit)
+    - Recieved the confidence threshold message, OR
+    - Recieved tool call limit reached message
 
     **GOOD TOOL CALL TARGETS:**
     * Case files with relevant outcomes (wins/losses) similar to your lead

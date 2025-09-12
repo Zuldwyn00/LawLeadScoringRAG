@@ -102,7 +102,7 @@ logger = setup_logger(__name__, config)
 
 def embedding_test(filepath: str, case_id: int):
     ensure_directories()
-    metadata_agent = MetadataAgent(client=AzureClient(client_config="o4-mini"))
+    metadata_agent = MetadataAgent(client=AzureClient(client_config="gpt-5-mini"))
     embedding_agent = AzureClient(client_config="text_embedding_3_large")
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
@@ -110,7 +110,7 @@ def embedding_test(filepath: str, case_id: int):
     vector_config = {
         "chunk": models.VectorParams(size=3072, distance=models.Distance.COSINE),
     }
-    qdrantmanager.create_collection("case_files_large", vector_config=vector_config)
+    qdrantmanager.create_collection("case_files_large2", vector_config=vector_config)
     files = find_files(Path(filepath))
     progress = len(files)
     print(f"Found {progress} files")
@@ -151,7 +151,7 @@ def embedding_test(filepath: str, case_id: int):
         metadatas = [chunk.get_metadata() for chunk in datachunks]
 
         qdrantmanager.add_embeddings_batch(
-            collection_name="case_files_large",
+            collection_name="case_files_large2",
             embeddings=embeddings,
             metadatas=metadatas,
             vector_name="chunk",
@@ -241,9 +241,8 @@ def score_test():
     summarizer = SummarizationAgent(AzureClient(client_config="o4-mini"))
 
     scorer_kwargs = {
-        "confidence_threshold": 85,
-        "final_model": "gpt-5-chat",
-        "final_model_temperature": 0.0,
+        "confidence_threshold": 90,
+        "final_model": "gpt-5",
     }
     scorer = LeadScoringAgent(
         AzureClient(client_config="gpt-5-mini"), summarizer=summarizer, **scorer_kwargs
@@ -285,7 +284,7 @@ def score_test():
     chunk_limit = config.get("aiconfig", {}).get("vector_search", {}).get("default_chunk_limit", 10)
     
     search_results = qdrant_client.search_vectors(
-        collection_name="case_files",
+        collection_name="case_files_large2",
         query_vector=question_vector,
         vector_name="chunk",
         limit=chunk_limit,
@@ -367,8 +366,7 @@ def test_case_enrichment(case_id: int):
 
 
 def main():
-    ids = {2500209, 2500191}
-    test_case_enrichment(ids)
+    process_all_case_folders(r'C:\Users\Justin\Desktop\testdocsmain2')
 
 if __name__ == "__main__":
     main()

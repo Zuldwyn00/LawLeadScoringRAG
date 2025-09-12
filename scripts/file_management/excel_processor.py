@@ -32,11 +32,21 @@ class ExcelProcessor:
             self.logger.debug("No dataframe given as value, using 'self.df' as dataframe.")
             df = self.df
         
-        result = df.loc[df['File Name'] == filename]
+        # Trim whitespace for comparison but preserve case sensitivity
+        filename_clean = filename.strip()
+        result = df.loc[df['File Name'].str.strip() == filename_clean]
 
         if not result.empty:
-            row_data = result.to_dict(orient = 'records')[0]
-            self.logger.info("Filename '%s' found in dataframe, returning row_data.", filename)
+            if len(result) > 1:
+                self.logger.warning("Found %d matches for filename '%s', using first match.", len(result), filename)
+                # Add a suffix to the filename in the returned data to indicate it's one of multiple matches
+                row_data = result.to_dict(orient = 'records')[0]
+                original_filename = row_data['File Name']
+                row_data['File Name'] = f"{original_filename} (1)"
+                self.logger.info("Filename '%s' found in dataframe with %d matches, returning first match with suffix.", filename, len(result))
+            else:
+                row_data = result.to_dict(orient = 'records')[0]
+                self.logger.info("Filename '%s' found in dataframe, returning row_data.", filename)
             return row_data
         else:
             self.logger.error("Filename '%s' could not be found in dataframe, returning 'None'.", filename)

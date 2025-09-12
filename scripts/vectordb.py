@@ -318,25 +318,13 @@ class QdrantManager:
 
             context_dict = {
                 "case_id": payload.get("case_id"),
-                "jurisdiction": payload.get("jurisdiction"),
-                "incident_date": payload.get("incident_date"),
-                "incident_location": payload.get("incident_location"),
-                "mentioned_locations": payload.get("mentioned_locations", []),
-                "injuries_described": payload.get("injuries_described", []),
-                "medical_treatment_mentioned": payload.get(
-                    "medical_treatment_mentioned", []
-                ),
-                "employment_impact_mentioned": payload.get(
-                    "employment_impact_mentioned", []
-                ),
-                "property_damage_mentioned": payload.get(
-                    "property_damage_mentioned", []
-                ),
-                "entities_mentioned": payload.get("entities_mentioned", []),
-                "witnesses_mentioned": payload.get("witnesses_mentioned"),
                 "source": payload.get("source"),
-                "key_phrases": payload.get("key_phrases", []),
-                "summary": payload.get("summary"),
+                "description": payload.get("description"),
+                "category": payload.get("category"),
+                "sub-category": payload.get("sub-category"),
+                "date": payload.get("date"),
+                "from": payload.get("from"),
+                "to": payload.get("to")
             }
             contexts.append(context_dict)
         return json.dumps(contexts, indent=4)

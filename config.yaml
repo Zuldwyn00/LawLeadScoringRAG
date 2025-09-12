@@ -4,6 +4,7 @@ directories:
   logs: "logs"
   chat_logs: "scripts/data/chat_logs"
   feedback: "scripts/data/feedback"
+  case_data: "scripts/data/case_data"
 
 logger:
   level: "DEBUG"  # Log level (DEBUG, INFO, WARNING, ERROR, CRITICAL)

@@ -12,16 +12,17 @@ logger:
   datefmt: "%Y-%m-%d %H:%M:%S"  # Date format for log messages
   filename: "legal_lead.log"  # Log file name
   max_bytes: 2000000 # 2MB
-  backup_count: 5
+  backup_count: 1
 
 aiconfig:
   default_encoding: "o200k_base"
+  tool_call_limit: 5  # Default maximum number of tool calls allowed per conversation
   vector_search:
     default_chunk_limit: 10  # Default number of chunks returned from vector search
 
 lead_scoring:
   case_enrichment:
-    primary_case_data_pdf_location: 'C:\Users\Justin\Desktop\Law_RAG\scripts\data\case_data\webDGCase.xlsx'
+    primary_case_data_file_location: 'scripts/data/case_data/webDGCase.xlsx'
 
 jurisdiction_scoring:
   field_weights: { # the importance value of if a field is present in the data for a case, 0 means we place no value on this field being present

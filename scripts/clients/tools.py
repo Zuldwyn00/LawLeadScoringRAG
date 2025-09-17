@@ -7,6 +7,7 @@ from .agents.utils.summarization_registry import get_summarization_client
 
 from langchain_core.tools import tool
 from langchain_core.messages import ToolMessage
+from scripts.vectordb import QdrantManager
 
 config = load_config()
 logger = setup_logger(__name__, config)
@@ -18,11 +19,12 @@ class ToolCallLimitReached(Exception):
 
 
 class ToolManager:
-    def __init__(self, tools: List[Callable], tool_call_limit: int = 5):
+    def __init__(self, tools: List[Callable], tool_call_limit: int = None):
         self.tools = tools
         self.tool_map = {tool.name: tool for tool in self.tools}
         self.tool_call_count = 0
-        self.tool_call_limit = tool_call_limit
+        # Use config value if no tool_call_limit is provided
+        self.tool_call_limit = tool_call_limit if tool_call_limit is not None else config.get('aiconfig', {}).get('tool_call_limit', 5)
         self.tool_call_history = []  # Track which tools were called
 
     def call_tool(self, tool_call: dict) -> ToolMessage:
@@ -127,22 +129,76 @@ class ToolManager:
 
         return f"Tools used: {', '.join(tool_list)}"
 
+#TODO: Replace hard-coded limit and collection name
+@tool
+def query_vector_context(search_query: str):
+    """
+    Search vector database for relevant context using natural language query.
+    
+    This tool converts the search query to embeddings and searches the vector database
+    for similar content, returning formatted context that can be used by the AI.
+    Uses the same qdrant and embedding clients that were used for the initial historical context.
+    
+    Args:
+        search_query (str): Natural language search query to find relevant context
+        
+    Returns:
+        str: JSON-formatted context from search result chunks, or error message
+    """
+    try:
+        from .agents.utils.vector_registry import get_vector_clients
+        
+        # Get the registered vector clients (same ones used for historical context)
+        qdrant_manager, embedding_client = get_vector_clients()
+        
+        if not qdrant_manager or not embedding_client:
+            return "Error: Vector clients not available. Make sure vector clients are registered."
+        
+        logger.info("Searching vector database with query: '%s'", search_query)
+        
+        # Convert search query to embedding using registered client
+        embedding = embedding_client.get_embeddings(search_query)
+        logger.debug("Generated embedding with %d dimensions", len(embedding))
+        
+        # Search vectors using registered qdrant_manager 
+        search_results = qdrant_manager.search_vectors(
+            collection_name="case_files_large",  # Fixed collection name
+            query_vector=embedding,
+            vector_name="chunk",  # Use default chunk vector (same as in score_test)
+            limit=5  # Fixed limit
+        )
+        
+        logger.info("Found %d search results from vector database", len(search_results))
+        
+        # Format results using existing method (same as in score_test)
+        context = qdrant_manager.get_context(search_results)
+        
+        # Log context info for debugging
+        logger.debug("Formatted context length: %d characters", len(context))
+        
+        return context
+        
+    except Exception as e:
+        error_msg = f"Error searching vector database: {e}"
+        logger.error("Vector search failed: %s", e)
+        return error_msg
+
 
 @tool
-def get_file_context(filepath: str, token_threshold: int = 1000) -> tuple:
+def get_file_context(filepath: str) -> tuple:
     """
     Retrieves content from a file and returns it along with token count, summarizes the content
     if it surpasses token_threshold.
 
     Args:
         filepath (str): Path to the file to read (can be relative or absolute).
-        token_threshold (int): Maximum tokens allowed before summarization client is triggered
 
     Returns:
         tuple: A tuple containing (content, token_count). On error, returns (error_message, 0).
                - content (str): The text content extracted from the file or error message
                - token_count (int): Number of tokens in the content, or 0 on error
     """
+    token_threshold: int = 2000
     try:
         # Convert relative paths to absolute paths
         absolute_filepath = resolve_relative_path(filepath)

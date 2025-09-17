@@ -319,12 +319,15 @@ class QdrantManager:
             context_dict = {
                 "case_id": payload.get("case_id"),
                 "source": payload.get("source"),
-                "description": payload.get("description"),
-                "category": payload.get("category"),
-                "sub-category": payload.get("sub-category"),
-                "date": payload.get("date"),
-                "from": payload.get("from"),
-                "to": payload.get("to")
+                "Description": payload.get("Description"),
+                "Category": payload.get("Category"),
+                "Sub-Category": payload.get("Sub-Category"),
+                "Date": payload.get("Date"),
+                "From": payload.get("From"),
+                "To": payload.get("To"),
+                "chunk_index": payload.get("chunk_index"),
+                "total_chunks": payload.get("total_chunks"),
+                "chunk_token_count": payload.get("chunk_token_count")
             }
             contexts.append(context_dict)
         return json.dumps(contexts, indent=4)

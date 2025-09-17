@@ -10,7 +10,7 @@ from ..base import BaseClient
 from ..azure import AzureClient
 from utils import load_prompt, count_tokens, setup_logger, load_config
 from scripts.jurisdictionscoring import JurisdictionScoreManager
-from ..tools import get_file_context, ToolManager
+from ..tools import get_file_context, query_vector_context, ToolManager
 from .utils.summarization_registry import set_summarization_client
 from .utils.context_enrichment import CaseContextEnricher
 
@@ -25,6 +25,7 @@ class LeadScoringAgent:
             client (BaseClient): The underlying AI client.
             summarizer (SummarizationAgent, optional): Summarization agent for file content tool. If not given then get_file_context will get the first
             X characters from the file rather than summarize with an LLM call.
+            context_enricher (CaseContextEnricher, optional): Context enricher for case data.
 
             **kwargs: Optional keyword arguments:
                 temperature (float, optional): Temperature setting for the main client.
@@ -41,7 +42,7 @@ class LeadScoringAgent:
 
         self.client = client
         self.prompt = load_prompt("lead_scoring")
-        self.tool_manager = ToolManager(tools=[get_file_context])
+        self.tool_manager = ToolManager(tools=[get_file_context, query_vector_context])
         self.current_lead_score = None
         self.last_chat_log_filename = None  # Store the most recent chat log filename
 
@@ -421,9 +422,8 @@ class LeadScoringAgent:
                 continue_message_text = (
                     f"Your confidence appears to be below the threshold, but you didn't use any tools as required by your instructions. "
                     f"Tool usage count: {self.tool_manager.tool_call_count}/{self.tool_manager.tool_call_limit}. "
-                    f"You MUST use get_file_context to examine specific case files from the historical context provided above. "
-                    f"Target files that are most relevant to this lead's circumstances (similar injury types, jurisdictions, or case outcomes). "
-                    f"Review the historical context and select files to examine."
+                    f"You MUST use tools to attain more information from the existing data or by searching for a new query. "
+                    f"Review the historical context and select files to examine or search a new query for more information."
                 )
                 # if no tool calls were found, inform the AI it needs to make more and give it the historical context again.
                 continue_message = SystemMessage(content=continue_message_text)

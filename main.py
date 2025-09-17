@@ -1,16 +1,5 @@
 # ─── TODO: PROJECT ORGANIZATION ──────────────────────────────────────────────────
 
-# ─── ARCHITECTURE & INFRASTRUCTURE ───────────────────────────────────────────────
-# TODO: Implement database storage for metadata
-#   - Use a DB to store all the metadata, while qdrant only stores the ID
-#   - Use the ID to get the real metadata in the DB
-#   - This will help with the metadata handling issues mentioned below
-
-# TODO: Improve metadata handling system
-#   - We need a better way to handle the metadata
-#   - Could temporarily remove many metadata fields and just use case_id to link chunks to cases
-#   - Include source file and other mandatory fields
-
 # ─── AI & SCORING IMPROVEMENTS ──────────────────────────────────────────────────
 # TODO: Enhance AI prompt for scoring agent
 #   - Add steps for the scoring agent to score each section separately
@@ -20,9 +9,6 @@
 #   - Consider getting average value of similar case_type in same jurisdiction as fallback
 
 # TODO: Complete jurisdiction scoring system
-#   - Create better method for getting all jurisdiction data in one search
-#   - Method should return dict of all required info for the jurisdiction scoring system
-#   - Re-use data without weird calls and roundabout ways
 #   - Complete the BAYESIAN_SHRINKAGE() method (currently placeholder based on hard-coded values)
 #   - Currently overwrites original scores after processing and then applies bayesian
 
@@ -64,10 +50,11 @@
 # TODO: Fix Clear All button functionality
 #   - Clear All button does nothing
 
+#---- TOOLS TO CREATE ---
+#TODO: 1) List all chunks if a file is split up into multiple
+#TODO: 2) Search function for AI, we can allow it to search the database with its own query.
 
 
-#TODO: Implement caching functionality for the processed_files, we will quickly hit a data issue if we try and push this to a full-production state. Just do the same thing we do for the s
-#the summaries, cache the results and use a hashing function.
 
 from multiprocessing import process
 
@@ -103,10 +90,10 @@ from scripts.clients.agents.utils import CaseContextEnricher
 config = load_config()
 logger = setup_logger(__name__, config)
 
-
+#Depricated, remove later
 def embedding_test(filepath: str, case_id: int):
     ensure_directories()
-    metadata_agent = MetadataAgent(client=AzureClient(client_config="gpt-5-mini"))
+    metadata_agent = MetadataAgent(client=AzureClient(client_config="gpt-5"))
     embedding_agent = AzureClient(client_config="text_embedding_3_large")
     filemanager = FileManager()
     qdrantmanager = QdrantManager()
@@ -114,7 +101,7 @@ def embedding_test(filepath: str, case_id: int):
     vector_config = {
         "chunk": models.VectorParams(size=3072, distance=models.Distance.COSINE),
     }
-    qdrantmanager.create_collection("case_files_large2", vector_config=vector_config)
+    qdrantmanager.create_collection("case_files_large", vector_config=vector_config)
     files = find_files(Path(filepath))
     progress = len(files)
     print(f"Found {progress} files")
@@ -147,7 +134,6 @@ def embedding_test(filepath: str, case_id: int):
                 chunk.page_content, str(file), case_id
             )
             datachunk.set_metadata(chunk_metadata)
-
             datachunk.set_embeddings(chunk_embedding)
             datachunks.append(datachunk)
 
@@ -155,7 +141,7 @@ def embedding_test(filepath: str, case_id: int):
         metadatas = [chunk.get_metadata() for chunk in datachunks]
 
         qdrantmanager.add_embeddings_batch(
-            collection_name="case_files_large2",
+            collection_name="case_files_large",
             embeddings=embeddings,
             metadatas=metadatas,
             vector_name="chunk",
@@ -172,7 +158,7 @@ def embedding_test(filepath: str, case_id: int):
         print(f"Finished processing and marked {file.name} as complete.")
 
 
-def process_all_case_folders(main_folder_path: str) -> None:
+def process_all_case_folders(main_folder_path: str = None) -> None:
     """
     Automatically processes all case folders in a main directory.
 
@@ -192,6 +178,7 @@ def process_all_case_folders(main_folder_path: str) -> None:
         - Move PDFs to scripts/data/case_data/{case_id}/
         - Process files from the new location
     """
+
     try:
         # Discover all case folders and their case IDs
         case_folders = discover_case_folders(main_folder_path)
@@ -248,11 +235,11 @@ def score_test():
     summarizer = SummarizationAgent(AzureClient(client_config="o4-mini"))
 
     scorer_kwargs = {
-        "confidence_threshold": 90,
+        "confidence_threshold": 80,
         "final_model": "gpt-5",
     }
     scorer = LeadScoringAgent(
-        AzureClient(client_config="gpt-5-mini"), summarizer=summarizer, **scorer_kwargs
+        AzureClient(client_config="gpt-5"), summarizer=summarizer, **scorer_kwargs
     )
 
     new_lead_description = (
@@ -291,7 +278,7 @@ def score_test():
     chunk_limit = config.get("aiconfig", {}).get("vector_search", {}).get("default_chunk_limit", 10)
     
     search_results = qdrant_client.search_vectors(
-        collection_name="case_files_large2",
+        collection_name="case_files_large",
         query_vector=question_vector,
         vector_name="chunk",
         limit=chunk_limit,
@@ -381,7 +368,7 @@ def test_file_embedding_new(filepath: str, case_id: int):
     vector_config = {
         "chunk": models.VectorParams(size=3072, distance=models.Distance.COSINE),
     }
-    qdrantmanager.create_collection("case_files_large2", vector_config=vector_config)
+    qdrantmanager.create_collection("case_files_large", vector_config=vector_config)
     files = find_files(Path(filepath))
     progress = len(files)
     print(f"Found {progress} files")
@@ -417,15 +404,20 @@ def test_file_embedding_new(filepath: str, case_id: int):
         # Remove file extension for Excel lookup
         filename_metadata = excel_processor.get_row_filename(file.stem, dataframe)
         filename_metadata.pop('File Name')
+        
+        # Convert all string values in filename_metadata to lowercase
+        for key, value in filename_metadata.items():
+            if isinstance(value, str):
+                filename_metadata[key] = value.lower()
 
         file_text = get_text_from_file(str(file))
-        file_chunks = filemanager.text_splitter(file_text)
+        file_chunks = filemanager.smart_file_chunker(file_text, token_threshold=18000)
 
         embeddings = []
         metadatas = []
         
-        for i, chunk in enumerate(file_chunks):
-            chunk_embedding = embedding_agent.get_embeddings(chunk.page_content)
+        for chunk_data in file_chunks:
+            chunk_embedding = embedding_agent.get_embeddings(chunk_data['content'])
             
             # Create relative path from project root
             relative_source = get_relative_path(file)
@@ -433,6 +425,9 @@ def test_file_embedding_new(filepath: str, case_id: int):
             chunk_metadata = {
                  "case_id": case_id,
                  "source": relative_source,
+                 "chunk_index": chunk_data['chunk_index'],
+                 "total_chunks": chunk_data['total_chunks'],
+                 "chunk_token_count": chunk_data['token_count'],
                 **filename_metadata
             }
             
@@ -440,12 +435,15 @@ def test_file_embedding_new(filepath: str, case_id: int):
             metadatas.append(chunk_metadata)
 
         qdrantmanager.add_embeddings_batch(
-            collection_name="case_files_large2",
+            collection_name="case_files_large",
             embeddings=embeddings,
             metadatas=metadatas,
             vector_name="chunk",
         )
+        total_tokens = sum(chunk_data['token_count'] for chunk_data in file_chunks)
         print(f"Added {len(embeddings)} embeddings to Qdrant for {file.stem}")
+        print(f"  - Total chunks: {file_chunks[0]['total_chunks'] if file_chunks else 0}")
+        print(f"  - Total tokens: {total_tokens:,}")
 
         if str(case_id) not in processed_files_data:
             processed_files_data[str(case_id)] = []

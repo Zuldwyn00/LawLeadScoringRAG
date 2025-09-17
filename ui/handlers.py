@@ -17,6 +17,7 @@ sys.path.append(str(Path(__file__).parent.parent))
 from scripts.file_management.filemanagement import FileManager, ChunkData, apply_ocr, get_text_from_file
 from scripts.clients import AzureClient, LeadScoringAgent, SummarizationAgent
 from scripts.clients.agents.utils.context_enrichment import CaseContextEnricher
+from scripts.clients.agents.utils.vector_registry import set_vector_clients
 from scripts.clients.agents.scoring import (
     extract_score_from_response,
     extract_confidence_from_response,
@@ -80,6 +81,9 @@ class LeadScoringHandler:
         # Add process temperature if specified
         if process_temperature is not None:
             scorer_kwargs["temperature"] = process_temperature
+        # Register vector clients globally for query_vector_context tool (same pattern as summarization)
+        set_vector_clients(self.qdrant_manager, embedding_client)
+        
         self.lead_scoring_client = LeadScoringAgent(
             chat_client, 
             summarizer=summarization_client, 
@@ -230,16 +234,16 @@ class LeadScoringHandler:
 
             # Note: Cost tracking reset happens at the start of process_lead() in UIEventHandler
 
-            # Step 1: Initialize managers
+            # Step 1: Use already initialized managers (initialized in process_lead with correct models)
             if progress_callback:
                 progress_callback(
                     10,
-                    "🔧 Initializing AI clients and managers...",
+                    "🔧 Using initialized AI clients and managers...",
                     time.time() - start_time,
                 )
-            qdrant_manager, lead_scoring_client, embedding_client = (
-                self.initialize_managers()
-            )
+            qdrant_manager = self.qdrant_manager
+            lead_scoring_client = self.lead_scoring_client
+            embedding_client = self.embedding_client
 
             # Step 2: Generate embeddings
             if progress_callback:

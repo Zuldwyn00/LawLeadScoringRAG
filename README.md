@@ -81,7 +81,6 @@ Edit `config.yaml`:
 - `directories`: project-relative paths for data, logs, chat logs
 - `logger`: level, format, filename, rotation
 - `aiconfig.default_encoding`: token encoding base
-- `jurisdiction_scoring.field_weights`: presence weights for metadata completeness
 - `jurisdiction_scoring.bayesian_shrinkage`: fields involved in the bayesian shrinkage for jurisdiction scoring
 - `caching.directories`: path forcache partitions
 

@@ -15,7 +15,7 @@ import os
 
 from warnings import deprecated
 # ─── LOCAL IMPORTS ──────────────────────────────────────────────────────────────────
-from utils import load_config, setup_logger
+from utils import load_config, setup_logger, count_tokens
 
 
 # ─── LOGGER & CONFIG ────────────────────────────────────────────────────────────────
@@ -263,6 +263,65 @@ class FileManager:
     def __init__(self):
         self.config = config
 
+    def smart_file_chunker(
+        self, text: Dict[str, Any], token_threshold: int = 18000, chunk_size: int = 15000, chunk_overlap: int = 200
+    ) -> List[Dict[str, Any]]:
+        """
+        Intelligently chunks a file based on token count.
+        
+        If the file has fewer tokens than the threshold, returns the original text as a single chunk.
+        If the file exceeds the threshold, splits it into multiple chunks.
+        
+        Args:
+            text (Dict[str, Any]): Parsed document dict from parser.from_file().
+            token_threshold (int): Token count threshold for splitting. Defaults to 18000.
+            chunk_size (int): Max tokens per chunk when splitting. Defaults to 15000.
+            chunk_overlap (int): Tokens to overlap between chunks. Defaults to 200.
+            
+        Returns:
+            List[Dict[str, Any]]: List of text chunks, each containing 'content', 'chunk_index', 
+                                'total_chunks', and 'token_count' fields.
+        """
+        content = text["content"]
+        total_tokens = count_tokens(content)
+        
+        logger.info('File token count: %d (threshold: %d)', total_tokens, token_threshold)
+        
+        if total_tokens <= token_threshold:
+            # File is small enough, return as single chunk
+            logger.debug('File is below token threshold, processing as single chunk')
+            return [{
+                'content': content,
+                'chunk_index': 0,
+                'total_chunks': 1,
+                'token_count': total_tokens
+            }]
+        else:
+            # File is too large, split into chunks
+            logger.info('File exceeds token threshold (%d tokens), splitting into chunks', total_tokens)
+            
+            splitter = TokenTextSplitter(
+                encoding_name="o200k_base",
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+            )
+            chunks = splitter.create_documents([content])
+            
+            chunked_data = []
+            total_chunk_count = len(chunks)
+            
+            for i, chunk in enumerate(chunks):
+                chunk_tokens = count_tokens(chunk.page_content)
+                chunked_data.append({
+                    'content': chunk.page_content,
+                    'chunk_index': i,
+                    'total_chunks': total_chunk_count,
+                    'token_count': chunk_tokens
+                })
+                
+            logger.info('Split file into %d chunks', total_chunk_count)
+            return chunked_data
+
     def text_splitter(
         self, text: Dict[str, Any], chunkSize: int = 15000, chunkOverlap: int = 200
     ) -> List[Any]:
@@ -390,17 +449,21 @@ class ChunkData:
 
 def move_case_files_to_case_data(source_folder_path: str, case_id: int) -> str:
     """
-    Moves PDF files from source folder to case_data/{case_id}/ directory.
+    Copies the entire source folder structure to case_data/{case_id}/ directory.
+    
+    This function creates an exact copy of the source folder and all its contents
+    (including subfolders, documents, and metadata) under the case_data directory
+    with the case_id as the folder name.
     
     Args:
-        source_folder_path (str): Path to the source folder containing PDFs
+        source_folder_path (str): Path to the source folder to copy
         case_id (int): The case ID to use for the destination folder name
         
     Returns:
         str: Path to the new case folder in case_data directory
         
     Raises:
-        Exception: If moving files fails
+        Exception: If copying the folder fails
     """
     import shutil
     
@@ -408,48 +471,32 @@ def move_case_files_to_case_data(source_folder_path: str, case_id: int) -> str:
     case_data_base = Path(config['directories']['case_data'])
     case_folder = case_data_base / str(case_id)
     
-    # Create case folder if it doesn't exist
-    case_folder.mkdir(parents=True, exist_ok=True)
-    logger.info("Created case folder: %s" % case_folder)
+    # Check if source folder exists
+    if not source_path.exists():
+        raise FileNotFoundError("Source folder not found: %s" % source_folder_path)
     
-    # Find PDF files in source folder
-    pdf_files = list(source_path.glob("*.pdf"))
+    # If destination already exists, remove it first (to ensure clean copy)
+    if case_folder.exists():
+        logger.info("Destination folder already exists, removing: %s" % case_folder)
+        shutil.rmtree(str(case_folder))
     
-    if not pdf_files:
-        logger.warning("No PDF files found in %s" % source_folder_path)
-        return str(case_folder)
-    
-    print("Moving %s PDF files to case_data folder..." % len(pdf_files))
-    
-    # Move each PDF file
-    for pdf_file in pdf_files:
-        destination_file = case_folder / pdf_file.name
+    try:
+        # Copy entire folder structure
+        print("Copying folder structure from %s to %s..." % (source_path.name, case_folder))
+        shutil.copytree(str(source_path), str(case_folder))
+        logger.info("Successfully copied folder structure to: %s" % case_folder)
         
-        # If file already exists in destination, skip it
-        if destination_file.exists():
-            logger.info("File already exists in destination, skipping: %s" % pdf_file.name)
-            continue
-            
-        try:
-            shutil.move(str(pdf_file), str(destination_file))
-            logger.info("Moved %s to %s" % (pdf_file.name, destination_file))
-        except Exception as e:
-            logger.error("Failed to move %s: %s" % (pdf_file.name, e))
-            raise
-    
-    # Also copy the file_list folder for the XLSX metadata
-    file_list_source = source_path / "file_list"
-    file_list_dest = case_folder / "file_list"
-    
-    if file_list_source.exists() and file_list_source.is_dir():
-        if not file_list_dest.exists():
-            shutil.copytree(str(file_list_source), str(file_list_dest))
-            logger.info("Copied file_list folder to %s" % file_list_dest)
-        else:
-            logger.info("file_list folder already exists in destination")
-    
-    print("✓ Successfully moved files to %s" % case_folder)
-    return str(case_folder)
+        # Count copied files for user feedback
+        all_files = list(case_folder.rglob("*"))
+        file_count = len([f for f in all_files if f.is_file()])
+        folder_count = len([f for f in all_files if f.is_dir()])
+        
+        print("✓ Successfully copied %s files and %s folders to %s" % (file_count, folder_count, case_folder))
+        return str(case_folder)
+        
+    except Exception as e:
+        logger.error("Failed to copy folder structure: %s" % e)
+        raise
 
 
 def get_relative_path(file_path: Path) -> str:
@@ -506,6 +553,24 @@ def resolve_relative_path(relative_path: str) -> str:
     if absolute_path.exists():
         return str(absolute_path)
     
-    # If not found, assume it's in the expected case_data location
-    # This handles the case where files have been moved to case_data structure
+    # If not found relative to project root, try relative to case_data directory
+    # This handles paths like "case_data\2500174\MVA Intake_002.pdf"
+    case_data_base = Path(config['directories']['case_data'])
+    project_root = Path.cwd()
+    
+    # If the relative_path starts with "case_data", remove that prefix and use the configured case_data path
+    if str(file_path).startswith('case_data'):
+        # Remove the 'case_data' prefix and join with the configured case_data directory
+        relative_to_case_data = Path(*file_path.parts[1:])  # Skip the first 'case_data' part
+        case_data_absolute_path = project_root / case_data_base / relative_to_case_data
+        if case_data_absolute_path.exists():
+            logger.debug("Resolved path using case_data directory: '%s'", case_data_absolute_path)
+            return str(case_data_absolute_path)
+    
+    # Final fallback: try the file path as-is under the configured case_data directory
+    case_data_fallback = project_root / case_data_base / file_path
+    if case_data_fallback.exists():
+        logger.debug("Resolved path using case_data fallback: '%s'", case_data_fallback)
+        return str(case_data_fallback)
+    
     raise FileNotFoundError("File not found: '%s'" % relative_path)

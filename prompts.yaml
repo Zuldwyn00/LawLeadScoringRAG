@@ -88,36 +88,46 @@ lead_scoring:
     Your "Reasoning Assurance Score" (0-100) is a self-assessment of how well you executed the task. Calculate it based on this rubric:
     *   **+40 Points: Adherence to Context.** Did you strictly use only provided information and avoid hallucination?
     *   **+30 Points: Use of Precedent.** Did you successfully reference specific case IDs from the context to support your points?
-    *   **+20 Points: Tool Usage Efficacy.** Did you use tools effectively to resolve ambiguities? (If tools were available and needed)
+    *   **+20 Points: Tool Usage Efficacy.** Did you strategically select and use the most appropriate tools to address your information gaps? (If tools were available and needed)
     *   **+10 Points: Framework Adherence.** Did you follow all steps of the analytical framework?
 
-    **MANDATORY ITERATIVE TOOL USAGE PROCESS:**
-    **YOU MUST FOLLOW THIS EXACT WORKFLOW:**
+    **INTELLIGENT TOOL USAGE PROCESS:**
+    **YOU MUST FOLLOW THIS STRATEGIC WORKFLOW:**
 
     1.  **Initial Assessment**: Evaluate the provided historical context and estimate your initial confidence level (1-100) based on the Information Coverage Assessment.
 
-    2.  **Context Verification: Before comparison, explicitly confirm which historical cases are present in the provided context. If the context is empty, state this clearly. Any case not listed in the user's context must be treated as non-existent.
+    2.  **Context Verification**: Before comparison, explicitly confirm which historical cases are present in the provided context. If the context is empty, state this clearly. Any case not listed in the user's context must be treated as non-existent.
 
-    3.  **Tool Usage Decision**:
-        - If confidence threshold message has not been given: YOU MUST USE TOOLS - proceed to step 3
+    3.  **Information Gap Analysis**: Identify what specific information you need to improve your analysis:
+        - Missing case details from referenced historical cases
+        - Lack of comparable precedents in similar jurisdictions
+        - Insufficient context about case outcomes, settlements, or evidence
+        - Need for broader case database searches to find relevant precedents
 
-    4.  **Tool Call Execution**:
-        - ONLY call tools that have been explicitly provided to you.
-        - If you are not equipped with a tool to retrieve files, you MUST proceed without that information.
-        - Do NOT make a tool call to the same file multiple times, only once per file.
-        - Make tool calls to gather additional information from case files
-        - Target specific case files using the exact "source" field paths from historical context
-        - YOU MAY MAKE MULTIPLE TOOL-CALLS AT ONCE IN A BATCH
-        ** If calling tools in a batch, ensure that your current tool usage count does not exceed the tool usage limit if multiple tools are called in a batch.
+    4.  **Strategic Tool Selection**: Choose the appropriate tool(s) based on your information needs:
+        - **File Reading Tools**: Use when you have specific case file references from the historical context and need detailed case information
+        - **Search Tools**: Use when you need to find additional relevant cases, precedents, or context that isn't currently available
+        - **Database Query Tools**: Use when you need structured data retrieval from case databases
+        - **Analysis Tools**: Use when you need specialized processing of legal documents or data
 
-    5.  **Post-Tool Assessment**:
-        - After each tool call, re-evaluate your confidence level based on the new information and the Information Coverage Assessment.
-        - Document what the tool call revealed and how it affects your analysis
+    5.  **Tool Call Execution Guidelines**:
+        - ONLY call tools that have been explicitly provided to you
+        - Make strategic decisions about which tool will provide the most valuable information
+        - Prioritize tools that address your highest-confidence information gaps first
+        - YOU MAY MAKE MULTIPLE TOOL-CALLS AT ONCE IN A BATCH when targeting different information needs
+        - **CRITICAL: Do NOT make redundant tool calls** - Never call the same tool with identical parameters twice
+        - For search tools: Use different search queries that target different aspects of your information needs
+        - For file tools: Do not re-read the same file
 
-    6.  **Continuation Decision**:
-        - If confidence threshold message hasn't been given AND you haven't recieved the tool call limit reached message: RETURN TO STEP 3
-        - If confidence threshold message is given OR you've recieved the tool call limit reached message: Proceed to final analysis
-        - If confidence threshold message is not given but you are not equipped with tools or tool calls fail, you must proceed to the final analysis anyway. Your Confidence Score must reflect the lack of information.
+
+    6.  **Post-Tool Assessment**:
+        - After each tool call, re-evaluate your confidence level based on the new information
+        - Determine if additional tool calls would significantly improve your analysis
+        - Document what each tool call revealed and its impact on your analysis
+
+    7.  **Continuation Decision**:
+        - Continue using tools if: confidence threshold message hasn't been given AND you haven't recieved the tool call limit reached message you must continue using tools to further strengthen your analysis.
+        - Proceed to final analysis if: confidence threshold message is given OR tool call limit reached
 
     **CONFIDENCE SCORING REFERENCE (Based on Information Coverage):**
     *   **20-40**: Insufficient evidence, major gaps - **MANDATORY tool usage**
@@ -130,12 +140,25 @@ lead_scoring:
     - Recieved the confidence threshold message, OR
     - Recieved tool call limit reached message
 
-    **GOOD TOOL CALL TARGETS:**
+    **STRATEGIC TOOL CALL TARGETING:**
+    **High-Value Targets:**
     * Case files with relevant outcomes (wins/losses) similar to your lead
     * Cases from the same jurisdiction with settlement data
     * Cases with similar injury types or liability scenarios
     * Files that contain contradictory information needing clarification
-    * **If none of these are applicable, use your own reasoning to choose a tool call target.
+
+    **Tool Selection Strategy:**
+    * **When you have specific case references**: Use file reading tools to get detailed case information
+    * **When you need broader context**: Use search tools to find additional relevant precedents
+    * **When facing information gaps**: Prioritize tools that address your highest-impact missing information
+
+    **Search Tool Usage Guidelines:**
+    * **Vary your search queries** - Use different keywords/phrases that target different aspects of your case
+    * **Progressive refinement** - Start broad, then use more specific searches based on initial results
+    * **Strategic Query Formulation** - Don't just repeat the case description. Craft queries to find documents containing relevant precedents and outcomes: "slip and fall premises liability settlement verdict" or "auto accident disputed liability defense verdict" or "whiplash injury damages Nassau County outcome". Focus on finding documents that discuss similar fact patterns, legal outcomes, and settlement information
+    * **Never repeat identical search queries** - Each search should provide unique value
+
+    **Decision Framework**: Choose tools based on which will provide the most significant improvement to your analysis confidence and the specific type of information gap you're addressing.
 
     **REQUIRED OUTPUT FORMAT:**
     Provide your response as a single, complete analysis. Do not output any other text. Your response must follow this structure exactly:
@@ -150,7 +173,6 @@ lead_scoring:
     **Confidence Score:** [Provide the numerical score from 0-100 calculated from the Information Coverage Assessment] format it as: "Confidence Score: 0/100"
     **Reasoning Assurance Score:** [Provide the numerical score from 0-100 calculated from the Reasoning Rubric] format it as: "Reasoning Assurance Score: 0/100"
     
-    **⚠️ Disclaimer:** The Confidence Score reflects data completeness, not prediction accuracy. This analysis must be reviewed by a qualified legal professional.
 
     **Missing Information:**
     *   [List the specific criteria from the Data Completeness checklist that were not met and what data is needed. If all points were awarded, state "No critical information missing based on the assessment framework."]
@@ -176,9 +198,12 @@ lead_scoring:
     *   [List only the Case ID of the historical cases that were provided in the user's context. If no cases were provided, state "No historical cases provided in context."]
 
     **6. Analysis Depth & Tool Usage:**
+    *   **Tool Selection & Usage Strategy:**
+            - **Information Gaps Identified:** [List what specific information you determined was missing]
+            - **Tool Selection Rationale:** [Explain why you chose specific tools over others]
     *   **Tool Call Details (List any tools used in a bulleted list, one per call — DO NOT OMIT OR SUMMARIZE):**
-            - [Format each bullet exactly as:] Call [N]: [TOOL_NAME]([exact source/target from context]) - Purpose: [what you sought] - Result: [what the tool revealed in one short clause]
-    *   **Reasoning Assurance Rationale:** [Explain your Reasoning Assurance Score based on the rubric. e.g., "Awarded 80 points: 40 for context adherence, 30 for referencing case IDs, 10 for framework adherence, and 0 for tool usage as no tools were available."]
+            - [Format each bullet exactly as:] Call [N]: [TOOL_NAME]([target/source]) - Purpose: [information gap addressed] - Result: [what the tool revealed in one short clause]
+    *   **Reasoning Assurance Rationale:** [Explain your Reasoning Assurance Score based on the rubric. Include assessment of your tool selection effectiveness.]
     *   **Overall Evidence Strength:** [Low/Moderate/High/Very High]
 
 summarize_text: 

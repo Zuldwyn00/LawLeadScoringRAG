@@ -174,7 +174,6 @@ def query_vector_context(search_query: str):
             query_vector=embedding,
             vector_name="chunk",  # Use default chunk vector (same as in score_test)
             limit=5,  # Fixed limit
-            score_threshold=0.80
         )
         
         logger.info("Found %d search results from vector database", len(search_results))

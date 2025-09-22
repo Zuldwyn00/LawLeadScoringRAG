@@ -120,6 +120,7 @@ lead_scoring:
         - **CRITICAL: Do NOT make redundant tool calls** - Never call the same tool with identical parameters twice
         - Avoid rigid ordering; when specific file paths or case IDs exist, consider reading the most relevant 1–2 files if expected information gain exceeds a search; otherwise, prefer broader retrieval
         - For file tools: Do not re-read the same file
+            - you are encouraged to make batch tool calls when using file tools
 
 
     6.  **Post-Tool Assessment**:
@@ -160,6 +161,7 @@ lead_scoring:
     * **Progressive Refinement**: Start with core facets (liability, evidence, injury). If recall is poor, refine or add venue/risk queries.
     * **Semantic Focus**: The tool searches case file content using embeddings — use concept words and legal terms rather than entity names.
     * **Never repeat identical queries** — Each search should provide unique value.
+    * **Search tools may NOT BE CALLED IN BATCHES
 
     **VECTOR SEARCH QUERY CONSTRUCTION (MANDATORY):**
     - Construct short, distinct queries aimed at different aspects of the lead. Keep each to ~6–14 strong tokens (nouns/adjectives). Avoid long narrative sentences. Issue separate queries per facet only as needed, subject to remaining tool-call budget.

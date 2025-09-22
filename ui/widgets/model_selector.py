@@ -58,15 +58,7 @@ class ModelSelectorWidget(ctk.CTkFrame):
                 self.final_model_var.set(first_model)
                 
         except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
-            print(f"Warning: Could not load model configs: {e}")
-            # Fallback to basic models
-            self.models = {
-                "gpt-5": {
-                    "deployment_name": "gpt-5",
-                    "description": "GPT-5 model (default)",
-                    "pricing": {"input": 1.25, "output": 10.00}
-                }
-            }
+            raise RuntimeError(f"Could not load model configs: {e}")
 
     def _create_widgets(self):
         """Create the model selection UI components."""

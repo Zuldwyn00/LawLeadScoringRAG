@@ -173,7 +173,7 @@ def query_vector_context(search_query: str):
             collection_name="case_files_large",  # Fixed collection name
             query_vector=embedding,
             vector_name="chunk",  # Use default chunk vector (same as in score_test)
-            limit=5  # Fixed limit
+            limit=5,  # Fixed limit
             score_threshold=0.80
         )
         

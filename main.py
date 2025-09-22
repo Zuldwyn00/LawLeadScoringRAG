@@ -51,8 +51,9 @@
 #   - Clear All button does nothing
 
 #---- TOOLS TO CREATE ---
+#TODO: ))) Implement tool specific limits, the search tool can be used more than the get_file_context tool maybe.
 #TODO: 1) List all chunks if a file is split up into multiple
-#TODO: 2) Search function for AI, we can allow it to search the database with its own query.
+
 
 
 

@@ -440,12 +440,6 @@ class LeadScoringAgent:
                 extra_messages=extra_messages,
             )
 
-            current_lead_token_count = sum(
-                map(lambda m: count_tokens(str(m.content)), messages_to_send)
-            )
-            self.logger.info(
-                f"Lead scoring iteration - Token count: {current_lead_token_count}"
-            )
             self.current_lead_score = self.client.invoke(messages_to_send)
             return get_response_recursive()
 
@@ -484,14 +478,53 @@ class LeadScoringAgent:
         tool_usage_details = self.tool_manager.get_tool_usage_summary()
         tool_usage_summary_msg = SystemMessage(
             content=f"Tool Usage Summary: You made {self.tool_manager.tool_call_count} tool calls out of {self.tool_manager.tool_call_limit} maximum. "
-            f"{tool_usage_details}. Please include this exact information in your '**6. Analysis Depth & Tool Usage:' section."
+            f"{tool_usage_details}. Please include this exact information in your Analysis Depth & Tool Usage:' section."
         )
+
+        def _build_aggregated_tool_context() -> SystemMessage | None:
+            """
+            Build a single SystemMessage containing all previous tool calls and their results.
+            
+            Returns:
+                SystemMessage | None: Aggregated tool context or None if no tools were used.
+            """
+            tool_context_entries = []
+            for msg in self.client.message_history:
+                if isinstance(msg, ToolMessage):
+                    # Find the corresponding tool call in history to get the parameters
+                    call_id = getattr(msg, 'tool_call_id', None)
+                    call_info = None
+                    if call_id and self.tool_manager.tool_call_history:
+                        for call in self.tool_manager.tool_call_history:
+                            if call.get('call_id') == call_id:
+                                call_info = call
+                                break
+
+                    if call_info:
+                        tool_name = call_info.get('tool_name', 'unknown')
+                        args = call_info.get('args', {})
+                        tool_context_entries.append(f"Tool Call: {tool_name} - Args: {args} - Result: {msg.content}")
+                    else:
+                        tool_context_entries.append(f"Tool Result: {msg.content}")
+
+            return SystemMessage(
+                content=f"**Previous Tool Calls and Results Context:**\n{chr(10).join(tool_context_entries)}"
+            ) if tool_context_entries else None
+
+        # Build aggregated tool context using nested function
+        aggregated_tool_context = _build_aggregated_tool_context()
+
+        # Log warning if no tools were used at all
+        if not aggregated_tool_context:
+            self.logger.warning(
+                "No tool results found in conversation history. The AI did not use any tools during lead scoring."
+            )
 
         messages_to_send = self._assemble_messages(
             base_messages,
-            last_response=final_response,  # Use the cleaned response without tool calls
+            last_response=final_response,
             tool_call_responses=tool_call_responses,
-            extra_messages=[validation_msg, tool_usage_summary_msg]
+            extra_messages=[validation_msg, tool_usage_summary_msg, aggregated_tool_context] if aggregated_tool_context else [validation_msg, tool_usage_summary_msg]
         )
 
         # Calculate and log token count for final lead scoring
@@ -505,8 +538,8 @@ class LeadScoringAgent:
             final_lead = self.final_client.invoke(messages_to_send)
         else:
             final_lead = self.client.invoke(messages_to_send)
-            
-                    
+
+
         # Add the final lead response to the chat history before dumping the log since its from the fnal clients chat history
         self.client.add_message(final_lead)
         return final_lead
@@ -662,3 +695,53 @@ def extract_confidence_from_response(response: str) -> int:
         return int(match.group(1))
 
     return 0
+
+
+def extract_recommendation_from_response(response: str) -> str:
+    """
+    Extract the recommendation from the AI response.
+
+    Args:
+        response (str): The AI response containing the recommendation.
+
+    Returns:
+        str: The extracted recommendation, or "Not available" if not found.
+    """
+    # Try markdown format first (**Recommendation:**)
+    pattern = r"^\s*\*\*Recommendation:\*\*\s*(.*)"
+    match = re.search(pattern, response, re.IGNORECASE | re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+    
+    # Fallback to plain format (Recommendation:)
+    pattern = r"^\s*Recommendation:\s*(.*)"
+    match = re.search(pattern, response, re.IGNORECASE | re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+    
+    return "Recommendation not available"
+
+
+def extract_title_from_response(response: str) -> str:
+    """
+    Extract the title from the AI response.
+
+    Args:
+        response (str): The AI response containing the title.
+
+    Returns:
+        str: The extracted title, or "Title not available" if not found.
+    """
+    # Try markdown format first (**Title:**)
+    pattern = r"^\s*\*\*Title:\*\*\s*(.*)"
+    match = re.search(pattern, response, re.IGNORECASE | re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+    
+    # Fallback to plain format (Title:)
+    pattern = r"^\s*Title:\s*(.*)"
+    match = re.search(pattern, response, re.IGNORECASE | re.MULTILINE)
+    if match:
+        return match.group(1).strip()
+    
+    return "Title not available"

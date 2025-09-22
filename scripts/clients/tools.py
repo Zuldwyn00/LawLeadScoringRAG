@@ -59,7 +59,7 @@ class ToolManager:
             )
 
         try:
-            logger.debug(f"Calling tool '{tool_name}' with args: {tool_args}")
+            logger.debug("Calling tool '%s' with args: %s", tool_name, tool_args)
             output = tool_to_call.invoke(tool_args)
             self.tool_call_count += 1
 
@@ -79,6 +79,14 @@ class ToolManager:
                 and isinstance(output[1], int)
             ):
                 content, token_count = output
+                
+                # ─── TOOL SUCCESS/FAILURE DETECTION ──────────────────────────────────────
+                # Check if this is an error result and adjust counter accordingly
+                if token_count == 0 and (content.startswith("Error:") or content.startswith("Warning:")):
+                    self.tool_call_count -= 1
+                    self.tool_call_history.pop()  # Remove the last history entry too
+                # ─────────────────────────────────────────────────────────────────────────
+                
                 return ToolMessage(
                     content=content,
                     tool_call_id=tool_call.get("id", "unknown"),
@@ -166,6 +174,7 @@ def query_vector_context(search_query: str):
             query_vector=embedding,
             vector_name="chunk",  # Use default chunk vector (same as in score_test)
             limit=5  # Fixed limit
+            score_threshold=0.80
         )
         
         logger.info("Found %d search results from vector database", len(search_results))

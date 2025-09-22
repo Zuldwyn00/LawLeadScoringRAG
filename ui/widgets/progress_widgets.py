@@ -35,7 +35,7 @@ class ProgressWidget:
     def show(self):
         """Show the progress widget."""
         if not self.is_visible:
-            self.frame.grid(row=4, column=0, sticky="ew", padx=20, pady=10)
+            self.frame.grid(row=5, column=0, sticky="ew", padx=20, pady=10)
             self.frame.grid_columnconfigure(0, weight=1)
 
             self.progress_bar.grid(row=0, column=0, sticky="ew", padx=10, pady=10)

@@ -217,6 +217,7 @@ class LeadScoringHandler:
         completion_callback=None,
         error_callback=None,
         cost_callback=None,
+        chunks_callback=None,
     ):
         """
         Process the lead scoring with progress updates.
@@ -228,6 +229,7 @@ class LeadScoringHandler:
             completion_callback (callable): Callback for completion (score, confidence, analysis)
             error_callback (callable): Callback for errors (error_message)
             cost_callback (callable): Callback for cost updates (current_cost)
+            chunks_callback (callable): Callback for chunks updates (retrieved_chunks)
         """
         try:
             start_time = time.time()
@@ -272,6 +274,10 @@ class LeadScoringHandler:
                 vector_name="chunk",
                 limit=chunk_limit,
             )
+            
+            # Display chunks immediately after retrieval
+            if chunks_callback:
+                chunks_callback(search_results)
 
             # Step 4: Get historical context
             if progress_callback:
@@ -345,7 +351,7 @@ class LeadScoringHandler:
 
             if completion_callback:
                 completion_callback(
-                    score, confidence, final_analysis, chat_log_filename
+                    score, confidence, final_analysis, chat_log_filename, search_results
                 )
 
         except Exception as e:
@@ -438,7 +444,12 @@ class UIEventHandler:
             
             # Reset current lead cost at the start of processing
             self.app.after(0, self.app.cost_tracking_widget.reset_current_lead_cost)
+            self.app.after(0, self.app.cost_tracking_widget.reset_model_costs)
             
+            # Clear previous chunks display
+            if hasattr(self.app, 'retrieved_chunks_frame'):
+                self.app.after(0, self.app.retrieved_chunks_frame.clear)
+
             # Reset telemetry managers for new lead
             self.business_logic.reset_current_lead_cost()
             
@@ -459,17 +470,28 @@ class UIEventHandler:
                 
                 # Update model-specific costs
                 model_costs = self.business_logic.get_current_lead_cost_by_model()
-                for model_name, model_cost in model_costs.items():
-                    self.app.after(
-                        0,
-                        lambda m=model_name, c=model_cost: self.app.cost_tracking_widget.update_model_cost(m, c)
-                    )
+                self.app.after(
+                    0,
+                    lambda: self.app.cost_tracking_widget.set_model_costs(model_costs)
+                )
+
+            def chunks_update(chunks):
+                print(f"Chunks callback called with {len(chunks) if chunks else 0} chunks")  # Debug logging
+                # Transform search results to display format
+                transformed_chunks = self._transform_search_results_for_display(chunks)
+                # Display retrieved chunks immediately when they're available
+                if hasattr(self.app, 'retrieved_chunks_frame'):
+                    self.app.after(0, lambda: self.app.retrieved_chunks_frame.display_chunks(transformed_chunks))
 
             def completion_callback(
-                score, confidence, analysis, chat_log_filename=None
+                score, confidence, analysis, chat_log_filename=None, chunks=None
             ):
                 # Get final cost for this lead
                 final_cost = self.business_logic.get_current_lead_cost()
+                self.app.after(
+                    0,
+                    lambda: self.app.cost_tracking_widget.add_to_session_total(final_cost)
+                )
                 
                 # Create new lead
                 new_lead = {
@@ -480,10 +502,11 @@ class UIEventHandler:
                     "analysis": analysis,
                     "chat_log_filename": chat_log_filename,  # Link to specific chat log
                     "cost": final_cost,  # Add cost to lead data
+                    "retrieved_chunks": chunks,  # Add retrieved chunks data
                 }
 
                 # Update UI on main thread
-                self.app.after(0, lambda: self._handle_scoring_completion(new_lead, final_cost))
+                self.app.after(0, lambda: self._handle_scoring_completion(new_lead, final_cost, chunks))
 
             def error_callback(error_message):
                 self.app.after(0, lambda: self._handle_scoring_error(error_message))
@@ -501,6 +524,7 @@ class UIEventHandler:
                 completion_callback=completion_callback,
                 error_callback=error_callback,
                 cost_callback=cost_update,
+                chunks_callback=chunks_update,
             )
 
         thread = threading.Thread(target=process_lead, daemon=True)
@@ -508,7 +532,118 @@ class UIEventHandler:
 
         return True, "Processing started..."
 
-    def _handle_scoring_completion(self, new_lead, final_cost):
+    def _transform_search_results_for_display(self, search_results):
+        """
+        Transform Qdrant search results into the format expected by RetrievedChunksDisplayFrame.
+        
+        Args:
+            search_results: List of Qdrant search result objects with .payload and .score attributes
+            
+        Returns:
+            List[Dict]: Transformed chunks in display format
+        """
+        if not search_results:
+            return []
+            
+        transformed_chunks = []
+        
+        for i, result in enumerate(search_results):
+            payload = result.payload if hasattr(result, 'payload') else result
+            score = getattr(result, 'score', 0.0)
+            
+            # Extract and format the metadata fields as content
+            content = self._extract_content_from_payload(payload, i == 0)
+            
+            # Extract source information
+            source = payload.get('source', 'Unknown Source')
+            
+            # Create page range information
+            chunk_index = payload.get('chunk_index', 0)
+            total_chunks = payload.get('total_chunks', 1)
+            
+            # Try to get page range info - check various possible keys
+            page_range = (
+                payload.get('page_range') or
+                payload.get('pages') or 
+                payload.get('page') or
+                f"Chunk {chunk_index + 1}/{total_chunks}"
+            )
+            
+            # Create transformed chunk in expected format
+            transformed_chunk = {
+                'content': content,
+                'text': content,  # Backup key
+                'source': source,
+                'score': score,
+                'page_range': str(page_range),
+                'metadata': {
+                    'source': source,
+                    'score': score,
+                    'page_range': str(page_range),
+                    'chunk_index': chunk_index,
+                    'total_chunks': total_chunks,
+                    'case_id': payload.get('case_id'),
+                    'token_count': payload.get('token_count', 0)
+                }
+            }
+            
+            transformed_chunks.append(transformed_chunk)
+            
+        print(f"Transformed {len(search_results)} search results into display format")  # Debug logging
+        return transformed_chunks
+
+    def _extract_content_from_payload(self, payload: dict, is_debug_result: bool = False) -> str:
+        """
+        Format the available metadata fields into readable content for display.
+        
+        Args:
+            payload (dict): The payload from search result
+            is_debug_result (bool): Whether to print debug info for this result
+            
+        Returns:
+            str: Formatted content showing all available metadata fields
+        """
+        if is_debug_result:
+            print(f"DEBUG: Formatting payload fields into content display")
+        
+        # Format the available fields into a readable display
+        content_lines = []
+        
+        # Add case information
+        if payload.get('case_id'):
+            content_lines.append(f"📋 Case ID: {payload['case_id']}")
+        
+        if payload.get('Description'):
+            content_lines.append(f"📝 Description: {payload['Description']}")
+            
+        # Add categorization
+        if payload.get('Category'):
+            category = payload['Category']
+            if payload.get('Sub-Category'):
+                category += f" - {payload['Sub-Category']}"
+            content_lines.append(f"🏷️ Category: {category}")
+        
+        # Add date information
+        if payload.get('Date'):
+            content_lines.append(f"📅 Date: {payload['Date']}")
+            
+        # Add source information (From/To)
+        if payload.get('From'):
+            content_lines.append(f"👤 From: {payload['From']}")
+        if payload.get('To'):
+            content_lines.append(f"👥 To: {payload['To']}")
+            
+        # Add chunk information
+        if payload.get('chunk_index') is not None and payload.get('total_chunks'):
+            chunk_info = f"Chunk {payload['chunk_index'] + 1} of {payload['total_chunks']}"
+            if payload.get('chunk_token_count'):
+                chunk_info += f" ({payload['chunk_token_count']} tokens)"
+            content_lines.append(f"📄 {chunk_info}")
+        
+        # Join all lines with double newlines for readability
+        return "\n\n".join(content_lines) if content_lines else "No metadata available"
+
+    def _handle_scoring_completion(self, new_lead, final_cost, chunks=None):
         """Handle successful completion of lead scoring."""
         # Add cost to session total
         self.app.cost_tracking_widget.add_to_session_total(final_cost)
@@ -516,7 +651,7 @@ class UIEventHandler:
         # Add model-specific costs to session total
         model_costs = self.business_logic.get_current_lead_cost_by_model()
         for model_name, model_cost in model_costs.items():
-            self.app.cost_tracking_widget.update_model_cost(model_name, model_cost)
+            self.app.cost_tracking_widget.add_model_cost(model_name, model_cost)
         
         # Note: Don't reset current lead cost here - it will be reset at the start of the next lead
         

@@ -17,6 +17,11 @@ from ..feedback_manager import (
 )
 from .score_widgets import ScoreBlock
 from .text_widgets import InlineEditableText
+from scripts.clients.agents.scoring import (
+    extract_recommendation_from_response,
+    extract_title_from_response,
+    extract_jurisdiction_from_response
+)
 
 
 # ─── LEAD ITEM WIDGET ───────────────────────────────────────────────────────────
@@ -87,7 +92,7 @@ class LeadItem(ctk.CTkFrame):
         main_frame.grid_columnconfigure(1, weight=1)
 
         # Score block (editable) - display corrected score but use original for editing baseline
-        display_score = self.lead["score"]  # This is the corrected score
+        display_score = self.lead.get("score", 0)  # Use .get() for safety
         original_score_for_editing = display_score  # Default to same value
 
         # If this lead has feedback, get the original AI score for the edit dialog
@@ -135,16 +140,48 @@ class LeadItem(ctk.CTkFrame):
             warning_label.grid(row=row, column=0, sticky="ew", pady=(0, 10))
             row += 1
 
+        # Title section
+        analysis_text = self.lead.get("analysis", "")
+        recommendation = extract_recommendation_from_response(analysis_text)
+        lead_title = extract_title_from_response(analysis_text)
+        jurisdiction = extract_jurisdiction_from_response(analysis_text)
+        
+        # Recommendation
+        recommendation_label = ctk.CTkLabel(
+            content_frame,
+            text=recommendation,
+            font=FONTS()["body"],
+            text_color=COLORS["text_white"],
+            anchor="w",
+            wraplength=800
+        )
+        recommendation_label.grid(row=row, column=0, sticky="ew", pady=(0, 5))
+        row += 1
+        
         # Title
-        title_text = f"Score: {self.lead['score']}/100 | Confidence: {self.lead.get('confidence', 50)}/100 - {self.lead['timestamp']}"
         title_label = ctk.CTkLabel(
             content_frame,
-            text=title_text,
+            text=lead_title,
             font=FONTS()["subheading"],
             text_color=COLORS["text_white"],
             anchor="w",
+            wraplength=800
         )
         title_label.grid(row=row, column=0, sticky="ew", pady=(0, 10))
+        row += 1
+
+        # Jurisdiction and Timestamp
+        jurisdiction_text = jurisdiction if jurisdiction else "Jurisdiction not found"
+        timestamp_text = self.lead.get('timestamp', 'Timestamp unavailable')
+        meta_text = f"{jurisdiction_text}  |  {timestamp_text}"
+        meta_label = ctk.CTkLabel(
+            content_frame,
+            text=meta_text,
+            font=FONTS()["small"],
+            text_color=COLORS["text_gray"],
+            anchor="w"
+        )
+        meta_label.grid(row=row, column=0, sticky="ew", pady=(0, 10))
         row += 1
 
         # Buttons frame
@@ -278,7 +315,7 @@ class LeadItem(ctk.CTkFrame):
         self.description_textbox.grid(
             row=1, column=0, sticky="nsew", padx=15, pady=(0, 15)
         )
-        self.description_textbox.insert("1.0", self.lead["description"])
+        self.description_textbox.insert("1.0", self.lead.get("description", "No description available."))
         self.description_textbox.configure(state="disabled")
 
         # Prevent scroll event propagation to parent to avoid scroll conflicts

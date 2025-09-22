@@ -135,6 +135,7 @@ class QdrantManager:
         query_vector: List[float],
         vector_name: str = "chunk",
         limit: int = 10,
+        score_threshold: int = 0.70
     ) -> list:
         """
         Searches for similar vectors in the collection.
@@ -144,6 +145,7 @@ class QdrantManager:
             query_vector (List[float]): The vector to search with.
             vector_name (str, optional): The name of the vector to search against. Defaults to "chunk".
             limit (int, optional): The maximum number of results to return.
+            score_threshold: The threshold for similarity score returned chunks must meet.
 
         Returns:
             list: A list of search results.
@@ -153,6 +155,7 @@ class QdrantManager:
                 collection_name=collection_name,
                 query_vector=(vector_name, query_vector),
                 limit=limit,
+                score_threshold=score_threshold
             )
             return search_result
         except Exception as e:

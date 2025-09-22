@@ -51,7 +51,6 @@ class CostTrackingWidget(ctk.CTkFrame):
             text="",
             font=FONTS()["small"],
             text_color=COLORS["text_gray"],
-            wraplength=250,
         )
         self.model_breakdown_label.pack(pady=(2, 10))
 
@@ -83,11 +82,16 @@ class CostTrackingWidget(ctk.CTkFrame):
         """Get the session total cost."""
         return self.total_session_cost
 
-    def update_model_cost(self, model_name: str, cost: float):
-        """Update cost for a specific model."""
+    def add_model_cost(self, model_name: str, cost: float):
+        """Add cost for a specific model."""
         if model_name not in self.model_costs:
             self.model_costs[model_name] = 0.0
         self.model_costs[model_name] += cost
+        self._update_model_breakdown()
+
+    def set_model_costs(self, model_costs: dict):
+        """Set the model costs for the current lead."""
+        self.model_costs = model_costs
         self._update_model_breakdown()
 
     def _update_model_breakdown(self):

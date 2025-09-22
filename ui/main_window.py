@@ -24,10 +24,10 @@ from .widgets import (
     GuidelinesWidget,
     FeedbackGuidelinesWidget,
     CostTrackingWidget,
-    ModelSelectorWidget,
+    RetrievedChunksDisplayFrame,
 )
 from .handlers import UIEventHandler
-from .dialogs import LogViewerDialog
+from .dialogs import LogViewerDialog, ModelSelectionDialog
 from .feedback_manager import FeedbackManager
 
 
@@ -55,6 +55,9 @@ class LeadScoringApp:
         print(
             f"DEBUG: Main window using FeedbackManager instance: {id(self.feedback_manager)}"
         )
+
+        # Initialize model selector (starts as None, will be created when dialog is first opened)
+        self.model_selector = None
 
         # Initialize with example lead
         self.scored_leads = self.event_handler.get_initial_leads()
@@ -110,24 +113,28 @@ class LeadScoringApp:
         subtitle_label.grid(row=1, column=0, pady=(0, 10))
 
     def create_main_content(self):
-        """Create the main content area with left and right panels."""
+        """Create the main content area with left, middle, and right panels."""
         main_frame = ctk.CTkFrame(self.root, **get_frame_style("primary"))
         main_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
         main_frame.grid_rowconfigure(0, weight=1)
-        main_frame.grid_columnconfigure(0, weight=2)
-        main_frame.grid_columnconfigure(1, weight=1)
+        main_frame.grid_columnconfigure(0, weight=1)  # Input panel
+        main_frame.grid_columnconfigure(1, weight=2)  # Results panel  
+        main_frame.grid_columnconfigure(2, weight=0, minsize=150)  # Retrieved chunks panel (starts collapsed)
 
-        # Left panel - Input and results
+        # Left panel - Input and controls
         self.create_left_panel(main_frame)
 
-        # Right panel - Guidelines and stats
-        self.create_right_panel(main_frame)
+        # Middle panel - Scored leads results
+        self.create_middle_panel(main_frame)
+        
+        # Right panel - Retrieved chunks display
+        self.create_retrieved_chunks_panel(main_frame)
 
     def create_left_panel(self, parent):
-        """Create the left panel with input and results."""
+        """Create the left panel with input and controls."""
         left_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
-        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 10), pady=0)
-        left_frame.grid_rowconfigure(6, weight=1)
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=0)
+        left_frame.grid_rowconfigure(4, weight=1)  # Give weight to progress section to fill space
         left_frame.grid_columnconfigure(0, weight=1)
 
         # Input section
@@ -138,9 +145,9 @@ class LeadScoringApp:
 
         # Progress section
         self.create_progress_section(left_frame)
-
-        # Results section
-        self.create_results_section(left_frame)
+        
+        # Guidelines section (moved from right panel to left)
+        self.create_left_guidelines_section(left_frame)
 
     def create_input_section(self, parent):
         """Create the lead description input section."""
@@ -161,22 +168,36 @@ class LeadScoringApp:
         # Clear placeholder text when clicked
         self.lead_text.bind("<Button-1>", self._clear_placeholder)
 
-        # Model selection section
-        self.create_model_selection_section(parent)
+        # Model settings button
+        self.create_model_settings_button(parent)
 
         # Vector search settings section
         self.create_vector_search_settings(parent)
 
-    def create_model_selection_section(self, parent):
-        """Create the model selection section."""
-        # Model selection frame
-        model_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
-        model_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(10, 0))
-        model_frame.grid_columnconfigure(1, weight=1)
+    def create_model_settings_button(self, parent):
+        """Create the model settings button."""
+        # Model settings frame
+        settings_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
+        settings_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(10, 0))
+        settings_frame.grid_columnconfigure(1, weight=1)
         
-        # Create model selector widget
-        self.model_selector = ModelSelectorWidget(model_frame)
-        self.model_selector.grid(row=0, column=0, columnspan=2, sticky="ew", padx=15, pady=10)
+        # Model settings button
+        self.model_settings_button = ctk.CTkButton(
+            settings_frame,
+            text="⚙️ AI Model Configuration",
+            command=self._open_model_settings,
+            **get_secondary_button_style(),
+        )
+        self.model_settings_button.grid(row=0, column=0, sticky="ew", padx=15, pady=10)
+        
+        # Status label showing current models
+        self.model_status_label = ctk.CTkLabel(
+            settings_frame,
+            text="Models: Default Configuration",
+            font=FONTS()["small"],
+            text_color=COLORS["text_gray"],
+        )
+        self.model_status_label.grid(row=1, column=0, sticky="w", padx=15, pady=(0, 10))
 
     def create_vector_search_settings(self, parent):
         """Create the vector search settings section."""
@@ -219,6 +240,76 @@ class LeadScoringApp:
         )
         help_label.grid(row=0, column=2, sticky="w", padx=(10, 15), pady=10)
 
+    def create_middle_panel(self, parent):
+        """Create the middle panel with scored leads results."""
+        middle_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
+        middle_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=0)
+        middle_frame.grid_rowconfigure(1, weight=1)  # Give weight to the results frame row
+        middle_frame.grid_columnconfigure(0, weight=1)
+
+        # Results section title
+        results_label = ctk.CTkLabel(
+            middle_frame,
+            text="Scored Leads",
+            font=FONTS()["heading"],
+            text_color=COLORS["text_white"],
+        )
+        results_label.grid(row=0, column=0, sticky="w", padx=20, pady=(20, 10))
+
+        # Scrollable frame for results
+        self.results_frame = ctk.CTkScrollableFrame(
+            middle_frame,
+            **get_frame_style("secondary"),
+            scrollbar_button_color=COLORS["accent_orange"],
+            scrollbar_button_hover_color=COLORS["accent_orange_hover"],
+        )
+        self.results_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        self.results_frame.grid_columnconfigure(0, weight=1)
+
+    def create_retrieved_chunks_panel(self, parent):
+        """Create the right panel with retrieved chunks display and stats."""
+        # Retrieved chunks display
+        self.retrieved_chunks_frame = RetrievedChunksDisplayFrame(parent)
+        self.retrieved_chunks_frame.grid(row=0, column=2, sticky="nsew", padx=(5, 0), pady=0)
+        
+        # Set up width change handler
+        self.retrieved_chunks_frame.set_width_change_handler(self._handle_chunks_sidebar_width_change)
+
+    def create_left_guidelines_section(self, parent):
+        """Create a compact guidelines section for the left panel."""
+        # Cost tracking section (moved from old right panel)
+        self.cost_tracking_widget = CostTrackingWidget(parent)
+        self.cost_tracking_widget.grid(row=5, column=0, sticky="ew", padx=20, pady=(10, 5))
+
+        # Statistics section (moved from old right panel)  
+        self.stats_widget = StatsWidget(parent)
+        self.stats_widget.grid(row=6, column=0, sticky="ew", padx=20, pady=(5, 20))
+        
+    def _handle_chunks_sidebar_width_change(self, is_expanded: bool):
+        """
+        Handle retrieved chunks sidebar width changes to update the grid layout.
+        
+        Args:
+            is_expanded (bool): Whether the sidebar is expanded
+        """
+        # Find the main frame to update its grid configuration
+        main_frame = None
+        for child in self.root.winfo_children():
+            if isinstance(child, ctk.CTkFrame) and child.grid_info().get('row') == 1:
+                main_frame = child
+                break
+                
+        if main_frame:
+            if is_expanded:
+                # Sidebar is expanded, give it more space
+                main_frame.grid_columnconfigure(2, weight=0, minsize=400)
+            else:
+                # Sidebar is collapsed, minimize its space
+                main_frame.grid_columnconfigure(2, weight=0, minsize=150)
+            
+            # Force layout update
+            main_frame.update_idletasks()
+
     def create_button_section(self, parent):
         """Create the button section."""
         button_frame = ctk.CTkFrame(parent, **get_frame_style("transparent"))
@@ -254,69 +345,7 @@ class LeadScoringApp:
         """Create the progress display section."""
         self.progress_widget = ProgressWidget(parent)
 
-    def create_results_section(self, parent):
-        """Create the results display section."""
-        results_label = ctk.CTkLabel(
-            parent,
-            text="Scored Leads",
-            font=FONTS()["heading"],
-            text_color=COLORS["text_white"],
-        )
-        results_label.grid(row=6, column=0, sticky="w", padx=20, pady=(20, 10))
 
-        # Scrollable frame for results
-        self.results_frame = ctk.CTkScrollableFrame(
-            parent,
-            **get_frame_style("secondary"),
-            scrollbar_button_color=COLORS["accent_orange"],
-            scrollbar_button_hover_color=COLORS["accent_orange_hover"],
-        )
-        self.results_frame.grid(row=7, column=0, sticky="nsew", padx=20, pady=(0, 20))
-        self.results_frame.grid_columnconfigure(0, weight=1)
-
-    def create_right_panel(self, parent):
-        """Create the right panel with guidelines and stats."""
-        right_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
-        right_frame.grid(row=0, column=1, sticky="nsew", padx=0, pady=0)
-        right_frame.grid_rowconfigure(
-            0, weight=1
-        )  # Make the expandable area take most space
-        right_frame.grid_columnconfigure(0, weight=1)
-
-        # Container for expandable widgets that takes maximum available space
-        expandable_container = ctk.CTkFrame(right_frame, fg_color="transparent")
-        expandable_container.grid(
-            row=0, column=0, sticky="nsew", padx=20, pady=(20, 10)
-        )
-        expandable_container.grid_rowconfigure(0, weight=0)  # Guidelines widget row
-        expandable_container.grid_rowconfigure(1, weight=0)  # Feedback widget row
-        expandable_container.grid_rowconfigure(
-            2, weight=1
-        )  # Spacer row - gets weight when nothing expanded
-        expandable_container.grid_columnconfigure(0, weight=1)
-
-        # Scoring Guidelines expandable widget
-        self.guidelines_widget = GuidelinesWidget(expandable_container)
-        self.guidelines_widget.grid(row=0, column=0, sticky="ew", pady=(0, 10))
-
-        # Feedback Guidelines expandable widget
-        self.feedback_guidelines_widget = FeedbackGuidelinesWidget(expandable_container)
-        self.feedback_guidelines_widget.grid(row=1, column=0, sticky="ew", pady=(0, 10))
-
-        # Spacer to fill remaining space and push stats to very bottom
-        spacer = ctk.CTkFrame(expandable_container, fg_color="transparent", height=1)
-        spacer.grid(row=2, column=0, sticky="nsew")
-
-        # Cost tracking section
-        self.cost_tracking_widget = CostTrackingWidget(right_frame)
-        self.cost_tracking_widget.grid(row=1, column=0, sticky="ew", padx=20, pady=(5, 10))
-
-        # Statistics section (positioned at the very bottom with minimal space)
-        self.stats_widget = StatsWidget(right_frame)
-        self.stats_widget.grid(row=2, column=0, sticky="ew", padx=20, pady=(5, 20))
-
-        # Set up mutual exclusion for expandable widgets
-        self._setup_expandable_mutual_exclusion()
 
     def _clear_placeholder(self, event):
         """Clear placeholder text when the user clicks on the text area."""
@@ -360,7 +389,10 @@ class LeadScoringApp:
         Returns:
             str: The selected process model name.
         """
-        return self.model_selector.get_selected_process_model()
+        if self.model_selector:
+            return self.model_selector.get_selected_process_model()
+        else:
+            return "gpt-5"  # Default fallback
 
     def get_selected_final_model(self):
         """
@@ -369,7 +401,10 @@ class LeadScoringApp:
         Returns:
             str: The selected final model name.
         """
-        return self.model_selector.get_selected_final_model()
+        if self.model_selector:
+            return self.model_selector.get_selected_final_model()
+        else:
+            return "gpt-5"  # Default fallback
 
     def get_process_model_config(self):
         """
@@ -378,7 +413,15 @@ class LeadScoringApp:
         Returns:
             dict: The process model configuration dictionary.
         """
-        return self.model_selector.get_process_model_config()
+        if self.model_selector:
+            return self.model_selector.get_process_model_config()
+        else:
+            # Return default gpt-5 config as fallback
+            return {
+                "deployment_name": "gpt-5",
+                "description": "GPT-5 model (default)",
+                "pricing": {"input": 1.25, "output": 10.00}
+            }
 
     def get_final_model_config(self):
         """
@@ -387,7 +430,15 @@ class LeadScoringApp:
         Returns:
             dict: The final model configuration dictionary.
         """
-        return self.model_selector.get_final_model_config()
+        if self.model_selector:
+            return self.model_selector.get_final_model_config()
+        else:
+            # Return default gpt-5 config as fallback
+            return {
+                "deployment_name": "gpt-5",
+                "description": "GPT-5 model (default)",
+                "pricing": {"input": 1.25, "output": 10.00}
+            }
 
     def get_process_temperature(self):
         """
@@ -396,7 +447,10 @@ class LeadScoringApp:
         Returns:
             float or None: The process temperature, or None if not set.
         """
-        return self.model_selector.get_process_temperature()
+        if self.model_selector:
+            return self.model_selector.get_process_temperature()
+        else:
+            return None  # Default fallback
 
     def get_final_temperature(self):
         """
@@ -405,7 +459,10 @@ class LeadScoringApp:
         Returns:
             float or None: The final temperature, or None if not set.
         """
-        return self.model_selector.get_final_temperature()
+        if self.model_selector:
+            return self.model_selector.get_final_temperature()
+        else:
+            return None  # Default fallback
 
     def _score_lead_clicked(self):
         """Handle the Score Lead button click."""
@@ -430,6 +487,44 @@ class LeadScoringApp:
         """Handle the View Logs button click."""
         # Open log viewer with session filtering
         LogViewerDialog(self.root, session_start_time=self.current_session_start_time)
+        
+    def _open_model_settings(self):
+        """Handle the Model Configuration button click."""
+        result, new_model_selector = ModelSelectionDialog.show_dialog(self.root, self.model_selector)
+        
+        if result == 'ok' and new_model_selector:
+            # Update the stored model selector
+            self.model_selector = new_model_selector
+            self._update_model_status_label()
+            
+    def _update_model_status_label(self):
+        """Update the model status label to show current configuration."""
+        if self.model_selector:
+            process_model = self.model_selector.get_selected_process_model()
+            final_model = self.model_selector.get_selected_final_model()
+            
+            # Show abbreviated model names if they're the same, otherwise show both
+            if process_model == final_model:
+                status_text = f"Models: {process_model}"
+            else:
+                status_text = f"Models: {process_model} | {final_model}"
+                
+            # Add temperature info if set
+            process_temp = self.model_selector.get_process_temperature()
+            final_temp = self.model_selector.get_final_temperature()
+            
+            if process_temp is not None or final_temp is not None:
+                temp_parts = []
+                if process_temp is not None:
+                    temp_parts.append(f"Temp: {process_temp}")
+                if final_temp is not None and final_temp != process_temp:
+                    temp_parts.append(f"| {final_temp}")
+                if temp_parts:
+                    status_text += f" ({' '.join(temp_parts)})"
+            
+            self.model_status_label.configure(text=status_text)
+        else:
+            self.model_status_label.configure(text="Models: Default Configuration")
 
     def show_view_logs_button(self):
         """Show the View Logs button after Score Lead is pressed."""
@@ -509,91 +604,6 @@ class LeadScoringApp:
             print("DEBUG: No pending feedback found, closing normally")
             self.root.destroy()
 
-    def _setup_expandable_mutual_exclusion(self):
-        """Set up mutual exclusion between expandable widgets in the right panel."""
-        expandable_widgets = [self.guidelines_widget, self.feedback_guidelines_widget]
-
-        def create_exclusive_toggle(target_widget):
-            def exclusive_toggle():
-                # First, collapse all other widgets if target is being expanded
-                if not target_widget.is_expanded:
-                    for other_widget in expandable_widgets:
-                        if other_widget != target_widget and other_widget.is_expanded:
-                            other_widget.collapse()  # Collapse others first
-
-                # Now toggle the target widget
-                if target_widget.is_expanded:
-                    target_widget.collapse()
-                else:
-                    target_widget.expand()
-
-                # Force layout update immediately to ensure proper space allocation
-                self._update_expandable_layout()
-
-            return exclusive_toggle
-
-        # Replace the button commands directly with exclusive versions
-        self.guidelines_widget.header_button.configure(
-            command=create_exclusive_toggle(self.guidelines_widget)
-        )
-        self.feedback_guidelines_widget.header_button.configure(
-            command=create_exclusive_toggle(self.feedback_guidelines_widget)
-        )
-
-    def _update_expandable_layout(self):
-        """Update the layout when expandable widgets change state."""
-        # Find which widget is currently expanded
-        expanded_widget = None
-        expandable_container = (
-            self.guidelines_widget.master
-        )  # Get the expandable container
-
-        for widget in [self.guidelines_widget, self.feedback_guidelines_widget]:
-            if widget.is_expanded:
-                expanded_widget = widget
-                break
-
-        if expanded_widget:
-            # Reset all row weights to 0 first
-            expandable_container.grid_rowconfigure(0, weight=0)
-            expandable_container.grid_rowconfigure(1, weight=0)
-            expandable_container.grid_rowconfigure(2, weight=0)
-
-            # Configure the expanded widget to take ALL available space
-            if expanded_widget == self.guidelines_widget:
-                # Guidelines widget gets all the space
-                expandable_container.grid_rowconfigure(0, weight=1)
-                self.guidelines_widget.grid_configure(sticky="nsew", pady=(0, 5))
-                self.feedback_guidelines_widget.grid_configure(sticky="ew", pady=(0, 5))
-            elif expanded_widget == self.feedback_guidelines_widget:
-                # Feedback widget gets all the space
-                expandable_container.grid_rowconfigure(1, weight=1)
-                self.feedback_guidelines_widget.grid_configure(
-                    sticky="nsew", pady=(0, 5)
-                )
-                self.guidelines_widget.grid_configure(sticky="ew", pady=(0, 5))
-
-            # Ensure the expanded widget's internal layout is configured for full expansion
-            expanded_widget.grid_rowconfigure(1, weight=1)  # Content row gets weight
-            expanded_widget.content_frame.grid_rowconfigure(
-                0, weight=1
-            )  # Textbox row gets weight
-
-        else:
-            # No widget expanded - restore default layout with spacer
-            expandable_container.grid_rowconfigure(0, weight=0)
-            expandable_container.grid_rowconfigure(1, weight=0)
-            expandable_container.grid_rowconfigure(
-                2, weight=1
-            )  # Spacer gets the weight
-
-            # Restore normal spacing and layout
-            self.guidelines_widget.grid_configure(sticky="ew", pady=(0, 10))
-            self.feedback_guidelines_widget.grid_configure(sticky="ew", pady=(0, 10))
-
-            # Reset internal weights
-            self.guidelines_widget.grid_rowconfigure(1, weight=0)
-            self.feedback_guidelines_widget.grid_rowconfigure(1, weight=0)
 
     def _capture_final_text_states(self):
         """Capture the final text state from all lead items with pending feedback."""

@@ -8,6 +8,7 @@ from .analysis_dialog import AnalysisDialog
 from .chat_history_dialog import ChatHistoryDialog
 from .description_dialog import DescriptionDialog
 from .log_viewer_dialog import LogViewerDialog
+from .model_selection_dialog import ModelSelectionDialog
 from .password_dialog import PasswordDialog
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "ChatHistoryDialog",
     "DescriptionDialog", 
     "LogViewerDialog",
+    "ModelSelectionDialog",
     "PasswordDialog",
 ]

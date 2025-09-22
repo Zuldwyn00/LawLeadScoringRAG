@@ -30,6 +30,9 @@ from .expandable_widgets import (
 # ─── MODEL SELECTION WIDGETS ────────────────────────────────────────────────────
 from .model_selector import ModelSelectorWidget
 
+# ─── RETRIEVED CHUNKS DISPLAY WIDGETS ───────────────────────────────────────────
+from .retrieved_chunks_display import RetrievedChunksDisplayFrame
+
 # ─── EXPORT ALL WIDGETS ─────────────────────────────────────────────────────────
 __all__ = [
     # Progress widgets
@@ -56,4 +59,7 @@ __all__ = [
     
     # Model selection widgets
     "ModelSelectorWidget",
+    
+    # Retrieved chunks display widgets
+    "RetrievedChunksDisplayFrame",
 ]

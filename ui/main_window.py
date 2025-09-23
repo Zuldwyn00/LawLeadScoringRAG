@@ -29,18 +29,18 @@ from .widgets import (
 from .handlers import UIEventHandler
 from .dialogs import LogViewerDialog, ModelSelectionDialog
 from .feedback_manager import FeedbackManager
+from .widgets.model_selector import ModelSelectorWidget
 
 
 # ─── MAIN APPLICATION CLASS ─────────────────────────────────────────────────────
-class LeadScoringApp:
+class MainWindow(ctk.CTk):
     """Main application window for the Lead Scoring System."""
 
     def __init__(self):
+        super().__init__()
+
         # Set up theme first
         setup_theme()
-
-        # Initialize main window
-        self.root = ctk.CTk()
         self.setup_window()
 
         # Initialize data
@@ -52,13 +52,10 @@ class LeadScoringApp:
 
         # Initialize feedback manager for program close handling
         self.feedback_manager = FeedbackManager()
-        print(
-            f"DEBUG: Main window using FeedbackManager instance: {id(self.feedback_manager)}"
-        )
 
-        # Initialize model selector (starts as None, will be created when dialog is first opened)
-        self.model_selector = None
-
+        # Initialize model selector
+        self.model_selector = ModelSelectorWidget(self)
+        
         # Initialize with example lead
         self.scored_leads = self.event_handler.get_initial_leads()
 
@@ -74,16 +71,16 @@ class LeadScoringApp:
 
     def setup_window(self):
         """Configure the main application window."""
-        self.root.title("⚖️ Lead Scoring System")
-        self.root.geometry("1500x1000")
-        self.root.configure(fg_color=COLORS["primary_black"])
+        self.title("⚖️ Lead Scoring System")
+        self.geometry("1500x1000")
+        self.configure(fg_color=COLORS["primary_black"])
 
         # Configure grid weights for responsive design
-        self.root.grid_rowconfigure(1, weight=1)
-        self.root.grid_columnconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
 
         # Set minimum size
-        self.root.minsize(1200, 800)
+        self.minsize(1200, 800)
 
     def create_widgets(self):
         """Create and arrange all UI widgets."""
@@ -92,9 +89,10 @@ class LeadScoringApp:
 
     def create_title_section(self):
         """Create the title section at the top of the window."""
-        title_frame = ctk.CTkFrame(self.root, **get_frame_style("primary"))
+        title_frame = ctk.CTkFrame(self, **get_frame_style("primary"))
         title_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
         title_frame.grid_columnconfigure(0, weight=1)
+        title_frame.grid_columnconfigure(1, weight=0)
 
         title_label = ctk.CTkLabel(
             title_frame,
@@ -112,9 +110,18 @@ class LeadScoringApp:
         )
         subtitle_label.grid(row=1, column=0, pady=(0, 10))
 
+        # Guidelines button (small, top-right, non-intrusive)
+        self.guidelines_button = ctk.CTkButton(
+            title_frame,
+            text="📖 Guidelines",
+            command=self._open_guidelines_popup,
+            **get_secondary_button_style(),
+        )
+        self.guidelines_button.grid(row=0, column=1, rowspan=2, padx=(10, 10), pady=10, sticky="e")
+
     def create_main_content(self):
         """Create the main content area with left, middle, and right panels."""
-        main_frame = ctk.CTkFrame(self.root, **get_frame_style("primary"))
+        main_frame = ctk.CTkFrame(self, **get_frame_style("primary"))
         main_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
         main_frame.grid_rowconfigure(0, weight=1)
         main_frame.grid_columnconfigure(0, weight=1)  # Input panel
@@ -134,7 +141,7 @@ class LeadScoringApp:
         """Create the left panel with input and controls."""
         left_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=0)
-        left_frame.grid_rowconfigure(4, weight=1)  # Give weight to progress section to fill space
+        left_frame.grid_rowconfigure(5, weight=1)  # Give weight to progress section to fill space
         left_frame.grid_columnconfigure(0, weight=1)
 
         # Input section
@@ -279,11 +286,11 @@ class LeadScoringApp:
         """Create a compact guidelines section for the left panel."""
         # Cost tracking section (moved from old right panel)
         self.cost_tracking_widget = CostTrackingWidget(parent)
-        self.cost_tracking_widget.grid(row=5, column=0, sticky="ew", padx=20, pady=(10, 5))
+        self.cost_tracking_widget.grid(row=6, column=0, sticky="ew", padx=20, pady=(10, 5))
 
         # Statistics section (moved from old right panel)  
         self.stats_widget = StatsWidget(parent)
-        self.stats_widget.grid(row=6, column=0, sticky="ew", padx=20, pady=(5, 20))
+        self.stats_widget.grid(row=7, column=0, sticky="ew", padx=20, pady=(5, 20))
         
     def _handle_chunks_sidebar_width_change(self, is_expanded: bool):
         """
@@ -294,7 +301,7 @@ class LeadScoringApp:
         """
         # Find the main frame to update its grid configuration
         main_frame = None
-        for child in self.root.winfo_children():
+        for child in self.winfo_children():
             if isinstance(child, ctk.CTkFrame) and child.grid_info().get('row') == 1:
                 main_frame = child
                 break
@@ -344,7 +351,8 @@ class LeadScoringApp:
     def create_progress_section(self, parent):
         """Create the progress display section."""
         self.progress_widget = ProgressWidget(parent)
-
+        # Place the progress widget in the layout (it will start hidden)
+        self.progress_widget.place_in_layout(row=5, column=0)
 
 
     def _clear_placeholder(self, event):
@@ -486,11 +494,11 @@ class LeadScoringApp:
     def _view_logs_clicked(self):
         """Handle the View Logs button click."""
         # Open log viewer with session filtering
-        LogViewerDialog(self.root, session_start_time=self.current_session_start_time)
+        LogViewerDialog(self, session_start_time=self.current_session_start_time)
         
     def _open_model_settings(self):
         """Handle the Model Configuration button click."""
-        result, new_model_selector = ModelSelectionDialog.show_dialog(self.root, self.model_selector)
+        result, new_model_selector = ModelSelectionDialog.show_dialog(self, self.model_selector)
         
         if result == 'ok' and new_model_selector:
             # Update the stored model selector
@@ -525,6 +533,61 @@ class LeadScoringApp:
             self.model_status_label.configure(text=status_text)
         else:
             self.model_status_label.configure(text="Models: Default Configuration")
+
+    def _open_guidelines_popup(self):
+        """Open a pop-out window showing scoring and feedback guidelines."""
+        popup = ctk.CTkToplevel(self)
+        popup.title("Guidelines")
+        popup.geometry("900x800")
+        popup.minsize(700, 600)
+        popup.configure(fg_color=COLORS["primary_black"])
+        try:
+            popup.transient(self)
+            popup.lift()
+            popup.focus_force()
+            popup.attributes("-topmost", True)
+            # Allow returning to normal stacking after it is visible
+            popup.after(300, lambda: popup.attributes("-topmost", False))
+        except Exception:
+            pass
+
+        # Container frame
+        container = ctk.CTkScrollableFrame(popup, **get_frame_style("secondary"))
+        container.pack(fill="both", expand=True, padx=20, pady=20)
+        container.grid_columnconfigure(0, weight=1)
+        try:
+            container.grid_rowconfigure(0, weight=1)
+            container.grid_rowconfigure(1, weight=1)
+        except Exception:
+            pass
+
+        # Scoring Guidelines
+        scoring_section = GuidelinesWidget(container)
+        scoring_section.grid(row=0, column=0, sticky="nsew", padx=5, pady=(0, 10))
+        try:
+            scoring_section.expand()
+            # Ensure textbox has enough initial height for visibility; scrolling will handle the rest
+            if hasattr(scoring_section, "guidelines_textbox"):
+                scoring_section.guidelines_textbox.configure(height=28, width=100)
+        except Exception:
+            pass
+
+        # Feedback Guidelines
+        feedback_section = FeedbackGuidelinesWidget(container)
+        feedback_section.grid(row=1, column=0, sticky="nsew", padx=5, pady=(0, 0))
+        try:
+            feedback_section.expand()
+            if hasattr(feedback_section, "feedback_textbox"):
+                feedback_section.feedback_textbox.configure(height=28, width=100)
+        except Exception:
+            pass
+
+        # Make the popup modal to keep it in front and focused
+        try:
+            popup.grab_set()
+            popup.protocol("WM_DELETE_WINDOW", lambda: (popup.grab_release(), popup.destroy()))
+        except Exception:
+            pass
 
     def show_view_logs_button(self):
         """Show the View Logs button after Score Lead is pressed."""
@@ -561,7 +624,7 @@ class LeadScoringApp:
 
     def setup_close_handler(self):
         """Set up the window close event handler to save any pending feedback."""
-        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.protocol("WM_DELETE_WINDOW", self.on_closing)
 
     def on_closing(self):
         """Handle application closing - save any pending feedback before exit."""
@@ -595,14 +658,14 @@ class LeadScoringApp:
                 messagebox.showinfo(
                     "Feedback Saved", f"Saved feedback for {saved_count} lead(s)."
                 )
-                self.root.destroy()
+                self.destroy()
             elif result is False:  # No - exit without saving
-                self.root.destroy()
+                self.destroy()
             # If cancel (None), do nothing - stay in application
         else:
             # No pending feedback, just close
             print("DEBUG: No pending feedback found, closing normally")
-            self.root.destroy()
+            self.destroy()
 
 
     def _capture_final_text_states(self):
@@ -625,19 +688,8 @@ class LeadScoringApp:
 
     def after(self, delay, callback):
         """Wrapper for tkinter's after method."""
-        return self.root.after(delay, callback)
+        return super().after(delay, callback)
 
     def run(self):
         """Start the application."""
-        self.root.mainloop()
-
-
-# ─── APPLICATION MAIN ───────────────────────────────────────────────────────────
-def main():
-    """Main function to run the application."""
-    app = LeadScoringApp()
-    app.run()
-
-
-if __name__ == "__main__":
-    main()
+        self.mainloop()

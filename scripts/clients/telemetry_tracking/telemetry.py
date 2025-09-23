@@ -4,17 +4,17 @@ from utils import count_tokens, setup_logger, load_config
 
 class TelemetryManager:
     def __init__(self, client_config: dict):
-        pricing = client_config.get("pricing", {})
+        self.config = client_config  # Store the full config
+        pricing = self.config.get("pricing", {})
         self.input_price = pricing.get("input", 0.0)
         self.output_price = pricing.get("output", 0.0)
         self.total_price = 0
 
-        self.config = load_config()
-        self.logger = setup_logger(self.__class__.__name__, self.config)
+        self.logger = setup_logger(self.__class__.__name__, load_config())
         
         # Debug logging to check pricing configuration
-        self.logger.info("TelemetryManager initialized with pricing - Input: $%.2f, Output: $%.2f", 
-                        self.input_price, self.output_price)
+        self.logger.info("TelemetryManager initialized for '%s' with pricing - Input: $%.2f, Output: $%.2f", 
+                        self.config.get("deployment_name", "unknown"), self.input_price, self.output_price)
 
 
     def calculate_price(self, text: str | List, is_input: bool):

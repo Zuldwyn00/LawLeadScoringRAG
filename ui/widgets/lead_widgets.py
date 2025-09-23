@@ -8,6 +8,7 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import messagebox
 import re
+import json
 
 from ..styles import COLORS, FONTS, get_score_color
 from ..feedback_manager import (
@@ -36,8 +37,7 @@ class LeadItem(ctk.CTkFrame):
         super().__init__(
             parent,
             fg_color=COLORS["tertiary_black"],
-            border_color=confidence_color,
-            border_width=3,
+            corner_radius=15,
             **kwargs,
         )
 
@@ -86,8 +86,14 @@ class LeadItem(ctk.CTkFrame):
 
     def setup_widgets(self):
         """Set up the lead item widgets."""
-        # Main content frame
-        main_frame = ctk.CTkFrame(self, fg_color="transparent")
+        # Main content frame with neutral professional styling
+        main_frame = ctk.CTkFrame(
+            self, 
+            fg_color=COLORS["secondary_black"],
+            corner_radius=12,
+            border_color=COLORS["border_gray"],
+            border_width=1
+        )
         main_frame.grid(row=0, column=0, sticky="ew", padx=15, pady=15)
         main_frame.grid_columnconfigure(1, weight=1)
 
@@ -118,11 +124,74 @@ class LeadItem(ctk.CTkFrame):
         )
         # Set the original score for the edit dialog
         self.score_block.original_score = original_score_for_editing
-        self.score_block.grid(row=0, column=0, padx=(0, 15), pady=0, sticky="n")
+        self.score_block.grid(row=0, column=0, padx=(20, 20), pady=(20, 10), sticky="n")
 
-        # Content frame
+        # Metadata section - compact vertical display under score block
+        analysis_text = self.lead.get("analysis", "")
+        jurisdiction = extract_jurisdiction_from_response(analysis_text)
+        jurisdiction_text = jurisdiction if jurisdiction else "Jurisdiction not found"
+        timestamp_text = self.lead.get('timestamp', 'Timestamp unavailable')
+        
+        # Metadata section (bullet-style inline rows: icon + text)
+        metadata_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        metadata_frame.grid(row=1, column=0, padx=(20, 20), pady=(0, 8), sticky="new")
+        metadata_frame.grid_columnconfigure(0, weight=1)
+
+        # Jurisdiction line (icon + text)
+        jurisdiction_item = ctk.CTkFrame(metadata_frame, fg_color="transparent")
+        jurisdiction_item.grid(row=0, column=0, sticky="new", pady=(0, 2))
+        jurisdiction_item.grid_columnconfigure(1, weight=1)
+
+        jurisdiction_icon = ctk.CTkLabel(
+            jurisdiction_item,
+            text="🧭",
+            font=ctk.CTkFont(size=14),
+            text_color=COLORS["accent_orange"],
+            width=20,
+            anchor="center"
+        )
+        jurisdiction_icon.grid(row=0, column=0, sticky="w")
+
+        jurisdiction_text_label = ctk.CTkLabel(
+            jurisdiction_item,
+            text=jurisdiction_text,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=COLORS["text_gray"],
+            anchor="nw",
+            justify="left",
+            wraplength=180  # Wrap text at 180 pixels
+        )
+        jurisdiction_text_label.grid(row=0, column=1, sticky="nw", padx=(6, 0))
+
+        # Timestamp line (icon + text)
+        timestamp_item = ctk.CTkFrame(metadata_frame, fg_color="transparent")
+        timestamp_item.grid(row=1, column=0, sticky="new", pady=(2, 0))
+        timestamp_item.grid_columnconfigure(1, weight=1)
+
+        timestamp_icon = ctk.CTkLabel(
+            timestamp_item,
+            text="📅",
+            font=ctk.CTkFont(size=14),
+            text_color=COLORS["accent_orange"],
+            width=20,
+            anchor="center"
+        )
+        timestamp_icon.grid(row=0, column=0, sticky="w")
+
+        timestamp_text_label = ctk.CTkLabel(
+            timestamp_item,
+            text=timestamp_text,
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color=COLORS["text_gray"],
+            anchor="nw",
+            justify="left",
+            wraplength=180  # Wrap text at 180 pixels
+        )
+        timestamp_text_label.grid(row=0, column=1, sticky="nw", padx=(6, 0))
+
+        # Content frame with improved padding - spans all rows
         content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        content_frame.grid(row=0, column=1, sticky="ew")
+        content_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 20), pady=20)
         content_frame.grid_columnconfigure(0, weight=1)
 
         row = 0
@@ -141,47 +210,75 @@ class LeadItem(ctk.CTkFrame):
             row += 1
 
         # Title section
-        analysis_text = self.lead.get("analysis", "")
         recommendation = extract_recommendation_from_response(analysis_text)
         lead_title = extract_title_from_response(analysis_text)
-        jurisdiction = extract_jurisdiction_from_response(analysis_text)
         
-        # Recommendation
-        recommendation_label = ctk.CTkLabel(
-            content_frame,
-            text=recommendation,
-            font=FONTS()["body"],
-            text_color=COLORS["text_white"],
-            anchor="w",
-            wraplength=800
+        # Title section with professional styling
+        title_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        title_frame.grid(row=row, column=0, sticky="ew", pady=(0, 8))
+        title_frame.grid_columnconfigure(1, weight=1)
+        
+        # Title icon/indicator
+        title_icon = ctk.CTkLabel(
+            title_frame,
+            text="⚖️",
+            font=FONTS()["subheading"],
+            text_color=COLORS["accent_orange"],
+            width=30
         )
-        recommendation_label.grid(row=row, column=0, sticky="ew", pady=(0, 5))
-        row += 1
+        title_icon.grid(row=0, column=0, sticky="w", padx=(0, 8))
         
-        # Title
+        # Title text
         title_label = ctk.CTkLabel(
-            content_frame,
+            title_frame,
             text=lead_title,
             font=FONTS()["subheading"],
             text_color=COLORS["text_white"],
             anchor="w",
-            wraplength=800
+            justify="left"
         )
-        title_label.grid(row=row, column=0, sticky="ew", pady=(0, 10))
+        title_label.grid(row=0, column=1, sticky="ew")
         row += 1
-
-        # Jurisdiction and Timestamp
-        jurisdiction_text = jurisdiction if jurisdiction else "Jurisdiction not found"
-        timestamp_text = self.lead.get('timestamp', 'Timestamp unavailable')
-        meta_text = f"{jurisdiction_text}  |  {timestamp_text}"
-        meta_label = ctk.CTkLabel(
-            content_frame,
-            text=meta_text,
+        
+        # Recommendation (displayed below title) - using textbox for proper wrapping
+        recommendation_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
+        recommendation_frame.grid(row=row, column=0, sticky="ew", pady=(0, 10))
+        recommendation_frame.grid_columnconfigure(0, weight=1)
+        
+        # Recommendation header
+        rec_header = ctk.CTkLabel(
+            recommendation_frame,
+            text="📋 Recommendation:",
             font=FONTS()["small"],
-            text_color=COLORS["text_gray"],
+            text_color=COLORS["accent_orange"],
             anchor="w"
         )
-        meta_label.grid(row=row, column=0, sticky="ew", pady=(0, 10))
+        rec_header.grid(row=0, column=0, sticky="w", pady=(0, 3))
+        
+        # Recommendation text using textbox for proper wrapping with professional styling
+        recommendation_textbox = ctk.CTkTextbox(
+            recommendation_frame,
+            height=100,  # Increased height since we have more space now
+            font=FONTS()["body"],
+            fg_color=COLORS["primary_black"],
+            text_color=COLORS["text_white"],
+            border_color=COLORS["accent_orange"],
+            border_width=1,
+            wrap="word",
+            corner_radius=8,
+        )
+        recommendation_textbox.grid(row=1, column=0, sticky="ew", pady=(0, 0))
+        recommendation_textbox.insert("1.0", recommendation)
+        recommendation_textbox.configure(state="disabled")  # Read-only
+        row += 1
+
+        # Key Indicators section
+        indicators_frame = ctk.CTkFrame(content_frame, fg_color=COLORS["secondary_black"], corner_radius=8)
+        indicators_frame.grid(row=row, column=0, sticky="ew", pady=(5, 15))
+        indicators_frame.grid_columnconfigure(0, weight=1)
+        
+        # Create indicators list
+        self._create_lead_indicators(indicators_frame)
         row += 1
 
         # Buttons frame
@@ -456,6 +553,157 @@ class LeadItem(ctk.CTkFrame):
         except Exception:
             # If anything goes wrong, let the parent handle scrolling
             pass
+
+    # ─── LEAD INDICATORS SYSTEM ────────────────────────────────────────────────
+    
+    def _create_lead_indicators(self, parent_frame):
+        """
+        Create a bulleted list of key indicators for the lead with visual symbols.
+        
+        This system is easily modifiable - add new indicators by extending the
+        get_lead_indicators() method.
+        """
+        # Header for indicators section
+        header_label = ctk.CTkLabel(
+            parent_frame,
+            text="📊 Key Indicators",
+            font=FONTS()["small"],
+            text_color=COLORS["accent_orange"],
+            anchor="w"
+        )
+        header_label.grid(row=0, column=0, sticky="w", padx=15, pady=(10, 5))
+        
+        # Get indicators data
+        indicators = self._get_lead_indicators()
+        
+        # Create scrollable frame for indicators if there are many
+        indicators_container = ctk.CTkFrame(parent_frame, fg_color="transparent")
+        indicators_container.grid(row=1, column=0, sticky="ew", padx=15, pady=(0, 10))
+        indicators_container.grid_columnconfigure(0, weight=1)
+        
+        # Display each indicator
+        for i, indicator in enumerate(indicators):
+            self._create_indicator_item(indicators_container, indicator, i)
+    
+    def _get_lead_indicators(self):
+        """
+        Get indicators for this lead. Uses pre-generated indicators if available,
+        otherwise falls back to confidence-based indicators.
+        
+        Returns:
+            List[Dict]: List of indicator dictionaries with 'type', 'symbol', 'text', 'color' keys.
+        """
+        # Check if we have pre-generated indicators
+        pre_generated_indicators = self.lead.get("indicators", [])
+        if pre_generated_indicators:
+            # Use pre-generated indicators - they're already in the correct format
+            return pre_generated_indicators
+        
+        # Fallback to confidence-based indicator when no pre-generated indicators exist
+        return self._get_fallback_confidence_indicator()
+    
+    def _get_fallback_confidence_indicator(self):
+        """Fallback indicator based on confidence score when AI agent fails."""
+        indicators = []
+        confidence = self.lead.get("confidence", 0)
+        
+        if confidence >= 80:
+            indicators.append({
+                'type': 'positive',
+                'symbol': '▲',
+                'text': f'High Confidence Score ({confidence}%)',
+                'color': '#4CAF50',  # Green
+                'weight': 80
+            })
+        elif confidence >= 60:
+            indicators.append({
+                'type': 'neutral', 
+                'symbol': '●',
+                'text': f'Moderate Confidence ({confidence}%)',
+                'color': '#FF9800',  # Orange
+                'weight': 60
+            })
+        else:
+            indicators.append({
+                'type': 'negative',
+                'symbol': '▼',
+                'text': f'Low Confidence Score ({confidence}%)',
+                'color': '#F44336',  # Red
+                'weight': 40
+            })
+        
+        return indicators
+    
+    def _convert_tooltip_to_indicator(self, tooltip):
+        """
+        Convert a tooltip from the AI agent to our indicator format.
+        
+        Args:
+            tooltip (dict): Tooltip dictionary with icon, text, category, weight keys.
+            
+        Returns:
+            dict: Indicator dictionary with type, symbol, text, color, weight keys.
+        """
+        try:
+            icon = tooltip.get("icon", "neutral")
+            text = tooltip.get("text", "")
+            weight = tooltip.get("weight", 50)
+            
+            # Map AI agent icons to our symbols and colors
+            if icon == "up":
+                return {
+                    'type': 'positive',
+                    'symbol': '▲',
+                    'text': text,
+                    'color': '#4CAF50',  # Green
+                    'weight': weight
+                }
+            elif icon == "down":
+                return {
+                    'type': 'negative',
+                    'symbol': '▼',
+                    'text': text,
+                    'color': '#F44336',  # Red
+                    'weight': weight
+                }
+            else:  # neutral
+                return {
+                    'type': 'neutral',
+                    'symbol': '●',
+                    'text': text,
+                    'color': '#FF9800',  # Orange
+                    'weight': weight
+                }
+        except Exception as e:
+            print(f"Error converting tooltip to indicator: {e}")
+            return None
+    
+    def _create_indicator_item(self, parent, indicator, row):
+        """Create a single indicator item with symbol and text."""
+        item_frame = ctk.CTkFrame(parent, fg_color="transparent")
+        item_frame.grid(row=row, column=0, sticky="ew", pady=1)
+        item_frame.grid_columnconfigure(1, weight=1)
+        
+        # Symbol
+        symbol_label = ctk.CTkLabel(
+            item_frame,
+            text=indicator['symbol'],
+            font=FONTS()["body"],
+            text_color=indicator['color'],
+            width=20
+        )
+        symbol_label.grid(row=0, column=0, sticky="w", padx=(5, 8))
+        
+        # Text
+        text_label = ctk.CTkLabel(
+            item_frame,
+            text=indicator['text'],
+            font=FONTS()["small"],
+            text_color=COLORS["text_white"],
+            anchor="w",
+            justify="left"
+        )
+        text_label.grid(row=0, column=1, sticky="ew")
 
     # ─── FEEDBACK HANDLING METHODS ─────────────────────────────────────────────
 

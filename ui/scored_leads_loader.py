@@ -95,6 +95,7 @@ class ScoredLead:
         timestamp (datetime): Timestamp when the scoring was completed.
         has_feedback (bool): Whether feedback exists for this lead.
         feedback_changes (Optional[List[Dict[str, Any]]]): Saved feedback text changes metadata used to re-apply highlights.
+        indicators (Optional[List[Dict[str, Any]]]): Pre-generated AI indicators for this lead.
     """
 
     case_summary: str
@@ -108,6 +109,7 @@ class ScoredLead:
     edited_analysis: Optional[str] = None
     existing_feedback_filename: Optional[str] = None
     original_ai_score: Optional[int] = None
+    indicators: Optional[List[Dict[str, Any]]] = None
 
 
 # ─── PARSING FUNCTIONS ────────────────────────────────────────────────────────
@@ -161,6 +163,9 @@ def load_scored_lead_from_file(file_path: Path) -> Optional[ScoredLead]:
         messages = chat_data.get("messages", [])
         if not messages:
             return None
+        
+        # Extract indicators if present
+        indicators = chat_data.get("indicators", [])
 
         # Find the highest index user message (case summary)
         user_messages = [msg for msg in messages if msg.get("role") == "user"]
@@ -256,6 +261,7 @@ def load_scored_lead_from_file(file_path: Path) -> Optional[ScoredLead]:
             edited_analysis=edited_analysis_text,  # Store edited analysis text if feedback exists
             existing_feedback_filename=existing_feedback_filename,
             original_ai_score=original_ai_score,  # Store the original AI score for comparison
+            indicators=indicators,  # Store pre-generated indicators
         )
 
         return scored_lead

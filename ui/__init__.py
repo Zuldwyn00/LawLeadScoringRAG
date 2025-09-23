@@ -11,6 +11,6 @@ Modules:
     - main_window: Main application window and layout
 """
 
-from .main_window import LeadScoringApp
+from .main_window import MainWindow
 
-__all__ = ["LeadScoringApp"]
+__all__ = ["MainWindow"]

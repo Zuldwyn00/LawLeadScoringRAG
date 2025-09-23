@@ -126,8 +126,13 @@ class LeadScoringAgent:
         )
 
         # Use case_ids directly for context enrichment
-        self.logger.debug("Using case_ids for context enrichment: %s", case_ids)
-        case_enriched_context_message = SystemMessage(content=self.context_enricher.build_context_message(case_ids))
+        self.logger.debug("Using case_ids for context enrichment: '%s'", list(case_ids))
+        case_enriched_context_message = SystemMessage(
+            content=(
+                f"**Supplemental Case Information for reference - (Case ID's here are related to the case ID's from the historical case contexts above.):**\n"
+                f"{self.context_enricher.build_context_message(case_ids)}"
+            )
+        )
 
         system_prompt_content = self.prompt
         self.logger.debug(
@@ -146,7 +151,7 @@ class LeadScoringAgent:
 
         # Create historical context as a separate system message
         historical_context_message = SystemMessage(
-            content=f"**Historical Case Summaries for Reference:**\n{historical_context}"
+            content=f"**Historical Case Contexts for Reference:**\n{historical_context}"
         )
 
         # Create user message with only the new lead description
@@ -445,8 +450,9 @@ class LeadScoringAgent:
 
         final_lead = get_response_recursive()
         
+        # Call dump_chat_log but with empty indicators (will be updated from UI)
         chat_log_filename = dump_chat_log(self.client.message_history)
-
+        
         # Store the chat log filename in the client instance for UI access
         self.last_chat_log_filename = chat_log_filename
 

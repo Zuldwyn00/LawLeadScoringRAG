@@ -17,7 +17,7 @@ class ModelSelectorWidget(ctk.CTkFrame):
     def __init__(self, parent, **kwargs):
         super().__init__(parent, **kwargs)
         
-        self.selected_process_model = "gpt-5"  # Default to gpt-5
+        self.selected_process_model = "gpt-5-mini"  # Default to gpt-5
         self.selected_final_model = "gpt-5"  # Default to gpt-5
         self.process_temperature = None  # No temperature by default
         self.final_temperature = None  # No temperature by default
@@ -49,13 +49,19 @@ class ModelSelectorWidget(ctk.CTkFrame):
             # Extract Azure clients (AI models)
             self.models = config.get("azure_clients", {})
             
-            # Validate that gpt-5 exists, if not use first available model
-            if "gpt-5" not in self.models and self.models:
-                first_model = list(self.models.keys())[0]
-                self.selected_process_model = first_model
-                self.selected_final_model = first_model
-                self.process_model_var.set(first_model)
-                self.final_model_var.set(first_model)
+            # Validate that default models exist, if not use first available model
+            if self.models:
+                # Check if process model exists, if not use first available
+                if self.selected_process_model not in self.models:
+                    first_model = list(self.models.keys())[0]
+                    self.selected_process_model = first_model
+                    self.process_model_var.set(first_model)
+                
+                # Check if final model exists, if not use first available  
+                if self.selected_final_model not in self.models:
+                    first_model = list(self.models.keys())[0]
+                    self.selected_final_model = first_model
+                    self.final_model_var.set(first_model)
                 
         except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
             raise RuntimeError(f"Could not load model configs: {e}")

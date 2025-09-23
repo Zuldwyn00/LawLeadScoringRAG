@@ -37,17 +37,17 @@ def main():
 
     try:
         # Import and run the GUI application
-        from ui.main_window import LeadScoringApp
+        from ui.main_window import MainWindow
 
         # Create and run the application
-        app = LeadScoringApp()
+        app = MainWindow()
         print("✅ GUI application started successfully")
         print("💡 Use the interface to score leads with AI analysis")
         print("📋 Click 'View Logs' to see real-time processing logs")
         print("Press Ctrl+C in terminal or close the window to exit")
 
         # Start the main event loop
-        app.run()
+        app.mainloop()
 
     except KeyboardInterrupt:
         print("\n👋 Shutting down GUI application...")

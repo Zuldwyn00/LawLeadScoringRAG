@@ -336,6 +336,81 @@ class LeadScoringHandler:
             score = extract_score_from_response(final_analysis)
             confidence = extract_confidence_from_response(final_analysis)
 
+            # Step 6.5: Generate indicators using the tooltip agent
+            indicators = []
+            if final_analysis:
+                try:
+                    if progress_callback:
+                        progress_callback(
+                            97,
+                            "🎯 Generating lead indicators...",
+                            time.time() - start_time,
+                        )
+                    
+                    from scripts.clients.azure import AzureClient
+                    from scripts.clients.agents.lead_tooltips import TooltipAgent
+                    import json
+                    
+                    # Initialize tooltip agent with gpt-5-mini
+                    tooltip_client = AzureClient("gpt-5-mini")
+                    tooltip_agent = TooltipAgent(tooltip_client)
+                    
+                    # Generate tooltips/indicators
+                    tooltips_response = tooltip_agent.get_tooltips(final_analysis)
+                    tooltips_data = json.loads(tooltips_response)
+                    
+                    # Convert to our indicator format (exclude lead_score category)
+                    for tooltip in tooltips_data.get("tooltips", []):
+                        category = tooltip.get("category", "other")
+                        
+                        # Skip lead score indicators since we don't want them
+                        if category == "lead_score":
+                            continue
+                            
+                        icon = tooltip.get("icon", "neutral")
+                        text = tooltip.get("text", "")
+                        weight = tooltip.get("weight", 50)
+                        
+                        # Map icons to our format
+                        if icon == "up":
+                            symbol, color, indicator_type = '▲', '#4CAF50', 'positive'
+                        elif icon == "down":
+                            symbol, color, indicator_type = '▼', '#F44336', 'negative' 
+                        else:
+                            symbol, color, indicator_type = '●', '#FF9800', 'neutral'
+                        
+                        indicators.append({
+                            'type': indicator_type,
+                            'symbol': symbol,
+                            'text': text,
+                            'color': color,
+                            'weight': weight,
+                            'category': category
+                        })
+                    
+                    # Sort by weight (highest first) and limit to 6
+                    indicators.sort(key=lambda x: x.get('weight', 0), reverse=True)
+                    indicators = indicators[:6]
+                    
+                except Exception as e:
+                    print(f"Error generating indicators: {e}")
+                    # Fallback to confidence-based indicator
+                    if confidence >= 80:
+                        indicators = [{
+                            'type': 'positive', 'symbol': '▲', 'text': f'High Confidence Score ({confidence}%)',
+                            'color': '#4CAF50', 'weight': 80, 'category': 'confidence'
+                        }]
+                    elif confidence >= 60:
+                        indicators = [{
+                            'type': 'neutral', 'symbol': '●', 'text': f'Moderate Confidence ({confidence}%)', 
+                            'color': '#FF9800', 'weight': 60, 'category': 'confidence'
+                        }]
+                    else:
+                        indicators = [{
+                            'type': 'negative', 'symbol': '▼', 'text': f'Low Confidence Score ({confidence}%)',
+                            'color': '#F44336', 'weight': 40, 'category': 'confidence'
+                        }]
+
             # Step 7: Complete
             if progress_callback:
                 progress_callback(
@@ -349,15 +424,56 @@ class LeadScoringHandler:
                 final_cost = self.get_current_lead_cost()
                 cost_callback(final_cost)
 
+            # Update the saved chat log with indicators
+            if indicators and chat_log_filename:
+                self._update_chat_log_with_indicators(chat_log_filename, indicators)
+            
             if completion_callback:
                 completion_callback(
-                    score, confidence, final_analysis, chat_log_filename, search_results
+                    score, confidence, final_analysis, chat_log_filename, search_results, indicators
                 )
 
         except Exception as e:
             self.ai_analysis_running = False
             if error_callback:
                 error_callback(str(e))
+
+    def _update_chat_log_with_indicators(self, chat_log_filename: str, indicators: list):
+        """Update the saved chat log file with indicators."""
+        try:
+            from utils import load_config
+            from pathlib import Path
+            import json
+            
+            # Get chat logs directory from config
+            config = load_config()
+            directories_cfg = config.get("directories", {})
+            chat_logs_path_str = directories_cfg.get(
+                "chat_logs", str(Path("scripts") / "data" / "chat_logs")
+            )
+            
+            project_root = Path(__file__).resolve().parent.parent
+            chat_logs_dir = project_root / chat_logs_path_str
+            chat_log_path = chat_logs_dir / chat_log_filename
+            
+            if chat_log_path.exists():
+                # Read existing chat log
+                with open(chat_log_path, "r", encoding="utf-8") as f:
+                    chat_data = json.load(f)
+                
+                # Add indicators
+                chat_data["indicators"] = indicators
+                
+                # Save updated chat log
+                with open(chat_log_path, "w", encoding="utf-8") as f:
+                    json.dump(chat_data, f, ensure_ascii=False, indent=2)
+                
+                print(f"Updated chat log {chat_log_filename} with {len(indicators)} indicators")
+            else:
+                print(f"Chat log file not found: {chat_log_path}")
+                
+        except Exception as e:
+            print(f"Error updating chat log with indicators: {e}")
 
     def _animate_ai_progress(self, start_time, progress_callback):
         """Animate progress during AI analysis."""
@@ -484,7 +600,7 @@ class UIEventHandler:
                     self.app.after(0, lambda: self.app.retrieved_chunks_frame.display_chunks(transformed_chunks))
 
             def completion_callback(
-                score, confidence, analysis, chat_log_filename=None, chunks=None
+                score, confidence, analysis, chat_log_filename=None, chunks=None, indicators=None
             ):
                 # Get final cost for this lead
                 final_cost = self.business_logic.get_current_lead_cost()
@@ -503,6 +619,7 @@ class UIEventHandler:
                     "chat_log_filename": chat_log_filename,  # Link to specific chat log
                     "cost": final_cost,  # Add cost to lead data
                     "retrieved_chunks": chunks,  # Add retrieved chunks data
+                    "indicators": indicators or [],  # Add generated indicators
                 }
 
                 # Update UI on main thread
@@ -737,6 +854,7 @@ class UIEventHandler:
             "_existing_feedback_filename": getattr(
                 scored_lead, "existing_feedback_filename", None
             ),
+            "indicators": getattr(scored_lead, "indicators", []),  # Include pre-generated indicators
         }
 
     def get_initial_leads(self):

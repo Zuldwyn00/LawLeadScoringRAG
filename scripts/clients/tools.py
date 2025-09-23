@@ -206,7 +206,7 @@ def get_file_context(filepath: str) -> tuple:
                - content (str): The text content extracted from the file or error message
                - token_count (int): Number of tokens in the content, or 0 on error
     """
-    token_threshold: int = 2000
+    token_threshold: int = 1200
     try:
         # Convert relative paths to absolute paths
         absolute_filepath = resolve_relative_path(filepath)

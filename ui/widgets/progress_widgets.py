@@ -14,7 +14,7 @@ class ProgressWidget:
 
     def __init__(self, parent):
         self.parent = parent
-        self.frame = ctk.CTkFrame(parent, fg_color=COLORS["tertiary_black"])
+        self.frame = ctk.CTkFrame(parent, fg_color=COLORS["tertiary_black"], height=0)
 
         self.progress_bar = ctk.CTkProgressBar(
             self.frame,
@@ -31,23 +31,41 @@ class ProgressWidget:
         )
 
         self.is_visible = False
+        self._setup_layout()
+
+    def _setup_layout(self):
+        """Set up the internal layout of the progress widget."""
+        self.frame.grid_columnconfigure(0, weight=1)
+        self.progress_bar.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
+        self.status_label.grid(row=1, column=0, padx=10, pady=(0, 5))
+        self.timer_label.grid(row=2, column=0, padx=10, pady=(0, 10))
+
+    def place_in_layout(self, row, column, **grid_options):
+        """Place the progress widget in the parent's layout. Called during initialization."""
+        default_options = {"sticky": "ew", "padx": 20, "pady": 10}
+        default_options.update(grid_options)
+        self.frame.grid(row=row, column=column, **default_options)
+        # Start hidden
+        self.hide()
 
     def show(self):
-        """Show the progress widget."""
+        """Show the progress widget by making it visible and restoring height."""
         if not self.is_visible:
-            self.frame.grid(row=5, column=0, sticky="ew", padx=20, pady=10)
-            self.frame.grid_columnconfigure(0, weight=1)
-
-            self.progress_bar.grid(row=0, column=0, sticky="ew", padx=10, pady=10)
-            self.status_label.grid(row=1, column=0, padx=10, pady=(0, 5))
-            self.timer_label.grid(row=2, column=0, padx=10, pady=(0, 10))
-
+            # Remove height constraint and make visible
+            self.frame.configure(height=0)  # Let it auto-size
+            self.progress_bar.grid()
+            self.status_label.grid()
+            self.timer_label.grid()
             self.is_visible = True
 
     def hide(self):
-        """Hide the progress widget."""
-        if self.is_visible:
-            self.frame.grid_remove()
+        """Hide the progress widget by making it invisible and collapsing height."""
+        if self.is_visible or not hasattr(self, 'is_visible'):  # Handle initial state
+            # Hide all internal widgets and collapse height
+            self.progress_bar.grid_remove()
+            self.status_label.grid_remove() 
+            self.timer_label.grid_remove()
+            self.frame.configure(height=1)  # Minimal height to avoid layout shift
             self.is_visible = False
 
     def update(self, progress: float, status: str, elapsed_time: float):

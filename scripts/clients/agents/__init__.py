@@ -13,4 +13,5 @@ __all__ = [
     "LeadScoringAgent",
     "SummarizationAgent",
     "MetadataAgent",
+    "TooltipAgent",
 ]

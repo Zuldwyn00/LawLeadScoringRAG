@@ -107,7 +107,7 @@ def _unique_log_filename(base_filename: Optional[str] = None) -> str:
 
 
 def dump_chat_log(
-    message_history: List[BaseMessage], filename: str = "chat_log.json"
+    message_history: List[BaseMessage], filename: str = "chat_log.json", indicators: List[Dict] = None
 ) -> None:
     """
     Saves the complete message history as a human-readable JSON using the project's
@@ -180,6 +180,7 @@ def dump_chat_log(
             "tools_used": sorted(tools_used),
         },
         "messages": entries,
+        "indicators": indicators or [],  # Store generated indicators
     }
 
     # Determine destination directory from config directly

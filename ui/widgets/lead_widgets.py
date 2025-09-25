@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter import messagebox
 import re
 import json
+from typing import Callable, List, Optional
 
 from ..styles import COLORS, FONTS, get_score_color
 from ..feedback_manager import (
@@ -18,6 +19,7 @@ from ..feedback_manager import (
 )
 from .score_widgets import ScoreBlock
 from .text_widgets import InlineEditableText
+from .tutorial_overlay import FeedbackTutorialOverlay, TutorialStep
 from scripts.clients.agents.scoring import (
     extract_recommendation_from_response,
     extract_title_from_response,
@@ -94,7 +96,10 @@ class LeadItem(ctk.CTkFrame):
             border_color=COLORS["border_gray"],
             border_width=1
         )
-        main_frame.grid(row=0, column=0, sticky="ew", padx=15, pady=15)
+        # Reduce left-right padding so the score block sits close to the card edge
+        main_frame.grid(row=0, column=0, sticky="ew", padx=(5, 15), pady=15)
+        # Make left metadata column narrower so it doesn't push content rightwards
+        main_frame.grid_columnconfigure(0, minsize=140)
         main_frame.grid_columnconfigure(1, weight=1)
 
         # Score block (editable) - display corrected score but use original for editing baseline
@@ -124,7 +129,8 @@ class LeadItem(ctk.CTkFrame):
         )
         # Set the original score for the edit dialog
         self.score_block.original_score = original_score_for_editing
-        self.score_block.grid(row=0, column=0, padx=(20, 20), pady=(20, 10), sticky="n")
+        # Tighten left padding so the score sits near the card's left edge
+        self.score_block.grid(row=0, column=0, padx=(8, 20), pady=(20, 10), sticky="n")
 
         # Metadata section - compact vertical display under score block
         analysis_text = self.lead.get("analysis", "")
@@ -134,7 +140,8 @@ class LeadItem(ctk.CTkFrame):
         
         # Metadata section (bullet-style inline rows: icon + text)
         metadata_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        metadata_frame.grid(row=1, column=0, padx=(20, 20), pady=(0, 8), sticky="new")
+        # Tighten horizontal padding so metadata hugs the score block
+        metadata_frame.grid(row=1, column=0, padx=(10, 10), pady=(0, 8), sticky="new")
         metadata_frame.grid_columnconfigure(0, weight=1)
 
         # Jurisdiction line (icon + text)
@@ -159,7 +166,8 @@ class LeadItem(ctk.CTkFrame):
             text_color=COLORS["text_gray"],
             anchor="nw",
             justify="left",
-            wraplength=180  # Wrap text at 180 pixels
+            width=140,  # Narrower to reduce left column width
+            wraplength=140  # Match width for consistent wrapping
         )
         jurisdiction_text_label.grid(row=0, column=1, sticky="nw", padx=(6, 0))
 
@@ -185,13 +193,15 @@ class LeadItem(ctk.CTkFrame):
             text_color=COLORS["text_gray"],
             anchor="nw",
             justify="left",
-            wraplength=180  # Wrap text at 180 pixels
+            width=140,  # Narrower to reduce left column width
+            wraplength=140  # Match width for consistent wrapping
         )
         timestamp_text_label.grid(row=0, column=1, sticky="nw", padx=(6, 0))
 
         # Content frame with improved padding - spans all rows
         content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        content_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 20), pady=20)
+        # Bring content closer to the score/metadata by removing extra left padding
+        content_frame.grid(row=0, column=1, rowspan=2, sticky="nsew", padx=(0, 15), pady=20)
         content_frame.grid_columnconfigure(0, weight=1)
 
         row = 0
@@ -281,22 +291,27 @@ class LeadItem(ctk.CTkFrame):
         self._create_lead_indicators(indicators_frame)
         row += 1
 
-        # Buttons frame
-        button_frame = ctk.CTkFrame(content_frame, fg_color="transparent")
-        button_frame.grid(row=row, column=0, sticky="ew")
+        # Buttons frame with equal column distribution - spans full width of lead item
+        self.button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        self.button_frame.grid(row=2, column=0, columnspan=2, sticky="ew", padx=20, pady=(10, 20))
+
+        has_chat_history = not self.lead.get("is_example", False) and self.current_chat_log
+
+        # Build the list of primary buttons before gridding so we can size the columns evenly
+        button_list = []
 
         self.view_analysis_btn = ctk.CTkButton(
-            button_frame,
+            self.button_frame,
             text="📊 View AI Analysis",
             fg_color=COLORS["accent_orange"],
             hover_color=COLORS["accent_orange_hover"],
             font=FONTS()["small_button"],
             command=self.toggle_analysis,
         )
-        self.view_analysis_btn.pack(side="left", padx=(0, 10))
+        button_list.append(self.view_analysis_btn)
 
         self.view_description_btn = ctk.CTkButton(
-            button_frame,
+            self.button_frame,
             text="📋 View Original Description",
             fg_color=COLORS["tertiary_black"],
             hover_color=COLORS["border_gray"],
@@ -305,12 +320,12 @@ class LeadItem(ctk.CTkFrame):
             font=FONTS()["small_button"],
             command=self.toggle_description,
         )
-        self.view_description_btn.pack(side="left", padx=(0, 10))
+        button_list.append(self.view_description_btn)
 
         # View Chat History button - only for non-example leads with valid chat log
-        if not self.lead.get("is_example", False) and self.current_chat_log:
+        if has_chat_history:
             self.view_chat_history_btn = ctk.CTkButton(
-                button_frame,
+                self.button_frame,
                 text="💬 View Chat History",
                 fg_color=COLORS["tertiary_black"],
                 hover_color=COLORS["border_gray"],
@@ -319,7 +334,30 @@ class LeadItem(ctk.CTkFrame):
                 font=FONTS()["small_button"],
                 command=self.view_chat_history,
             )
-            self.view_chat_history_btn.pack(side="left")
+            button_list.append(self.view_chat_history_btn)
+        else:
+            self.view_chat_history_btn = None
+
+        # Removed in favor of global Start Tutorial button in the title bar
+        self.start_tutorial_btn = None
+
+        # Grid the buttons with even spacing
+        self.num_buttons = len(button_list)
+        for index, button in enumerate(button_list):
+            if self.num_buttons == 1:
+                padx = (0, 0)
+            elif index == 0:
+                padx = (0, 5)
+            elif index == self.num_buttons - 1:
+                padx = (5, 0)
+            else:
+                padx = 5
+            button.grid(row=0, column=index, sticky="ew", padx=padx)
+
+        for col in range(self.num_buttons):
+            self.button_frame.grid_columnconfigure(col, weight=1, uniform="button_group")
+        # Configure column for save feedback button (smaller weight)
+        self.button_frame.grid_columnconfigure(self.num_buttons, weight=0)
 
         # Save feedback button (initially hidden) - include test feedback button for examples
         feedback_button_text = (
@@ -328,14 +366,14 @@ class LeadItem(ctk.CTkFrame):
             else "💾 SAVE FEEDBACK"
         )
         self.save_feedback_btn = ctk.CTkButton(
-            button_frame,
+            self.button_frame,
             text=feedback_button_text,
             fg_color=COLORS["accent_orange"],
             hover_color=COLORS["accent_orange_hover"],
             font=FONTS()["small_button"],
             command=self._save_feedback,
         )
-        # Don't pack initially - will be shown when feedback exists
+        # Don't grid initially - will be shown when feedback exists
 
         # Expandable sections frame (initially hidden)
         self.sections_frame = ctk.CTkFrame(self, fg_color="transparent")
@@ -607,21 +645,21 @@ class LeadItem(ctk.CTkFrame):
         indicators = []
         confidence = self.lead.get("confidence", 0)
         
-        if confidence >= 80:
+        if confidence >= 70:
             indicators.append({
                 'type': 'positive',
                 'symbol': '▲',
                 'text': f'High Confidence Score ({confidence}%)',
                 'color': '#4CAF50',  # Green
-                'weight': 80
+                'weight': 70
             })
-        elif confidence >= 60:
+        elif confidence >= 50:
             indicators.append({
                 'type': 'neutral', 
                 'symbol': '●',
                 'text': f'Moderate Confidence ({confidence}%)',
                 'color': '#FF9800',  # Orange
-                'weight': 60
+                'weight': 50
             })
         else:
             indicators.append({
@@ -864,11 +902,187 @@ class LeadItem(ctk.CTkFrame):
             if self.feedback_manager.has_pending_feedback(
                 self.current_chat_log, self.lead_index
             ):
-                # Show the save button
-                self.save_feedback_btn.pack(side="left", padx=(10, 0))
+                # Show the save button in the column after the last main button
+                self.save_feedback_btn.grid(row=0, column=self.num_buttons, sticky="ew", padx=(10, 0))
             else:
                 # Hide the save button
-                self.save_feedback_btn.pack_forget()
+                self.save_feedback_btn.grid_remove()
+
+    def _start_feedback_tutorial(self):
+        """Launch the feedback tutorial overlay on demand for the example lead."""
+
+        if not self.lead.get("is_example", False):
+            return
+
+        main_window = self.winfo_toplevel()
+
+        # Avoid creating multiple overlays if one is already running
+        active_overlay = getattr(main_window, "_active_feedback_tutorial", None)
+        if active_overlay is not None:
+            return
+
+        steps = self._build_feedback_tutorial_steps(main_window)
+        if not steps:
+            return
+
+        overlay = FeedbackTutorialOverlay(main_window, steps)
+
+        def _start_overlay():
+            try:
+                overlay.start()
+            finally:
+                # Reason: Release reference once the overlay is active to avoid leaks.
+                setattr(main_window, "_active_feedback_tutorial", None)
+
+        # Reason: Persist the reference so the overlay survives until the callback fires.
+        main_window._active_feedback_tutorial = overlay
+        main_window.after(350, _start_overlay)
+
+    def _build_feedback_tutorial_steps(self, main_window) -> List[TutorialStep]:
+        """Create the ordered steps for the feedback tutorial overlay.
+
+        Args:
+            main_window: The top-level window hosting the lead widgets.
+
+        Returns:
+            List[TutorialStep]: Step configurations for the overlay.
+        """
+
+        # Capture reference to this specific example lead to ensure tutorial
+        # always points to the correct widgets regardless of lead ordering
+        example_lead_widget = self
+        
+        steps: List[TutorialStep] = []
+
+        def _view_analysis_target():
+            # Ensure we're targeting the correct example lead
+            if not example_lead_widget.lead.get("is_example", False):
+                print("DEBUG: Tutorial targeting non-example lead - this shouldn't happen")
+                return None
+            return getattr(example_lead_widget, "view_analysis_btn", None)
+
+        steps.append(
+            TutorialStep(
+                title="Step 1: Open AI Analysis",
+                description="Click the \"📊 View AI Analysis\" button to review the full write-up.",
+                target_resolver=_view_analysis_target,
+                bubble_position="bottom",
+            )
+        )
+
+        def _analysis_target():
+            # Ensure we're targeting the correct example lead
+            if not example_lead_widget.lead.get("is_example", False):
+                print("DEBUG: Tutorial targeting non-example lead - this shouldn't happen")
+                return None
+            # Ensure the analysis section is visible so it can be highlighted
+            try:
+                example_lead_widget.show_analysis()
+                return getattr(example_lead_widget, "analysis_textbox", None)
+            except Exception as e:
+                print(f"DEBUG: Error showing analysis for tutorial: {e}")
+                return None
+
+        steps.append(
+            TutorialStep(
+                title="Step 2: View The Analysis Text",
+                description=(
+                    "This is the AI's detailed analysis that you can edit. "
+                    "The text appears with orange headings and detailed explanations."
+                ),
+                target_resolver=_analysis_target,
+                bubble_position="right",
+            )
+        )
+
+        def _text_selection_target():
+            # Target the analysis textbox again but with different instructions
+            if not example_lead_widget.lead.get("is_example", False):
+                return None
+            try:
+                # Ensure analysis is still visible
+                if not example_lead_widget.analysis_expanded:
+                    example_lead_widget.show_analysis()
+                return getattr(example_lead_widget, "analysis_textbox", None)
+            except Exception as e:
+                print(f"DEBUG: Error getting analysis for text selection tutorial: {e}")
+                return None
+
+        steps.append(
+            TutorialStep(
+                title="Step 3: Select Text To Edit",
+                description=(
+                    "To edit any part of the analysis:\n"
+                    "1. Click and drag to highlight the sentence you want to change\n"
+                    "2. Right-click the selected text\n" 
+                    "3. Choose \"✏️ Edit Selected Text\" from the menu\n"
+                    "4. Make your changes in the dialog that appears"
+                ),
+                target_resolver=_text_selection_target,
+                bubble_position="right",
+            )
+        )
+
+        def _score_target():
+            # Ensure we're targeting the correct example lead
+            if not example_lead_widget.lead.get("is_example", False):
+                print("DEBUG: Tutorial targeting non-example lead - this shouldn't happen")
+                return None
+            
+            score_block = getattr(example_lead_widget, "score_block", None)
+            if score_block and hasattr(score_block, "score_label"):
+                return score_block.score_label
+            return score_block
+
+        steps.append(
+            TutorialStep(
+                title="Step 4: Adjust The Score",
+                description="Click the numeric score badge to enter an updated value (0-100).",
+                target_resolver=_score_target,
+                bubble_position="top",
+            )
+        )
+
+        def _save_target():
+            # Ensure we're targeting the correct example lead
+            if not example_lead_widget.lead.get("is_example", False):
+                print("DEBUG: Tutorial targeting non-example lead - this shouldn't happen")
+                return None
+            
+            button = getattr(example_lead_widget, "save_feedback_btn", None)
+            if button and hasattr(button, 'winfo_manager'):
+                try:
+                    if button.winfo_manager():
+                        return button
+                except:
+                    pass
+            # Reason: Highlight the button row when the save button has not appeared yet.
+            return getattr(example_lead_widget, "button_frame", None)
+
+        steps.append(
+            TutorialStep(
+                title="Step 5: Save Your Changes",
+                description=(
+                    "Press \"💾 SAVE FEEDBACK (TEST)\" once edits or score updates look good. "
+                    "The button appears after you make changes."
+                ),
+                target_resolver=_save_target,
+                bubble_position="top",
+            )
+        )
+
+        steps.append(
+            TutorialStep(
+                title="Step 6: Continue To New Leads",
+                description=(
+                    "When you're done with this example, return to the left panel to score real leads."
+                ),
+                target_resolver=lambda: getattr(main_window, "score_button", None),
+                bubble_position="bottom",
+            )
+        )
+
+        return steps
 
     def view_chat_history(self):
         """Open the chat history dialog for this lead."""

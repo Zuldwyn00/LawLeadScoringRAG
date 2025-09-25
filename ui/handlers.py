@@ -166,44 +166,94 @@ class LeadScoringHandler:
         )
 
         example_analysis = (
-            "**Lead Score:** Lead Score: 77/100\n"
-            "**Confidence Score:** Confidence Score: 78/100\n"
-            "**Jurisdiction:** Jurisdiction: Suffolk County\n"
-            "**Recommendation:** Medium-potential case with moderate risks; recommend further investigation and medical follow-up before full commitment.\n\n"
-            "**Executive Summary:**\n"
-            "This Suffolk County slip-and-fall case presents a viable claim based on photographic evidence of a defective, moss-covered, and partially collapsed brick on a residential sidewalk, resulting in a documented avulsion fracture and ongoing ankle instability. The lead aligns with successful premises liability cases in the jurisdiction, particularly those involving clear defects and persistent injury. However, moderate risks exist due to the claimant's admission of alcohol consumption prior to the incident and post-injury participation in sports against medical advice, both of which could be leveraged by the defense to argue comparative negligence or aggravation of injury. The strength of the evidence is solid but not overwhelming, and the injury, while real, is less severe than those in the highest-value precedents. Suffolk County is generally favorable to plaintiffs in premises cases, with average settlements for moderate ankle injuries typically ranging from $40,000 to $120,000, depending on permanency and liability clarity.\n\n"
-            "**Detailed Rationale:**\n\n"
-            "**1. Positive Indicators (Alignment with Past Successes):**\n"
-            "*   - The presence of a clear, physical defect (moss-covered, collapsed brick) and photographic evidence closely mirrors the successful fact patterns in Case-997000 (Coram, NY), where a defective step led to a fractured ankle and a strong liability argument.\n"
-            "*   - The injury (avulsion fracture at the lateral malleolus) is objectively documented, with ongoing symptoms and a scheduled MRI, similar to the persistent impairment and medical follow-up seen in Case-997000 (07-14-2022.pdf).\n"
-            "*   - The claimant promptly notified the property manager in writing and has photographic documentation, which strengthens notice and liability arguments, as seen in other successful Suffolk County premises cases.\n\n"
-            "**2. Negative Indicators & Risk Factors (Alignment with Past Losses/Challenges):**\n"
-            "*   - The claimant's admission of consuming 'a beer or two' before the incident introduces a comparative negligence argument, which, while not necessarily fatal, could reduce recovery (noted as a complicating factor in other cases, though not directly in the provided summaries).\n"
-            "*   - Continued participation in flag-football against medical advice in the weeks following the injury may allow the defense to argue that the claimant aggravated his own injury, potentially reducing damages or complicating causation (a risk not directly mirrored in the provided cases, but a known defense tactic).\n"
-            "*   - The injury, while real, is less severe than the trimalleolar fracture and surgical cases (e.g., Case-997000, 07-14-2022.pdf), which may limit the upper value of the claim.\n\n"
-            "**3. Strength of Precedent:**\n"
-            "The historical cases provided are highly relevant, especially those involving defective steps and ankle fractures in Suffolk County. The fact patterns, medical documentation, and liability arguments are closely aligned, though the injuries in the strongest precedents are somewhat more severe.\n\n"
-            "**4. Geographic & Jurisdictional Analysis:**\n"
-            "*   Suffolk County is generally favorable to plaintiffs in premises liability cases, especially where there is clear evidence of a defect and notice. Average settlement values for moderate ankle injuries (avulsion fracture, persistent symptoms, but no major surgery) typically range from $40,000 to $120,000. More severe injuries with surgery and permanent impairment can exceed $150,000, but this case is likely to fall in the mid-range unless the MRI reveals a significant ligament tear or permanent disability.\n\n"
-            "**5. Case ID of cases given in the context:**\n"
-            "*   ID:997000, ID:2207174, ID:2211830, ID:1660355\n\n"
-            "**6. Analysis Depth & Tool Usage:**\n"
-            "*   **Tool Calls Made:**\n"
-            "    - Call 1: get_file_context(997000 02-14-2024.docx) - Sought detailed fact pattern and injury documentation for a similar premises case.\n"
-            "    - Call 2: get_file_context(997000 12-18-2024.docx) - Sought defendant testimony regarding notice, repairs, and property condition.\n"
-            "    - Call 3: get_file_context(2211830 12-30-2024.pdf) - Sought comparative settlement and liability data for a recent Suffolk County premises case.\n"
-            "    - Call 4: get_file_context(997000 07-14-2022.pdf) - Sought detailed medical and outcome data for a severe ankle injury premises case.\n"
-            "    - Call 5: get_file_context(997000 10-19-2022.docx) - Sought employment impact and damages data for a similar injury.\n"
-            "*   **Confidence Impact:**\n"
-            "    - Each tool call provided additional context on liability, injury severity, and damages, increasing confidence from moderate to high-moderate. The main limitation is the lack of a clear, high-value outcome for a case with similar injury severity and the presence of some complicating factors in the new lead.\n"
-            "*   **Overall Evidence Strength:** Moderate to High. The evidence base is solid for liability and injury, but the risks and moderate injury severity prevent a higher confidence score."
+            """Recommendation: Moderate-to-high potential—recommend immediate follow-up, preserve/collect evidence (photos, site inspection, maintenance records, prior complaints), and continue medical documentation (MRI results, PT records) while preparing to address comparative negligence/aggravation defenses.
+
+Title: Suffolk County — Apartment Courtyard Brick Defect Slip-and-Fall with Right Ankle Avulsion Fracture
+
+Jurisdiction: [Suffolk County]
+
+Lead Score: 70/100
+Confidence Score: 50/100
+Reasoning Assurance Score: 100/100
+
+
+Missing Information:
+* Damages Documentation: Specific medical bills, itemized treatment costs, and any lost wages are not provided; needed to quantify damages.
+* Precedent Relevance: No historical cases in the provided context include a clear win or loss with comparable facts and recorded outcomes; outcome precedent is missing.
+* MRI Results: Pending; needed to confirm extent of ligament injury/permanency.
+* Maintenance/Notice History: No records yet of prior complaints, repair logs, or duration of the defect/overgrowth; needed to strengthen constructive notice.
+
+Executive Summary:
+This lead presents promising liability and injury elements: a privately owned apartment courtyard walkway with a described moss-covered, partially collapsed brick obscured by overgrowth; contemporaneous photos of the defect; and written notice to the property manager. Injury is specific and objectively corroborated (repeat imaging showing a lateral malleolus avulsion fracture, ongoing PT, persistent instability/clicking, MRI scheduled). These align with firm historical premises intakes where defect photographs and medical imaging supported claims. Key risks include plaintiff’s admission to drinking “a beer or two” pre-incident and post-accident participation in flag football, which the defense may argue contributed to or aggravated injury. Missing damages documentation and lack of outcome precedents in the case summaries constrain valuation and reduce data completeness. Overall, this is a viable case with moderate-to-high potential contingent on solid notice/maintenance evidence and comprehensive medical documentation.
+
+Detailed Rationale:
+
+1. Positive Indicators (Alignment with Past Successes):
+* Defect photographs: The new lead has photos of the displaced brick and overgrown vegetation taken the day after the fall. This mirrors strong evidentiary value noted in case 2500275 (EMS/paramedic scene photos of raised sidewalk defect) and case 2500298 (intake indicates claimant took photographs of the hazard).
+* Private property premises defect: Similar to 2500298 and 2500244, the hazard occurred on private property (apartment complex courtyard), avoiding some municipal defenses seen in 2500275 and 2500223. This alignment favors clearer duty and maintenance responsibility.
+* Injury specificity and imaging: The lead’s avulsion fracture at the lateral malleolus confirmed on repeat imaging aligns with the emphasis on imaging-confirmed injuries reflected in 2500275 (wrist fracture, MRI/X-ray findings). Persistent symptoms and scheduled MRI parallel the documented focus on orthopedic follow-up and therapy in 2500275.
+* Written notice to property manager: While post-incident, the existence of written notice and photos evidences the defect and may assist in establishing the condition and its persistence; 2500275 highlighted lack of prior notice as a defense target—here, documentation improves the evidentiary posture compared to 2500275.
+* Ongoing treatment: PT and orthopedic follow-up support continuing injury, consistent with patterns of ongoing care documented in 2500275 and medical records within 2500182 (tool results highlight orthopedic recommendations; though 2500182 is an auto case, it demonstrates the firm’s emphasis on medical necessity).
+
+2. Negative Indicators & Risk Factors (Alignment with Past Losses/Challenges):
+* Notice/constructive notice: 2500275 shows defendants challenge notice absent prior complaints/311 records; the new lead currently lacks maintenance records, prior complaints, or evidence of defect duration. This is a risk until investigation yields constructive notice proof.
+* Alcohol consumption admission: The lead admits “a beer or two” about an hour before. No historical case provided specifically addresses alcohol-comparative negligence; this remains an unmitigated risk in the present record (Information not provided in historical summaries).
+* Post-accident activity/aggravation: Continued flag football in weeks 2–4 provides an aggravation/intervening cause argument. No directly comparable historical precedent in the provided summaries addresses this (Information not provided).
+* Witnesses: No independent eyewitnesses are mentioned in the lead; 2500298 includes a witness. Absence of witnesses may weaken liability proof if defect was obscure; this increases reliance on photos and site conditions.
+* Outcome/value gaps: All referenced historical cases are open or presign with no settlements/verdicts, curtailing precedent-based valuation and strategic expectations.
+
+3. Strength of Precedent:
+The precedents are categorically similar (premises slip/trip-and-fall with defect evidence and medical documentation) and provide useful guidance on evidence and notice, but they lack clear outcomes (wins/losses) and settlement values. Therefore, precedent strength for outcome prediction is moderate-to-weak.
+
+4. Geographic & Jurisdictional Analysis:
+Insufficient jurisdictional data provided in case summaries. No settlement amounts or verdict values are included for Suffolk County or comparable cases.
+
+5. Case ID of cases given in the context:
+* 2500275
+* 2500182
+* 2500202
+* 2500305
+* 2500310
+* 2500244
+* 2500267
+* 2500223
+* 2500298
+
+6. Analysis Depth & Tool Usage:
+* Tool Selection & Usage Strategy:
+  - Information Gaps Identified:
+    1. Lack of outcome data (settlements/verdicts) in similar premises cases.
+    2. Need for references to defect photographs, written notice practices, and maintenance/complaint records in historical files.
+    3. Medical-injury parallels for ankle fractures/orthopedic recommendations (to anticipate potential medical trajectory).
+    4. Absence of jurisdictional settlement values for Suffolk County.
+  - Tool Selection Rationale:
+    - File retrieval targeted specific cases most analogous on liability/evidence (2500275) and premises defect with photos/witness (2500298).
+    - Vector searches aimed to surface medical parallels for ankle injuries (avulsion fracture, orthopedic recommendations) and documents referencing notice and property-manager correspondence to understand evidentiary themes.
+
+  - Tool Usage Summary: You made 5 tool calls out of 5 maximum. Tools used: get_file_context (2 times), query_vector_context (3 times).
+
+* Tool Call Details (List any tools used in a bulleted list, one per call — DO NOT OMIT OR SUMMARIZE):
+  - Call 1: get_file_context(case_data\\2500275\\LIABILITY SHEET PREMISES.docx) - Purpose: retrieve liability sheet for sidewalk trip-and-fall to compare defect/notice/evidence details - Result: Case summary showed a raised sidewalk defect, EMS/hospital records, imaging-confirmed wrist fracture, lack of formal written notice/311, and anticipated defense challenges on notice; helped highlight the importance of prior complaints/constructive notice and the value of photos/imaging.
+  - Call 2: get_file_context(case_data\\2500298\\doc06389020250721074839.pdf) - Purpose: obtain intake for premises defect with photographic evidence/witness to compare injury severity and documentation - Result: Intake indicated private-property defect, photos taken, one witness, and claimed soft-tissue injuries with “No fractures, surgeries, or stitches,” which contrasts with supplemental data noting “Client had Surgery”; helped illustrate documentation practices (photos/witness) and revealed inconsistency regarding surgery.
+  - Call 3: query_vector_context("Suffolk County slip and fall moss-covered brick overgrown vegetation photos written notice avulsion fracture ankle urgent care air-cast crutches physical therapy MRI scheduled beer two beers flag football activity weeks after fall") - Purpose: locate documents referencing similar notice/photo evidence and ankle injury treatment - Result: Returned 2500275 liability sheet, 2500182 medical records (orthopedic recommendations), 2500190 podiatry records, and 2500310 intake; helped confirm firm’s emphasis on medical imaging/orthopedic opinions and the role of photographic documentation; did not provide outcome values.
+  - Call 4: query_vector_context("avulsion fracture lateral malleolus ankle air cast crutches PT MRI scheduled avulsion fracture photos written notice vegetation brick") - Purpose: find medical-record-heavy files and orthopedic recommendations related to ankle injuries - Result: Returned 2500182 orthopedic/pain-spine records and 2500190 podiatry notes, plus a letter to Allstate with medical packet; helped validate the importance of orthopedic opinions and comprehensive medical packets; no settlement outcomes provided.
+  - Call 5: query_vector_context("premises liability written notice photos property manager overgrown vegetation displaced brick sidewalk courtyard Suffolk County avulsion fracture ankle") - Purpose: surface notices of claim and management correspondence relevant to premises defects and written notice - Result: Returned notice-of-claim documents (2500171; 2500291 mailed NOC to Suffolk Regional OTB) and letters of representation/green cards for 2500298; helped confirm procedural approaches for notice/defendant contact; no valuation data.
+
+* Reasoning Assurance Rationale:
+  - +40 Adherence to Context: Analysis relied only on the lead and provided historical/tool-derived context; no external facts introduced.
+  - +30 Use of Precedent: Specific case IDs (e.g., 2500275, 2500298, 2500244) were explicitly referenced to support comparisons.
+  - +20 Tool Usage Efficacy: Tools were targeted to liability/evidence and medical parallels; results directly informed notice/photography importance and medical documentation strategy.
+  - +10 Framework Adherence: Followed all required steps (direct comparison via indicators, success/risk identification, evidence assessment, confidence scoring, jurisdiction analysis).
+  - Total: 100/100.
+
+* Overall Evidence Strength: Moderate"""
         )
 
         return {
             "timestamp": "Example Lead",
             "description": example_description,
-            "score": 77,
-            "confidence": 78,
+            "score": 70,
+            "confidence": 50,
             "analysis": example_analysis,
             "is_example": True,
             "chat_log_filename": "example_test_chat_log_fake.json",  # Fake chat log for testing feedback
@@ -356,7 +406,13 @@ class LeadScoringHandler:
                     tooltip_agent = TooltipAgent(tooltip_client)
                     
                     # Generate tooltips/indicators
-                    tooltips_response = tooltip_agent.get_tooltips(final_analysis)
+                    message_for_tooltips = (
+                        "-Original Lead Description-\n"
+                        + lead_description
+                        + "\n\n-Scored Lead-\n"
+                        + final_analysis
+                    )
+                    tooltips_response = tooltip_agent.get_tooltips(message_for_tooltips)
                     tooltips_data = json.loads(tooltips_response)
                     
                     # Convert to our indicator format (exclude lead_score category)
@@ -395,15 +451,15 @@ class LeadScoringHandler:
                 except Exception as e:
                     print(f"Error generating indicators: {e}")
                     # Fallback to confidence-based indicator
-                    if confidence >= 80:
+                    if confidence >= 70:
                         indicators = [{
                             'type': 'positive', 'symbol': '▲', 'text': f'High Confidence Score ({confidence}%)',
-                            'color': '#4CAF50', 'weight': 80, 'category': 'confidence'
+                            'color': '#4CAF50', 'weight': 70, 'category': 'confidence'
                         }]
-                    elif confidence >= 60:
+                    elif confidence >= 50:
                         indicators = [{
                             'type': 'neutral', 'symbol': '●', 'text': f'Moderate Confidence ({confidence}%)', 
-                            'color': '#FF9800', 'weight': 60, 'category': 'confidence'
+                            'color': '#FF9800', 'weight': 50, 'category': 'confidence'
                         }]
                     else:
                         indicators = [{
@@ -530,6 +586,65 @@ class UIEventHandler:
         self.app = app
         self.business_logic = LeadScoringHandler()
 
+    def _get_latest_info_log_line(self) -> str:
+        """Return the most recent INFO log line (message) for this session.
+
+        Uses the same log file location as the log viewer and filters
+        by the session start time stored on the app (if present).
+
+        Returns:
+            str: The latest INFO log line's message text, or an empty string if none.
+        """
+        try:
+            # Determine log file path relative to project root (../ from ui/handlers.py)
+            project_root = Path(__file__).resolve().parents[1]
+            log_path = project_root / "logs" / "legal_lead.log"
+            if not log_path.exists():
+                return ""
+
+            latest_message = ""
+            latest_time = None
+
+            session_start = getattr(self.app, "current_session_start_time", None)
+
+            with open(log_path, "r", encoding="utf-8") as f:
+                for raw_line in f:
+                    line = raw_line.rstrip("\n")
+                    if not line.strip():
+                        continue
+
+                    # Expected format: "YYYY-MM-DD HH:MM:SS - logger - LEVEL - message"
+                    parts = line.split(" - ", 3)
+                    if len(parts) < 3:
+                        continue
+
+                    # Parse timestamp
+                    from datetime import datetime as _dt
+
+                    try:
+                        log_time = _dt.strptime(parts[0].strip(), "%Y-%m-%d %H:%M:%S")
+                    except Exception:
+                        log_time = None
+
+                    # Filter by session start if available
+                    if session_start and log_time and log_time < session_start:
+                        continue
+
+                    level_name = parts[2].strip()
+                    if level_name != "INFO":
+                        continue
+
+                    # Extract message if present; else use entire line
+                    message = parts[3].strip() if len(parts) >= 4 else line.strip()
+
+                    # Keep the last INFO (by order; optionally compare timestamps)
+                    latest_message = message
+                    latest_time = log_time or latest_time
+
+            return latest_message
+        except Exception:
+            return ""
+
     def handle_score_lead_clicked(self, lead_text: str):
         """Handle the Score Lead button click."""
         if (
@@ -570,10 +685,13 @@ class UIEventHandler:
             self.business_logic.reset_current_lead_cost()
             
             def progress_update(progress, status, elapsed_time):
+                # Replace preset status with the most recent INFO log message if available
+                latest_info = self._get_latest_info_log_line()
+                display_status = latest_info if latest_info else status
                 self.app.after(
                     0,
                     lambda: self.app.progress_widget.update(
-                        progress, status, elapsed_time
+                        progress, display_status, elapsed_time
                     ),
                 )
 
@@ -633,7 +751,16 @@ class UIEventHandler:
 
             # Get chunk limit from UI
             chunk_limit = self.app.get_chunk_limit()
+            # Get tool call limit from UI
+            tool_call_limit = self.app.get_tool_call_limit()
             
+            # Before starting, set the tool_call_limit on the LeadScoringAgent's ToolManager
+            try:
+                if self.business_logic.lead_scoring_client and hasattr(self.business_logic.lead_scoring_client, 'tool_manager'):
+                    self.business_logic.lead_scoring_client.tool_manager.tool_call_limit = tool_call_limit
+            except Exception:
+                pass
+
             self.business_logic.score_lead_process(
                 lead_text.strip(),
                 chunk_limit=chunk_limit,

@@ -16,7 +16,7 @@ logger:
 
 aiconfig:
   default_encoding: "o200k_base"
-  tool_call_limit: 6  # Default maximum number of tool calls allowed per conversation
+  tool_call_limit: 5  # Default maximum number of tool calls allowed per conversation
   vector_search:
     default_chunk_limit: 10  # Default number of chunks returned from vector search
 

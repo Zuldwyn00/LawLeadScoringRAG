@@ -16,6 +16,7 @@ from .text_widgets import InlineEditableText, InlineEditDialog
 
 # ─── LEAD WIDGETS ───────────────────────────────────────────────────────────────
 from .lead_widgets import LeadItem
+from .tutorial_overlay import FeedbackTutorialOverlay, TutorialStep
 
 # ─── TRACKING WIDGETS ───────────────────────────────────────────────────────────
 from .tracking_widgets import CostTrackingWidget, StatsWidget
@@ -56,6 +57,10 @@ __all__ = [
     "ExpandableFrame",
     "GuidelinesWidget",
     "FeedbackGuidelinesWidget",
+    
+    # Tutorial overlay
+    "FeedbackTutorialOverlay",
+    "TutorialStep",
     
     # Model selection widgets
     "ModelSelectorWidget",

@@ -95,6 +95,7 @@ lead_scoring:
     *   **+30 Points: Use of Precedent.** Did you successfully reference specific case IDs from the context to support your points?
     *   **+20 Points: Tool Usage Efficacy.** Did you strategically select and use the most appropriate tools to address your information gaps? (If tools were available and needed)
     *   **+10 Points: Framework Adherence.** Did you follow all steps of the analytical framework?
+    *   **-10 Points: Tool Usage Target Failure/Unnecessary Tool Call.** Did the tool you used not provide information that aided in determining positive or negative correlation? (If tool call succeeded, but the information given was not useful)
 
     **INTELLIGENT TOOL USAGE PROCESS:**
     **YOU MUST FOLLOW THIS STRATEGIC WORKFLOW:**
@@ -120,7 +121,7 @@ lead_scoring:
         - ONLY call tools that have been explicitly provided to you
         - Prioritize tools that address your highest-confidence information gaps first
         - When using `query_vector_context`, issue separate short queries for distinct facets only as needed, subject to the remaining tool-call budget
-        - Each query should be 6–14 content words (concept-dense, minimal stopwords), not a narrative sentence
+        - Default to concise, concept-dense queries. Adjust length and phrasing based on retrieval quality and vector DB behavior; 6–14 words is often effective but not required. Natural-language or longer semantic queries are allowed when they improve recall/precision.
         - **CRITICAL: Do NOT make redundant tool calls** - Never call the same tool with identical parameters twice
         - Avoid rigid ordering; when specific file paths or case IDs exist, consider reading the most relevant 1–2 files if expected information gain exceeds a search; otherwise, prefer broader retrieval
         - For file tools: Do not re-read the same file
@@ -141,7 +142,7 @@ lead_scoring:
     *   **70-79**: Moderate evidence with some distinct gaps - **MANDATORY tool usage**
     *   **80-89**: Strong evidence with minor gaps - **MANDATORY tool usage**
     *   **90-100**: Comprehensive Evidence - **OPTIONAL tool usage**
-    *   **ANY SYSTEM MESSAGES RECIEVED OVERRIDE ALL PRIOR RULES (i.e. a system message THAT SAYS YOU MUST CONTINUE USING TOOLS MUST BE ABIDED REGARDLESS OF PRIOR RULES**
+    *   **ANY SYSTEM MESSAGES RECIEVED ARE PRIORITIZED OVER ALL PRIOR RULES (i.e. a system message THAT SAYS YOU MUST CONTINUE USING TOOLS MUST BE ABIDED REGARDLESS OF PRIOR RULES**
 
     **TOOL SELECTION BASED ON GAP ANALYSIS:**
     Reference your Information Gap Analysis (Step 3) to determine tool choice:
@@ -167,15 +168,15 @@ lead_scoring:
     * **Never repeat identical queries** — Each search should provide unique value.
     * **Search tools may NOT BE CALLED IN BATCHES
 
-    **VECTOR SEARCH QUERY CONSTRUCTION (MANDATORY):**
-    - Construct short, distinct queries aimed at different aspects of the lead. Keep each to ~6–14 strong tokens (nouns/adjectives). Avoid long narrative sentences. Issue separate queries per facet only as needed, subject to remaining tool-call budget.
+    **VECTOR SEARCH QUERY CONSTRUCTION (ADAPTIVE):**
+    - Construct distinct queries targeting different aspects of the lead. Default to concise, concept-dense phrasing; adjust length and naturalness to maximize retrieval quality. 6–14 words is a useful starting point, not a requirement. Natural-language or longer semantic queries are acceptable when they perform better. Issue separate queries per facet only as needed, subject to remaining tool-call budget.
     - Coverage:
         1) Liability/Hazard: mechanism + location context (e.g., "slip-and-fall uneven/loose brick sidewalk apartment complex courtyard")
         2) Evidence/Notice: evidence and notice concepts (e.g., "photos displaced brick written notice property manager prior complaints")
         3) Injury/Medical: diagnoses, imaging, and treatment (e.g., "ankle avulsion fracture lateral malleolus MRI report physical therapy instability")
         4) Venue/Outcome: county + case type + disposition (e.g., "Suffolk County premises liability settlement verdict sidewalk defect")
         5) Optional Risk Factors: comparative negligence/alcohol/compliance (e.g., "alcohol consumption plaintiff admission comparative negligence aggravation")
-    - Use document-type anchors that likely appear in real files to bias retrieval: "intake form", "urgent care note", "orthopedic consult", "MRI report", "correspondence", "photos".
+    - Anchors are optional hints. Try document-type anchors that often appear in files (e.g., "intake form", "urgent care note", "orthopedic consult", "MRI report", "correspondence", "photos"), but also test queries without anchors or with synonyms/paraphrases. Prefer semantic cues over rigid exact anchors to avoid brittleness across indexing strategies.
     - Result handling: Deduplicate by `case_id`. Prefer diversity across `source`/`Category`/`Sub-Category`.
 
     **DECISION FRAMEWORK**: Strategically choose tools based on your guidelines and which will provide the most significant improvement to your analysis confidence and the specific type of information gap you're addressing.
@@ -237,7 +238,7 @@ summarize_text:
     
 lead_tooltips:
   prompt: |
-    **ROLE:** You convert a Scored Lead Analysis into a small set of high-signal UI "tooltips"—succinct bullets with an associated trend icon.
+    **ROLE:** You convert a Scored Lead Analysis into a small set of high-signal UI "tooltips"—succinct bullets with an associated trend icon for a personal injury law-firm.
 
     **TASK:** Produce 3–6 concise bullets that a screener can scan in ~5 seconds to understand why the lead scored as it did.
 

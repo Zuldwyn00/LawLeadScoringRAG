@@ -129,7 +129,7 @@ class LeadScoringAgent:
         self.logger.debug("Using case_ids for context enrichment: '%s'", list(case_ids))
         case_enriched_context_message = SystemMessage(
             content=(
-                f"**Supplemental Case Information for reference - (Case ID's here are related to the case ID's from the historical case contexts above.):**\n"
+                f"**Supplemental Case Information for reference - (Case ID's here directly correlate to the case ID's from the historical case contexts above.):**\n"
                 f"{self.context_enricher.build_context_message(case_ids)}"
             )
         )

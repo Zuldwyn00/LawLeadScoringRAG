@@ -30,6 +30,7 @@ from .handlers import UIEventHandler
 from .dialogs import LogViewerDialog, ModelSelectionDialog
 from .feedback_manager import FeedbackManager
 from .widgets.model_selector import ModelSelectorWidget
+from .widgets import LeadItem
 
 
 # ─── MAIN APPLICATION CLASS ─────────────────────────────────────────────────────
@@ -93,6 +94,7 @@ class MainWindow(ctk.CTk):
         title_frame.grid(row=0, column=0, sticky="ew", padx=20, pady=(20, 10))
         title_frame.grid_columnconfigure(0, weight=1)
         title_frame.grid_columnconfigure(1, weight=0)
+        title_frame.grid_columnconfigure(2, weight=0)
 
         title_label = ctk.CTkLabel(
             title_frame,
@@ -110,14 +112,72 @@ class MainWindow(ctk.CTk):
         )
         subtitle_label.grid(row=1, column=0, pady=(0, 10))
 
-        # Guidelines button (small, top-right, non-intrusive)
+        # Top-right actions: Help and Start Tutorial
+        # Make both buttons larger for visibility
+        title_frame.grid_columnconfigure(2, weight=0)
+
         self.guidelines_button = ctk.CTkButton(
             title_frame,
-            text="📖 Guidelines",
+            text="📖 HELP",
             command=self._open_guidelines_popup,
             **get_secondary_button_style(),
         )
+        try:
+            self.guidelines_button.configure(font=FONTS()["subtitle"], height=40, width=150)
+        except Exception:
+            pass
         self.guidelines_button.grid(row=0, column=1, rowspan=2, padx=(10, 10), pady=10, sticky="e")
+
+        self.start_tutorial_button = ctk.CTkButton(
+            title_frame,
+            text="▶ START TUTORIAL",
+            command=self._start_example_tutorial,
+            **get_secondary_button_style(),
+        )
+        try:
+            self.start_tutorial_button.configure(font=FONTS()["subtitle"], height=40, width=180)
+        except Exception:
+            pass
+        self.start_tutorial_button.grid(row=0, column=2, rowspan=2, padx=(0, 10), pady=10, sticky="e")
+
+    def _start_example_tutorial(self):
+        """Scroll to the bottom of scored leads and start the example lead tutorial."""
+        # Ensure results are rendered
+        try:
+            self.update_idletasks()
+        except Exception:
+            pass
+
+        # Find the example lead widget and trigger its tutorial
+        example_widget = None
+        for child in self.results_frame.winfo_children():
+            try:
+                is_example = bool(getattr(child, "lead", {}).get("is_example", False))
+            except Exception:
+                is_example = False
+            if is_example:
+                example_widget = child
+                break
+
+        def _launch():
+            if example_widget and hasattr(example_widget, "_start_feedback_tutorial"):
+                try:
+                    example_widget._start_feedback_tutorial()
+                except Exception:
+                    try:
+                        self.after(160, lambda: getattr(example_widget, "_start_feedback_tutorial", lambda: None)())
+                    except Exception:
+                        pass
+            else:
+                try:
+                    messagebox.showinfo("Tutorial", "Example lead not found. Add or load the example lead to start the tutorial.")
+                except Exception:
+                    pass
+
+        # Launch immediately
+        _launch()
+
+    # Removed previous auto-scroll helpers per request
 
     def create_main_content(self):
         """Create the main content area with left, middle, and right panels."""
@@ -186,7 +246,10 @@ class MainWindow(ctk.CTk):
         # Model settings frame
         settings_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
         settings_frame.grid(row=2, column=0, sticky="ew", padx=20, pady=(10, 0))
-        settings_frame.grid_columnconfigure(1, weight=1)
+        # Prevent entry column from expanding and pushing following controls
+        settings_frame.grid_columnconfigure(1, weight=0)
+        # Add a right-side spacer column to absorb extra width
+        settings_frame.grid_columnconfigure(6, weight=1)
         
         # Model settings button
         self.model_settings_button = ctk.CTkButton(
@@ -212,13 +275,17 @@ class MainWindow(ctk.CTk):
         from utils import load_config
         config = load_config()
         default_limit = config.get("aiconfig", {}).get("vector_search", {}).get("default_chunk_limit", 10)
+        default_tool_limit = config.get("aiconfig", {}).get("tool_call_limit", 5)
         
         # Settings frame
         settings_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
         settings_frame.grid(row=3, column=0, sticky="ew", padx=20, pady=(10, 0))
-        settings_frame.grid_columnconfigure(1, weight=1)
+        # Configure grid to prevent expansion of entry columns
+        settings_frame.grid_columnconfigure(0, weight=0)  # Labels
+        settings_frame.grid_columnconfigure(1, weight=0)  # Entries
+        settings_frame.grid_columnconfigure(2, weight=1)  # Spacer to absorb extra width
         
-        # Label for chunk limit
+        # First row: Chunk limit controls
         chunk_limit_label = ctk.CTkLabel(
             settings_frame,
             text="Vector Search Chunks:",
@@ -227,7 +294,6 @@ class MainWindow(ctk.CTk):
         )
         chunk_limit_label.grid(row=0, column=0, sticky="w", padx=(15, 10), pady=10)
         
-        # Chunk limit entry
         self.chunk_limit_var = ctk.StringVar(value=str(default_limit))
         self.chunk_limit_entry = ctk.CTkEntry(
             settings_frame,
@@ -236,9 +302,9 @@ class MainWindow(ctk.CTk):
             font=FONTS()["body"],
             placeholder_text="10",
         )
-        self.chunk_limit_entry.grid(row=0, column=1, sticky="w", padx=(0, 15), pady=10)
+        self.chunk_limit_entry.grid(row=0, column=1, sticky="w", padx=(0, 10), pady=10)
         
-        # Help text
+        # Help text for chunks
         help_label = ctk.CTkLabel(
             settings_frame,
             text="Number of similar cases to retrieve (1-50)",
@@ -246,6 +312,34 @@ class MainWindow(ctk.CTk):
             text_color=COLORS["text_gray"],
         )
         help_label.grid(row=0, column=2, sticky="w", padx=(10, 15), pady=10)
+
+        # Second row: Tool call limit controls  
+        tool_limit_label = ctk.CTkLabel(
+            settings_frame,
+            text="Tool Call Limit:",
+            font=FONTS()["body"],
+            text_color=COLORS["text_white"],
+        )
+        tool_limit_label.grid(row=1, column=0, sticky="w", padx=(15, 10), pady=(0, 10))
+
+        self.tool_call_limit_var = ctk.StringVar(value=str(default_tool_limit))
+        self.tool_call_limit_entry = ctk.CTkEntry(
+            settings_frame,
+            textvariable=self.tool_call_limit_var,
+            width=80,
+            font=FONTS()["body"],
+            placeholder_text="6",
+        )
+        self.tool_call_limit_entry.grid(row=1, column=1, sticky="w", padx=(0, 10), pady=(0, 10))
+
+        # Help text for tool limit
+        tool_help_label = ctk.CTkLabel(
+            settings_frame,
+            text="Max tool uses during scoring (1-20)",
+            font=FONTS()["small"],
+            text_color=COLORS["text_gray"],
+        )
+        tool_help_label.grid(row=1, column=2, sticky="w", padx=(10, 15), pady=(0, 10))
 
     def create_middle_panel(self, parent):
         """Create the middle panel with scored leads results."""
@@ -389,6 +483,30 @@ class MainWindow(ctk.CTk):
             default_limit = config.get("aiconfig", {}).get("vector_search", {}).get("default_chunk_limit", 10)
             self.chunk_limit_var.set(str(default_limit))
             return default_limit
+
+    def get_tool_call_limit(self):
+        """
+        Get the tool call limit from the UI with validation.
+
+        Returns:
+            int: The validated tool call limit (1-20), defaults to config if invalid.
+        """
+        try:
+            limit = int(self.tool_call_limit_var.get())
+            if 1 <= limit <= 20:
+                return limit
+            else:
+                from utils import load_config
+                config = load_config()
+                default_tool_limit = config.get("aiconfig", {}).get("tool_call_limit", 6)
+                self.tool_call_limit_var.set(str(default_tool_limit))
+                return default_tool_limit
+        except (ValueError, TypeError):
+            from utils import load_config
+            config = load_config()
+            default_tool_limit = config.get("aiconfig", {}).get("tool_call_limit", 6)
+            self.tool_call_limit_var.set(str(default_tool_limit))
+            return default_tool_limit
 
     def get_selected_process_model(self):
         """
@@ -621,6 +739,19 @@ class MainWindow(ctk.CTk):
                 feedback_manager=self.feedback_manager,
             )
             lead_item.grid(row=i, column=0, sticky="ew", padx=10, pady=5)
+
+        # Auto-scroll to bottom to ensure example lead (often last) is visible
+        try:
+            self.results_frame._parent_canvas.yview_moveto(1.0)
+        except Exception:
+            # Fallback if internal attribute differs
+            try:
+                for child in self.results_frame.winfo_children():
+                    if isinstance(child, tk.Canvas):
+                        child.yview_moveto(1.0)
+                        break
+            except Exception:
+                pass
 
     def setup_close_handler(self):
         """Set up the window close event handler to save any pending feedback."""

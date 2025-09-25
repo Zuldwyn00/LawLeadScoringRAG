@@ -24,6 +24,9 @@ An AI-assisted legal lead scoring and retrieval system. The project ingests lega
 - Persisted chat logs (JSON + human-readable text)
   - Progress status, logs, and color-coded score/confidence presentation
 - Configurable via `config.yaml` and `prompts.yaml`
+- Guided onboarding within the UI
+  - Example lead includes a "start tutorial" button that launches a step-by-step feedback overlay
+  - Highlights key buttons and actions with animated callouts
 
 
 ---

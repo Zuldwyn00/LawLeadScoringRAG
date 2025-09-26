@@ -18,9 +18,9 @@ class ProgressWidget:
 
         # Maximum status length threshold based on provided sample message length
         # Reason: Prevent overly long log messages from expanding layout and cutting off timer
-        self._max_status_length = len("Invoking message for 'gpt-5-mini'.")
+        self._max_status_length = 40 #40 characters long
         # Minimum height to ensure timer label is never clipped
-        self._min_visible_height = 70
+        self._min_visible_height = 90
 
         self.progress_bar = ctk.CTkProgressBar(
             self.frame,

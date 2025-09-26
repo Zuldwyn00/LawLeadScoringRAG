@@ -194,7 +194,9 @@ class RetrievedChunksDisplayFrame(ctk.CTkFrame):
         # Header with source and score
         header_frame = ctk.CTkFrame(card_frame, **get_frame_style("transparent"))
         header_frame.grid(row=0, column=0, sticky="ew", padx=15, pady=(15, 5))
-        header_frame.grid_columnconfigure(1, weight=1)
+        # Make left column expand, right column natural size for right alignment
+        header_frame.grid_columnconfigure(0, weight=1)
+        header_frame.grid_columnconfigure(1, weight=0)
         
         # Chunk number and source
         source_text = f"📄 Chunk {index + 1}: {Path(source).name}"
@@ -216,7 +218,8 @@ class RetrievedChunksDisplayFrame(ctk.CTkFrame):
             text_color=COLORS["accent_orange"],
             anchor="e"
         )
-        score_label.grid(row=0, column=1, sticky="e")
+        # Place score on the next line to the right
+        score_label.grid(row=1, column=1, sticky="e")
         
         # Page range
         page_info = f"📑 Pages: {page_range}"
@@ -227,7 +230,8 @@ class RetrievedChunksDisplayFrame(ctk.CTkFrame):
             text_color=COLORS["text_gray"],
             anchor="w"
         )
-        page_label.grid(row=1, column=0, columnspan=2, sticky="w")
+        # Keep pages on the left of the same row as score
+        page_label.grid(row=1, column=0, sticky="w")
         
         # Content preview
         content_preview = self._create_content_preview(content)

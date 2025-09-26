@@ -908,7 +908,7 @@ class LeadItem(ctk.CTkFrame):
                 # Hide the save button
                 self.save_feedback_btn.grid_remove()
 
-    def _start_feedback_tutorial(self):
+    def _start_feedback_tutorial(self, on_complete_callback=None):
         """Launch the feedback tutorial overlay on demand for the example lead."""
 
         if not self.lead.get("is_example", False):
@@ -925,7 +925,7 @@ class LeadItem(ctk.CTkFrame):
         if not steps:
             return
 
-        overlay = FeedbackTutorialOverlay(main_window, steps)
+        overlay = FeedbackTutorialOverlay(main_window, steps, on_complete_callback)
 
         def _start_overlay():
             try:

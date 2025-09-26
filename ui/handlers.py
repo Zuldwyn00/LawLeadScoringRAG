@@ -950,24 +950,80 @@ class UIEventHandler:
 
         messagebox.showerror("Error", f"Error processing lead: {error_message}")
 
+    def move_chat_logs_to_deleted_folder(self):
+        """
+        Move all chat log files to the deleted_chat_logs folder.
+        
+        This function moves all JSON and TXT files from the chat_logs directory
+        to the deleted_chat_logs directory as specified in the config.
+        
+        Returns:
+            int: Number of files successfully moved.
+        """
+        try:
+            from utils import move_files
+            
+            # Get configuration
+            config = load_config()
+            directories_cfg = config.get("directories", {})
+            
+            # Get chat logs directory path
+            chat_logs_path_str = directories_cfg.get(
+                "chat_logs", str(Path("scripts") / "data" / "chat_logs")
+            )
+            
+            # Get deleted chat logs directory path
+            deleted_chat_logs_path_str = directories_cfg.get(
+                "deleted_chat_logs", str(Path("scripts") / "data" / "chat_logs" / "deleted_logs")
+            )
+            
+            # Convert to Path objects
+            project_root = Path(__file__).resolve().parent.parent
+            chat_logs_dir = project_root / chat_logs_path_str
+            deleted_chat_logs_dir = project_root / deleted_chat_logs_path_str
+            
+            # Use the generic move_files function
+            return move_files(chat_logs_dir, deleted_chat_logs_dir)
+            
+        except Exception as e:
+            print(f"Error moving chat logs to deleted folder: {e}")
+            return 0
+
     def handle_clear_all_clicked(self):
-        """Handle the Clear All button click."""
-        # Keep only example leads
-        example_leads = [
-            lead for lead in self.app.scored_leads if lead.get("is_example", False)
-        ]
-        self.app.scored_leads = example_leads
-        self.app.refresh_results()
-        self.app.stats_widget.update(self.app.scored_leads)
+        """Handle the Clear All button click - shows confirmation dialog."""
+        from .dialogs import ClearAllConfirmationDialog
+        
+        def on_confirm():
+            """Handle confirmation - move files and clear UI."""
+            # Move chat log files to deleted folder
+            moved_count = self.move_chat_logs_to_deleted_folder()
+            
+            # Clear UI (keep only example leads)
+            example_leads = [
+                lead for lead in self.app.scored_leads if lead.get("is_example", False)
+            ]
+            self.app.scored_leads = example_leads
+            self.app.refresh_results()
+            self.app.stats_widget.update(self.app.scored_leads)
 
-        # Reset cost tracking
-        self.app.cost_tracking_widget.reset_current_lead_cost()
-        self.app.cost_tracking_widget.reset_session_total()
-        self.app.cost_tracking_widget.reset_model_costs()
+            # Reset cost tracking
+            self.app.cost_tracking_widget.reset_current_lead_cost()
+            self.app.cost_tracking_widget.reset_session_total()
+            self.app.cost_tracking_widget.reset_model_costs()
 
-        # Reset session time and hide view logs button since we're clearing results
-        self.app.current_session_start_time = None
-        self.app.hide_view_logs_button()
+            # Reset session time and hide view logs button since we're clearing results
+            self.app.current_session_start_time = None
+            self.app.hide_view_logs_button()
+            
+            # Show success message
+            from tkinter import messagebox
+            messagebox.showinfo(
+                "Clear All Complete", 
+                f"Successfully cleared all leads and moved {moved_count} files to deleted folder."
+            )
+        
+        # Show confirmation dialog
+        ClearAllConfirmationDialog(self.app, on_confirm)
 
     def convert_scored_lead_to_ui_format(self, scored_lead: ScoredLead) -> dict:
         """Convert a ScoredLead dataclass to the UI's expected dictionary format."""

@@ -6,6 +6,7 @@ and handles the overall application flow.
 """
 
 import customtkinter as ctk
+import tkinter as tk
 from tkinter import messagebox
 
 from .styles import (
@@ -47,6 +48,7 @@ class MainWindow(ctk.CTk):
         # Initialize data
         self.scored_leads = []
         self.current_session_start_time = None
+        self._temporarily_stored_leads = []  # For tutorial functionality
 
         # Initialize event handler
         self.event_handler = UIEventHandler(self)
@@ -142,40 +144,85 @@ class MainWindow(ctk.CTk):
 
     def _start_example_tutorial(self):
         """Scroll to the bottom of scored leads and start the example lead tutorial."""
-        # Ensure results are rendered
-        try:
-            self.update_idletasks()
-        except Exception:
-            pass
-
-        # Find the example lead widget and trigger its tutorial
-        example_widget = None
-        for child in self.results_frame.winfo_children():
+        # Temporarily clear non-example leads for tutorial
+        self._temporarily_clear_leads_for_tutorial()
+        
+        # Wait for UI to be properly updated before starting tutorial
+        def _launch_tutorial():
+            # Ensure results are rendered
             try:
-                is_example = bool(getattr(child, "lead", {}).get("is_example", False))
+                self.update_idletasks()
             except Exception:
-                is_example = False
-            if is_example:
-                example_widget = child
-                break
+                pass
 
-        def _launch():
+            # Find the example lead widget and trigger its tutorial
+            example_widget = None
+            for child in self.results_frame.winfo_children():
+                try:
+                    is_example = bool(getattr(child, "lead", {}).get("is_example", False))
+                except Exception:
+                    is_example = False
+                if is_example:
+                    example_widget = child
+                    break
+
             if example_widget and hasattr(example_widget, "_start_feedback_tutorial"):
                 try:
-                    example_widget._start_feedback_tutorial()
+                    # Pass the restore callback to the tutorial
+                    example_widget._start_feedback_tutorial(self._restore_leads_after_tutorial)
                 except Exception:
                     try:
-                        self.after(160, lambda: getattr(example_widget, "_start_feedback_tutorial", lambda: None)())
+                        self.after(160, lambda: getattr(example_widget, "_start_feedback_tutorial", lambda: None)(self._restore_leads_after_tutorial))
                     except Exception:
                         pass
             else:
                 try:
                     messagebox.showinfo("Tutorial", "Example lead not found. Add or load the example lead to start the tutorial.")
+                    # Restore leads if tutorial can't start
+                    self._restore_leads_after_tutorial()
                 except Exception:
                     pass
 
-        # Launch immediately
-        _launch()
+        # Launch after a short delay to ensure UI is updated
+        self.after(100, _launch_tutorial)
+
+    def _temporarily_clear_leads_for_tutorial(self):
+        """Temporarily store non-example leads and clear them from UI for tutorial."""
+        # Store current leads (excluding example leads) for later restoration
+        self._temporarily_stored_leads = [
+            lead for lead in self.scored_leads 
+            if not lead.get("is_example", False)
+        ]
+        
+        # Keep only example leads in the UI (is_example == True)
+        self.scored_leads = [
+            lead for lead in self.scored_leads 
+            if lead.get("is_example", False) == True
+        ]
+        
+        # Refresh the UI to show only example leads
+        self.refresh_results()
+        self.stats_widget.update(self.scored_leads)
+
+    def _restore_leads_after_tutorial(self):
+        """Restore previously stored leads after tutorial completion."""
+        # Restore the temporarily stored leads
+        if self._temporarily_stored_leads:
+            # Get the example lead (should be the only one currently in scored_leads)
+            example_leads = [
+                lead for lead in self.scored_leads 
+                if lead.get("is_example", False)
+            ]
+            
+            # Reconstruct the list: stored leads first, then example leads at bottom
+            self.scored_leads = self._temporarily_stored_leads + example_leads
+            
+            # Clear the temporary storage
+            self._temporarily_stored_leads = []
+            
+            # Refresh the UI to show all leads
+            self.refresh_results()
+            self.stats_widget.update(self.scored_leads)
 
     # Removed previous auto-scroll helpers per request
 
@@ -739,19 +786,6 @@ class MainWindow(ctk.CTk):
                 feedback_manager=self.feedback_manager,
             )
             lead_item.grid(row=i, column=0, sticky="ew", padx=10, pady=5)
-
-        # Auto-scroll to bottom to ensure example lead (often last) is visible
-        try:
-            self.results_frame._parent_canvas.yview_moveto(1.0)
-        except Exception:
-            # Fallback if internal attribute differs
-            try:
-                for child in self.results_frame.winfo_children():
-                    if isinstance(child, tk.Canvas):
-                        child.yview_moveto(1.0)
-                        break
-            except Exception:
-                pass
 
     def setup_close_handler(self):
         """Set up the window close event handler to save any pending feedback."""

@@ -32,9 +32,10 @@ class FeedbackTutorialOverlay(ctk.CTkToplevel):
 
     FADE_STEPS = 8
 
-    def __init__(self, master: ctk.CTk, steps: list[TutorialStep]):
+    def __init__(self, master: ctk.CTk, steps: list[TutorialStep], on_complete_callback: Optional[Callable] = None):
         super().__init__(master)
         self.steps = steps
+        self.on_complete_callback = on_complete_callback
         self.current_step_index = -1
         self.highlight_id: Optional[int] = None
         self.arrow_id: Optional[int] = None
@@ -132,6 +133,12 @@ class FeedbackTutorialOverlay(ctk.CTkToplevel):
         """Render the provided step or close the overlay when finished."""
 
         if index >= len(self.steps):
+            # Tutorial completed - call callback before destroying
+            if self.on_complete_callback:
+                try:
+                    self.on_complete_callback()
+                except Exception as e:
+                    print(f"Error calling tutorial completion callback: {e}")
             self.destroy()
             return
 
@@ -522,6 +529,14 @@ class FeedbackTutorialOverlay(ctk.CTkToplevel):
             self.grab_release()
         except tk.TclError:
             pass
+        
+        # Call the completion callback if provided
+        if self.on_complete_callback:
+            try:
+                self.on_complete_callback()
+            except Exception as e:
+                print(f"Error calling tutorial completion callback: {e}")
+        
         super().destroy()
 
 

@@ -311,6 +311,48 @@ def save_to_json(
         print(f"Error saving data to JSON file: {e}")
 
 
+def move_files(source_dir: Path, destination_dir: Path, file_patterns: List[str] = None) -> int:
+    """
+    Move files from source directory to destination directory based on file patterns.
+    
+    Args:
+        source_dir (Path): Source directory containing files to move.
+        destination_dir (Path): Destination directory where files will be moved.
+        file_patterns (List[str], optional): List of glob patterns to match files.
+            Defaults to ["*.json", "*.txt"].
+    
+    Returns:
+        int: Number of files successfully moved.
+    """
+    if file_patterns is None:
+        file_patterns = ["*.json", "*.txt"]
+    
+    # Ensure destination directory exists
+    destination_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Find all files matching the patterns
+    files_to_move = []
+    for pattern in file_patterns:
+        files_to_move.extend(source_dir.glob(pattern))
+    
+    moved_count = 0
+    for file_path in files_to_move:
+        try:
+            # Create destination path
+            destination_path = destination_dir / file_path.name
+            
+            # Move the file
+            file_path.rename(destination_path)
+            moved_count += 1
+            print(f"Moved '{file_path.name}' to {destination_dir}")
+            
+        except Exception as e:
+            print(f"Error moving file '{file_path.name}': {e}")
+    
+    print(f"Successfully moved {moved_count} files from {source_dir} to {destination_dir}")
+    return moved_count
+
+
 def get_jurisdiction_data(state: str, jurisdiction_name: str) -> Dict[str, Any]:
     """
     Retrieves the complete data dictionary for a specified jurisdiction within a state.

@@ -1,9 +1,10 @@
 # ─── TODO: PROJECT ORGANIZATION ──────────────────────────────────────────────────
 
 # ─── AI & SCORING IMPROVEMENTS ──────────────────────────────────────────────────
-# TODO: Enhance AI prompt for scoring agent
+# TODO: Enhance AI prompt for scoring agent (BIGGEST THING TO DO, AND NOT HARD WITH OUR MODULAR SETUP)
 #   - Add steps for the scoring agent to score each section separately
 #   - Combine section scores to get a final score rather than one main arbitrary score
+#   - Use huggingface or similar to find models that are the best at these specific areas like case-law, medical, etc. 
 
 # TODO: Implement settlement value/outcome retrieval
 #   - Consider getting average value of similar case_type in same jurisdiction as fallback

@@ -16,6 +16,12 @@ class ProgressWidget:
         self.parent = parent
         self.frame = ctk.CTkFrame(parent, fg_color=COLORS["tertiary_black"])
 
+        # Maximum status length threshold based on provided sample message length
+        # Reason: Prevent overly long log messages from expanding layout and cutting off timer
+        self._max_status_length = len("Invoking message for 'gpt-5-mini'.")
+        # Minimum height to ensure timer label is never clipped
+        self._min_visible_height = 70
+
         self.progress_bar = ctk.CTkProgressBar(
             self.frame,
             progress_color=COLORS["accent_orange"],
@@ -32,6 +38,28 @@ class ProgressWidget:
 
         self.is_visible = False
         self._setup_layout()
+        # Ensure geometry propagates so height grows with content
+        try:
+            self.frame.grid_propagate(True)
+        except Exception:
+            pass
+
+    def _truncate_status(self, text: str) -> str:
+        """Truncate status text to prevent UI overflow.
+
+        Args:
+            text (str): Incoming status text.
+
+        Returns:
+            str: Possibly truncated text with ellipsis.
+        """
+        if not isinstance(text, str):
+            return ""
+        if len(text) <= self._max_status_length:
+            return text
+        # Leave room for the ellipsis
+        cutoff = max(0, self._max_status_length - 3)
+        return text[:cutoff] + "..."
 
     def _setup_layout(self):
         """Set up the internal layout of the progress widget."""
@@ -64,6 +92,13 @@ class ProgressWidget:
             # Update grid options to include padding when visible
             self.frame.grid_configure(pady=10)
             self.is_visible = True
+            # After becoming visible, ensure minimum height to fit timer
+            self.frame.update_idletasks()
+            try:
+                required = self.frame.winfo_reqheight()
+                self.frame.configure(height=max(required, self._min_visible_height))
+            except Exception:
+                pass
 
     def hide(self):
         """Hide the progress widget by making it invisible."""
@@ -79,6 +114,24 @@ class ProgressWidget:
 
     def update(self, progress: float, status: str, elapsed_time: float):
         """Update the progress display."""
+        # Ensure widget is visible so timer is not cut off
+        if not self.is_visible:
+            self.show()
+
         self.progress_bar.set(progress / 100)
-        self.status_label.configure(text=status)
+        truncated_status = self._truncate_status(status)
+        # Dynamically wrap status based on available width
+        try:
+            width = self.frame.winfo_width() or self.parent.winfo_width()
+            wrap = max(200, width - 40)
+            self.status_label.configure(text=truncated_status, wraplength=wrap, justify="left")
+        except Exception:
+            self.status_label.configure(text=truncated_status)
         self.timer_label.configure(text=f"⏱️ Elapsed: {elapsed_time:.1f}s")
+        # Ensure layout recalculates height to fit timer
+        self.frame.update_idletasks()
+        try:
+            required = self.frame.winfo_reqheight()
+            self.frame.configure(height=max(required, self._min_visible_height))
+        except Exception:
+            pass

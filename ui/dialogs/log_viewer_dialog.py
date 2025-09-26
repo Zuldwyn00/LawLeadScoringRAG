@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 import logging
 from ..styles import COLORS, FONTS
+from utils import load_config
 
 
 class LogViewerDialog(ctk.CTkToplevel):
@@ -204,16 +205,29 @@ class LogViewerDialog(ctk.CTkToplevel):
         close_button.grid(row=3, column=0, pady=(0, 20))
 
     def get_log_files(self):
-        """Get list of available log files."""
-        log_files = []
+        """Get list of available log files (select newest .log file)."""
+        try:
+            config = load_config()
+            logs_dir_rel = config.get("directories", {}).get("logs", "logs")
+            project_root = Path(__file__).resolve().parents[2]
+            logs_dir = project_root / logs_dir_rel
 
-        # Only show the main log file (legal_lead.log) for session filtering
-        project_root = Path(__file__).resolve().parents[2]  # Go up from ui/dialogs/ to project root
-        main_log = project_root / "logs" / "legal_lead.log"
-        if main_log.exists():
-            log_files.append(("Current Session", main_log))
+            if not logs_dir.exists():
+                return []
 
-        return log_files
+            # Find all .log files and pick the newest by modified time
+            log_paths = sorted(
+                logs_dir.glob("*.log"), key=lambda p: p.stat().st_mtime, reverse=True
+            )
+
+            if not log_paths:
+                return []
+
+            newest_log = log_paths[0]
+            display_name = f"Latest Log: {newest_log.name}"
+            return [(display_name, newest_log)]
+        except Exception:
+            return []
 
     def filter_logs_by_time(self, log_content, start_time):
         """Filter log entries to only show those after the start time."""

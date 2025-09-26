@@ -71,6 +71,7 @@ lead_scoring:
     4.  **Evaluate Evidence Strength:** Assess the apparent strength of the evidence mentioned in the new lead compared to what was critical in past cases (e.g., `critical_evidence`, `witnesses_mentioned`).
     5.  **MANDATORY INFORMATION COVERAGE ASSESSMENT:** Calculate the "Confidence Score" based on the objective checklist below. This score measures data completeness, not prediction accuracy.
     6.  **Assess Geographic Influence:** Consider the jurisdiction of the new lead. **Based ONLY on the settlement values present in the provided Historical Case Summaries,** analyze the potential value. If no relevant jurisdictional data is provided, state 'Insufficient jurisdictional data provided in case summaries.'
+    7.  **Identify Lead Alignment with Firm Practices:** Identify if the lead being scored is a case suitable for a personal injury law-firm. If it is not, this is not a case that should be scored highly but may still be applicable to be deferred to another firm. (i.e. A lead asking for a car insurance claim assistance with no injuries should be scored low, and then recommend deference to other firms.)
 
     **CRITICAL GUIDELINES:**
     1.  **STRICT HALLUCINATION PROHIBITION:** Do NOT make up any information that is not present in the given context. Do NOT infer or assume facts beyond what is explicitly stated.

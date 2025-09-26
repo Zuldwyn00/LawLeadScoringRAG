@@ -596,11 +596,20 @@ class UIEventHandler:
             str: The latest INFO log line's message text, or an empty string if none.
         """
         try:
-            # Determine log file path relative to project root (../ from ui/handlers.py)
+            # Determine newest log file using config directory
+            from utils import load_config
+            config = load_config()
+            logs_dir_rel = config.get("directories", {}).get("logs", "logs")
             project_root = Path(__file__).resolve().parents[1]
-            log_path = project_root / "logs" / "legal_lead.log"
-            if not log_path.exists():
+            logs_dir = project_root / logs_dir_rel
+            if not logs_dir.exists():
                 return ""
+
+            log_files = sorted(logs_dir.glob("*.log"), key=lambda p: p.stat().st_mtime, reverse=True)
+            if not log_files:
+                return ""
+
+            log_path = log_files[0]
 
             latest_message = ""
             latest_time = None

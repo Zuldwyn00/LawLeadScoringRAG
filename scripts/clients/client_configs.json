@@ -4,6 +4,7 @@
       "deployment_name": "o4-mini",
       "api_version": "2025-01-01-preview",
       "supports_tools": true,
+      "supports_temperature": false,
       "description": "o4-mini standard deployment for general tasks",
       "pricing": {
         "input": 1.10,
@@ -14,6 +15,7 @@
       "deployment_name": "gpt-4.1",
       "api_version": "2025-01-01-preview",
       "supports_tools": false,
+      "supports_temperature": false,
       "description": "gpt-4.1 standard deployment for general tasks, higher costs than o4-mini",
       "pricing": {
         "input": 2.00,
@@ -25,6 +27,7 @@
       "deployment_name": "gpt-5-mini",
       "api_version": "2025-04-01-preview",
       "supports_tools": true,
+      "supports_temperature": false,
       "description": "gpt-5-mini standard deployment for general tasks, lower input cost but higher output cost than o4-mini",
       "pricing": {
         "input": 0.25,
@@ -35,6 +38,7 @@
       "deployment_name": "gpt-5-chat",
       "api_version": "2025-01-01-preview",
       "supports_tools": true,
+      "supports_temperature": true,
       "description": "gpt-5-chat standard deployment for general tasks, lower input cost but higher output cost than gpt-4.1",
       "pricing": {
         "input": 1.25,
@@ -45,6 +49,7 @@
       "deployment_name": "gpt-5",
       "api_version": "2025-04-01-preview",
       "supports_tools": true,
+      "supports_temperature": false,
       "description": "The primary level gpt-5 deployment for general tasks, highest costs of the gpt-5 family.",
       "pricing": {
         "input": 1.25,
@@ -58,6 +63,7 @@
       "deployment_name": "text-embedding-3-small",
       "api_version": "2023-05-15",
       "supports_tools": false, 
+      "supports_temperature": false,
       "description": "Smaller embedding model for efficiency",
       "pricing": {
         "input": 0.02,
@@ -68,6 +74,7 @@
       "deployment_name": "text-embedding-3-large",
       "api_version": "2023-05-15",
       "supports_tools": false,
+      "supports_temperature": false,
       "description": "Larger embedding model for accuracy",
       "pricing": {
         "input": 0.143,

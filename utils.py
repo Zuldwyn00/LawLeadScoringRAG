@@ -6,6 +6,7 @@ import yaml
 import os
 import json
 import tiktoken
+from datetime import datetime
 
 
 def ensure_directories(directories: List[Path] = None) -> None:
@@ -111,7 +112,19 @@ def setup_logger(
     log_dir = Path(__file__).resolve().parent / config["directories"]["logs"]
     log_dir.mkdir(exist_ok=True)
     log_filename = filename or config["logger"]["filename"]
-    log_file = log_dir / log_filename
+
+    # Ensure a unique log file per program run by appending a run timestamp
+    # The timestamp is consistent across all loggers in this process
+    # ─── RUN-UNIQUE LOG FILENAME ───────────────────────────────────────────────
+    if not hasattr(setup_logger, "_run_ts"):
+        # Use module-level static attribute to keep one timestamp per process run
+        setup_logger._run_ts = datetime.now().strftime("%Y%m%d_%H%M%S")  # type: ignore[attr-defined]
+
+    base_path = Path(log_filename)
+    base_name = base_path.stem or "log"
+    extension = base_path.suffix or ".log"
+    run_unique_filename = f"{base_name}_{setup_logger._run_ts}{extension}"  # type: ignore[attr-defined]
+    log_file = log_dir / run_unique_filename
 
     # Use RotatingFileHandler for log rotation
     max_bytes = int(config["logger"].get("max_bytes", 1024 * 1024 * 5))  # Default 5 MB

@@ -72,6 +72,8 @@ class MainWindow(ctk.CTk):
         self.refresh_results()
         self.stats_widget.update(self.scored_leads)
 
+        # Simple approach - no complex sizing needed!
+
     def setup_window(self):
         """Configure the main application window."""
         self.title("⚖️ Lead Scoring System")
@@ -227,22 +229,444 @@ class MainWindow(ctk.CTk):
     # Removed previous auto-scroll helpers per request
 
     def create_main_content(self):
-        """Create the main content area with left, middle, and right panels."""
+        """Create the main content area with dynamic panel layout."""
         main_frame = ctk.CTkFrame(self, **get_frame_style("primary"))
         main_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=10)
         main_frame.grid_rowconfigure(0, weight=1)
-        main_frame.grid_columnconfigure(0, weight=1)  # Input panel
-        main_frame.grid_columnconfigure(1, weight=2)  # Results panel  
-        main_frame.grid_columnconfigure(2, weight=0, minsize=150)  # Retrieved chunks panel (starts collapsed)
-
-        # Left panel - Input and controls
-        self.create_left_panel(main_frame)
-
-        # Middle panel - Scored leads results
-        self.create_middle_panel(main_frame)
         
-        # Right panel - Retrieved chunks display
-        self.create_retrieved_chunks_panel(main_frame)
+        # Store reference to main frame for dynamic layout changes
+        self.main_frame = main_frame
+        
+        # Initially configure for 2 panels (left and middle only)
+        self._configure_panel_layout(show_right_panel=False)
+
+        # Create the three panels
+        self.create_left_panel_simple(main_frame)
+        self.create_middle_panel_simple(main_frame)
+        self.create_right_panel_simple(main_frame)
+        
+        # Initially hide the right panel
+        self.right_panel.grid_remove()
+        
+        # Show button for when right panel is hidden (initially hidden)
+        self.right_panel_show_btn = ctk.CTkButton(
+            self,
+            text="▶",
+            width=30,
+            height=60,
+            fg_color="#FFD700",  # Gold yellow
+            hover_color="#FFA500",  # Orange hover (darker)
+            font=ctk.CTkFont(size=14),
+            command=self._show_right_panel,
+            corner_radius=0
+        )
+        # Position the show button on the very right edge like a door handle
+        self.right_panel_show_btn.place(relx=1.0, rely=0.5, anchor="e")  # Right edge of window
+        # Initially visible since right panel is hidden by default
+
+    def create_left_panel_simple(self, parent):
+        """Create the left panel with input and controls."""
+        left_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
+        left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=0)
+        left_frame.grid_rowconfigure(5, weight=1)
+        left_frame.grid_columnconfigure(0, weight=1)
+        
+        # Disable grid propagation to prevent content from affecting size
+        left_frame.grid_propagate(False)
+
+        # Input section
+        self.create_input_section(left_frame)
+        # Button section
+        self.create_button_section(left_frame)
+        # Progress section
+        self.create_progress_section(left_frame)
+        # Guidelines section
+        self.create_left_guidelines_section(left_frame)
+
+    def create_middle_panel_simple(self, parent):
+        """Create the middle panel with scored leads results."""
+        middle_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
+        middle_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=0)
+        middle_frame.grid_rowconfigure(1, weight=1)
+        middle_frame.grid_columnconfigure(0, weight=1)
+        
+        # Disable grid propagation to prevent content from affecting size
+        middle_frame.grid_propagate(False)
+
+        # Results section title
+        results_label = ctk.CTkLabel(
+            middle_frame,
+            text="Scored Leads",
+            font=FONTS()["heading"],
+            text_color=COLORS["text_white"],
+        )
+        results_label.grid(row=0, column=0, sticky="w", padx=20, pady=(20, 10))
+
+        # Scrollable frame for results
+        self.results_frame = ctk.CTkScrollableFrame(
+            middle_frame,
+            **get_frame_style("secondary"),
+            scrollbar_button_color=COLORS["accent_orange"],
+            scrollbar_button_hover_color=COLORS["accent_orange_hover"],
+        )
+        self.results_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        self.results_frame.grid_columnconfigure(0, weight=1)
+
+    def create_right_panel_simple(self, parent):
+        """Create the right panel with retrieved chunks display and chat."""
+        right_frame = ctk.CTkFrame(parent, **get_frame_style("secondary"))
+        right_frame.grid(row=0, column=2, sticky="nsew", padx=(5, 0), pady=0)
+        right_frame.grid_rowconfigure(1, weight=1)  # Content area gets the weight
+        right_frame.grid_columnconfigure(0, weight=1)
+        
+        # Disable grid propagation to prevent content from affecting size
+        right_frame.grid_propagate(False)
+        
+        # Store reference to right panel for dynamic layout changes
+        self.right_panel = right_frame
+        
+        # Right panel header with buttons
+        self.right_panel_header = ctk.CTkFrame(right_frame, **get_frame_style("transparent"))
+        self.right_panel_header.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
+        self.right_panel_header.grid_columnconfigure(2, weight=1)
+        
+        # Hide button for right panel
+        self.right_panel_hide_btn = ctk.CTkButton(
+            self.right_panel_header,
+            text="✕",
+            width=30,
+            height=30,
+            fg_color=COLORS["tertiary_black"],
+            hover_color=COLORS["border_gray"],
+            font=ctk.CTkFont(size=14),
+            command=self._hide_right_panel
+        )
+        self.right_panel_hide_btn.grid(row=0, column=0, sticky="w")
+        
+        # Swap button for switching between chunks and chat
+        self.right_panel_swap_btn = ctk.CTkButton(
+            self.right_panel_header,
+            text="🔄",
+            width=30,
+            height=30,
+            fg_color=COLORS["accent_orange"],
+            hover_color=COLORS["accent_orange_hover"],
+            font=ctk.CTkFont(size=14),
+            command=self._swap_right_panel_view
+        )
+        self.right_panel_swap_btn.grid(row=0, column=1, sticky="w", padx=(5, 0))
+        
+        # Right panel title
+        self.right_panel_title = ctk.CTkLabel(
+            self.right_panel_header,
+            text="Right Panel",
+            font=FONTS()["heading"],
+            text_color=COLORS["text_white"]
+        )
+        self.right_panel_title.grid(row=0, column=2, sticky="w", padx=(10, 0))
+        
+        # Retrieved chunks display
+        self.retrieved_chunks_frame = RetrievedChunksDisplayFrame(right_frame)
+        self.retrieved_chunks_frame.grid(row=1, column=0, sticky="nsew")
+        
+        # Chat panel (initially hidden)
+        self.chat_panel = ctk.CTkFrame(right_frame, **get_frame_style("secondary"))
+        self.chat_panel.grid(row=1, column=0, sticky="nsew")
+        self.chat_panel.grid_remove()  # Initially hidden
+        
+        # Configure chat panel grid
+        self.chat_panel.grid_columnconfigure(0, weight=1)
+        self.chat_panel.grid_rowconfigure(1, weight=1)
+        
+        # Chat header
+        self.chat_header = ctk.CTkFrame(self.chat_panel, **get_frame_style("transparent"))
+        self.chat_header.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
+        self.chat_header.grid_columnconfigure(1, weight=1)
+        
+        # Chat title
+        self.chat_title = ctk.CTkLabel(
+            self.chat_header,
+            text="💬 Discuss Lead",
+            font=FONTS()["heading"],
+            text_color=COLORS["text_white"]
+        )
+        self.chat_title.grid(row=0, column=0, sticky="w")
+        
+        # Close chat button
+        self.close_chat_btn = ctk.CTkButton(
+            self.chat_header,
+            text="✕",
+            width=30,
+            height=30,
+            fg_color=COLORS["tertiary_black"],
+            hover_color=COLORS["border_gray"],
+            font=ctk.CTkFont(size=14),
+            command=self.close_chat
+        )
+        self.close_chat_btn.grid(row=0, column=1, sticky="e")
+        
+        # Chat display area
+        self.chat_display_frame = ctk.CTkFrame(self.chat_panel, fg_color=COLORS["secondary_black"])
+        self.chat_display_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self.chat_display_frame.grid_rowconfigure(0, weight=1)
+        self.chat_display_frame.grid_columnconfigure(0, weight=1)
+        
+        # Chat input area
+        self.chat_input_frame = ctk.CTkFrame(self.chat_panel, **get_frame_style("transparent"))
+        self.chat_input_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.chat_input_frame.grid_columnconfigure(0, weight=1)
+        
+        # Initialize chat components
+        self.chat_client = None
+        self.tool_manager = None
+        self.current_lead = None
+        self.current_lead_id = None
+        self._last_lead_id = None
+        self._chat_histories = {}
+        
+        # Create chat display and input components
+        self._create_chat_components()
+
+    def _configure_panel_layout(self, show_right_panel=True):
+        """Configure the main frame layout for 2 or 3 panels."""
+        if show_right_panel:
+            # 3 panels: left, middle, right (each 1/3)
+            self.main_frame.grid_columnconfigure(0, weight=1)  # Left panel (1/3)
+            self.main_frame.grid_columnconfigure(1, weight=1)  # Middle panel (1/3)
+            self.main_frame.grid_columnconfigure(2, weight=1)  # Right panel (1/3)
+        else:
+            # 2 panels: left, middle (each 1/2)
+            self.main_frame.grid_columnconfigure(0, weight=1)  # Left panel (1/2)
+            self.main_frame.grid_columnconfigure(1, weight=1)  # Middle panel (1/2)
+            self.main_frame.grid_columnconfigure(2, weight=0)  # Right panel (hidden)
+
+    def _hide_right_panel(self):
+        """Hide the right panel and show the show button."""
+        self._configure_panel_layout(show_right_panel=False)
+        self.right_panel.grid_remove()
+        self.right_panel_title.configure(text="Right Panel")
+        # Show the show button
+        self.right_panel_show_btn.place(relx=1.0, rely=0.5, anchor="e")
+
+    def _show_right_panel(self):
+        """Show the right panel with chunks view and hide the show button."""
+        self._configure_panel_layout(show_right_panel=True)
+        self.right_panel.grid()
+        self.retrieved_chunks_frame.grid()
+        self.chat_panel.grid_remove()
+        self.right_panel_title.configure(text="Retrieved Chunks")
+        # Hide the show button
+        self.right_panel_show_btn.place_forget()
+
+    def _swap_right_panel_view(self):
+        """Swap between chunks and chat views in the right panel."""
+        if not self.right_panel.winfo_viewable():
+            # If panel is hidden, show chunks view
+            self._configure_panel_layout(show_right_panel=True)
+            self.right_panel.grid()
+            self.retrieved_chunks_frame.grid()
+            self.chat_panel.grid_remove()
+            self.right_panel_title.configure(text="Retrieved Chunks")
+        elif self.retrieved_chunks_frame.winfo_viewable():
+            # Switch from chunks to chat
+            self.retrieved_chunks_frame.grid_remove()
+            self.chat_panel.grid()
+            self.right_panel_title.configure(text="Chat Discussion")
+        else:
+            # Switch from chat to chunks
+            self.chat_panel.grid_remove()
+            self.retrieved_chunks_frame.grid()
+            self.right_panel_title.configure(text="Retrieved Chunks")
+
+    def _set_discuss_buttons_state(self, state):
+        """Enable or disable all 'Discuss Lead' buttons."""
+        try:
+            # Find all lead items in the results frame
+            for widget in self.results_frame.winfo_children():
+                if hasattr(widget, 'discuss_lead_btn'):
+                    widget.discuss_lead_btn.configure(state=state)
+        except Exception as e:
+            print(f"DEBUG: Error setting discuss buttons state: {e}")
+
+    def create_left_panel_new(self):
+        """Create the left panel with input and controls."""
+        self.left_panel = ctk.CTkFrame(self.panels_frame, **get_frame_style("secondary"))
+        self.left_panel.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=0)
+        self.left_panel.grid_rowconfigure(5, weight=1)
+        self.left_panel.grid_columnconfigure(0, weight=1)
+        
+        # Input section
+        self.create_input_section(self.left_panel)
+        # Button section
+        self.create_button_section(self.left_panel)
+        # Progress section
+        self.create_progress_section(self.left_panel)
+        # Guidelines section
+        self.create_left_guidelines_section(self.left_panel)
+
+    def create_middle_panel_new(self):
+        """Create the middle panel with scored leads results."""
+        self.middle_panel = ctk.CTkFrame(self.panels_frame, **get_frame_style("secondary"))
+        self.middle_panel.grid(row=0, column=1, sticky="nsew", padx=5, pady=0)
+        self.middle_panel.grid_rowconfigure(1, weight=1)
+        self.middle_panel.grid_columnconfigure(0, weight=1)
+        
+        # Results section title
+        results_label = ctk.CTkLabel(
+            self.middle_panel,
+            text="Scored Leads",
+            font=FONTS()["heading"],
+            text_color=COLORS["text_white"],
+        )
+        results_label.grid(row=0, column=0, sticky="w", padx=20, pady=(20, 10))
+
+        # Scrollable frame for results
+        self.results_frame = ctk.CTkScrollableFrame(
+            self.middle_panel,
+            **get_frame_style("secondary"),
+            scrollbar_button_color=COLORS["accent_orange"],
+            scrollbar_button_hover_color=COLORS["accent_orange_hover"],
+        )
+        self.results_frame.grid(row=1, column=0, sticky="nsew", padx=20, pady=(0, 20))
+        self.results_frame.grid_columnconfigure(0, weight=1)
+
+    def create_right_panel_new(self):
+        """Create the right panel with retrieved chunks display and chat."""
+        self.right_panel = ctk.CTkFrame(self.panels_frame, **get_frame_style("secondary"))
+        self.right_panel.grid(row=0, column=2, sticky="nsew", padx=(5, 0), pady=0)
+        self.right_panel.grid_rowconfigure(0, weight=1)
+        self.right_panel.grid_columnconfigure(0, weight=1)
+        
+        # Retrieved chunks display
+        self.retrieved_chunks_frame = RetrievedChunksDisplayFrame(self.right_panel)
+        self.retrieved_chunks_frame.grid(row=0, column=0, sticky="nsew")
+        
+        # Set up width change handler
+        self.retrieved_chunks_frame.set_width_change_handler(self._handle_chunks_sidebar_width_change)
+        
+        # Chat panel (initially hidden)
+        self.chat_panel = ctk.CTkFrame(self.right_panel, **get_frame_style("secondary"))
+        self.chat_panel.grid(row=0, column=0, sticky="nsew")
+        self.chat_panel.grid_remove()  # Initially hidden
+        
+        # Configure chat panel grid
+        self.chat_panel.grid_columnconfigure(0, weight=1)
+        self.chat_panel.grid_rowconfigure(1, weight=1)
+        
+        # Chat header
+        self.chat_header = ctk.CTkFrame(self.chat_panel, **get_frame_style("transparent"))
+        self.chat_header.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
+        self.chat_header.grid_columnconfigure(1, weight=1)
+        
+        # Chat title
+        self.chat_title = ctk.CTkLabel(
+            self.chat_header,
+            text="💬 Discuss Lead",
+            font=FONTS()["heading"],
+            text_color=COLORS["text_white"]
+        )
+        self.chat_title.grid(row=0, column=0, sticky="w")
+        
+        # Close chat button
+        self.close_chat_btn = ctk.CTkButton(
+            self.chat_header,
+            text="✕",
+            width=30,
+            height=30,
+            fg_color=COLORS["tertiary_black"],
+            hover_color=COLORS["border_gray"],
+            font=ctk.CTkFont(size=14),
+            command=self.close_chat
+        )
+        self.close_chat_btn.grid(row=0, column=1, sticky="e")
+        
+        # Chat display area
+        self.chat_display_frame = ctk.CTkFrame(self.chat_panel, fg_color=COLORS["secondary_black"])
+        self.chat_display_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self.chat_display_frame.grid_rowconfigure(0, weight=1)
+        self.chat_display_frame.grid_columnconfigure(0, weight=1)
+        
+        # Chat input area
+        self.chat_input_frame = ctk.CTkFrame(self.chat_panel, **get_frame_style("transparent"))
+        self.chat_input_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.chat_input_frame.grid_columnconfigure(0, weight=1)
+        
+        # Initialize chat components
+        self.chat_client = None
+        self.tool_manager = None
+        self.current_lead = None
+        self.current_lead_id = None
+        self._last_lead_id = None
+        self._chat_histories = {}
+        
+        # Create chat display and input components
+        self._create_chat_components()
+
+    def _on_window_resize(self, event):
+        """Handle window resize to maintain equal panel sizing."""
+        # Only handle main window resize, not child widget resizes
+        if event.widget == self:
+            # Use after_idle to ensure the resize is complete before adjusting panels
+            self.after_idle(self._update_panel_sizes)
+
+    def _update_panel_sizes(self):
+        """Update panel sizes to maintain equal width."""
+        try:
+            if hasattr(self, 'panels_frame'):
+                # Get the available width for the main container first
+                main_width = self.main_container.winfo_width()
+                print(f"DEBUG: Main container width: {main_width}")
+                
+                if main_width > 100:  # Only adjust if we have a reasonable width
+                    # Account for padding (20px on each side)
+                    available_width = main_width - 40
+                    print(f"DEBUG: Available width after padding: {available_width}")
+                    
+                    # Check if retrieved chunks is expanded or collapsed
+                    is_expanded = getattr(self.retrieved_chunks_frame, 'is_expanded', True)
+                    
+                    if is_expanded:
+                        # All panels get equal width
+                        panel_width = available_width // 3
+                        print(f"DEBUG: Setting equal panel widths: {panel_width}")
+                        
+                        # Set explicit widths for all panels
+                        self.left_panel.configure(width=panel_width)
+                        self.middle_panel.configure(width=panel_width)
+                        self.right_panel.configure(width=panel_width)
+                        
+                        # Set grid column weights to 0 to prevent grid from overriding
+                        self.panels_frame.grid_columnconfigure(0, weight=0)
+                        self.panels_frame.grid_columnconfigure(1, weight=0)
+                        self.panels_frame.grid_columnconfigure(2, weight=0)
+                        
+                    else:
+                        # Right panel is collapsed, give more space to others
+                        right_width = 200  # Fixed collapsed width
+                        remaining_width = available_width - right_width
+                        left_width = remaining_width // 2
+                        middle_width = remaining_width - left_width
+                        
+                        print(f"DEBUG: Setting panel widths - left={left_width}, middle={middle_width}, right={right_width}")
+                        
+                        # Set explicit widths
+                        self.left_panel.configure(width=left_width)
+                        self.middle_panel.configure(width=middle_width)
+                        self.right_panel.configure(width=right_width)
+                        
+                        # Set grid column weights
+                        self.panels_frame.grid_columnconfigure(0, weight=0)
+                        self.panels_frame.grid_columnconfigure(1, weight=0)
+                        self.panels_frame.grid_columnconfigure(2, weight=0)
+                    
+                    # Force layout update
+                    self.panels_frame.update_idletasks()
+                    
+                    # Log final panel sizes
+                    print(f"DEBUG: Final panel widths - left={self.left_panel.winfo_width()}, middle={self.middle_panel.winfo_width()}, right={self.right_panel.winfo_width()}")
+                    
+        except Exception as e:
+            print(f"DEBUG: Error updating panel sizes: {e}")
 
     def create_left_panel(self, parent):
         """Create the left panel with input and controls."""
@@ -250,6 +674,9 @@ class MainWindow(ctk.CTk):
         left_frame.grid(row=0, column=0, sticky="nsew", padx=(0, 5), pady=0)
         left_frame.grid_rowconfigure(5, weight=1)  # Give weight to progress section to fill space
         left_frame.grid_columnconfigure(0, weight=1)
+        
+        # Panel will use grid weights for responsive sizing
+        print(f"DEBUG: Left panel created, will use grid weights for sizing")
 
         # Input section
         self.create_input_section(left_frame)
@@ -306,6 +733,7 @@ class MainWindow(ctk.CTk):
             **get_secondary_button_style(),
         )
         self.model_settings_button.grid(row=0, column=0, sticky="ew", padx=15, pady=10)
+        
         
         # Status label showing current models
         self.model_status_label = ctk.CTkLabel(
@@ -394,6 +822,9 @@ class MainWindow(ctk.CTk):
         middle_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=0)
         middle_frame.grid_rowconfigure(1, weight=1)  # Give weight to the results frame row
         middle_frame.grid_columnconfigure(0, weight=1)
+        
+        # Panel will use grid weights for responsive sizing
+        print(f"DEBUG: Middle panel created, will use grid weights for sizing")
 
         # Results section title
         results_label = ctk.CTkLabel(
@@ -423,6 +854,69 @@ class MainWindow(ctk.CTk):
         # Set up width change handler
         self.retrieved_chunks_frame.set_width_change_handler(self._handle_chunks_sidebar_width_change)
 
+    def create_chat_panel(self, parent):
+        """Create the chat panel for discussing leads."""
+        # Chat panel (initially hidden)
+        self.chat_panel = ctk.CTkFrame(parent, **get_frame_style("secondary"))
+        self.chat_panel.grid(row=0, column=2, sticky="nsew", padx=(5, 0), pady=0)
+        self.chat_panel.grid_remove()  # Initially hidden
+        
+        # Panel will use grid weights for responsive sizing
+        print(f"DEBUG: Chat panel created, will use grid weights for sizing")
+        
+        # Configure grid
+        self.chat_panel.grid_columnconfigure(0, weight=1)
+        self.chat_panel.grid_rowconfigure(1, weight=1)
+        
+        # Chat header
+        self.chat_header = ctk.CTkFrame(self.chat_panel, **get_frame_style("transparent"))
+        self.chat_header.grid(row=0, column=0, sticky="ew", padx=10, pady=(10, 5))
+        self.chat_header.grid_columnconfigure(1, weight=1)
+        
+        # Chat title
+        self.chat_title = ctk.CTkLabel(
+            self.chat_header,
+            text="💬 Discuss Lead",
+            font=FONTS()["heading"],
+            text_color=COLORS["text_white"]
+        )
+        self.chat_title.grid(row=0, column=0, sticky="w")
+        
+        # Close chat button
+        self.close_chat_btn = ctk.CTkButton(
+            self.chat_header,
+            text="✕",
+            width=30,
+            height=30,
+            fg_color=COLORS["tertiary_black"],
+            hover_color=COLORS["border_gray"],
+            font=ctk.CTkFont(size=14),
+            command=self.close_chat
+        )
+        self.close_chat_btn.grid(row=0, column=1, sticky="e")
+        
+        # Chat display area
+        self.chat_display_frame = ctk.CTkFrame(self.chat_panel, fg_color=COLORS["secondary_black"])
+        self.chat_display_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
+        self.chat_display_frame.grid_rowconfigure(0, weight=1)
+        self.chat_display_frame.grid_columnconfigure(0, weight=1)
+        
+        # Chat input area
+        self.chat_input_frame = ctk.CTkFrame(self.chat_panel, **get_frame_style("transparent"))
+        self.chat_input_frame.grid(row=2, column=0, sticky="ew", padx=10, pady=(0, 10))
+        self.chat_input_frame.grid_columnconfigure(0, weight=1)
+        
+        # Initialize chat components
+        self.chat_client = None
+        self.tool_manager = None
+        self.current_lead = None
+        self.current_lead_id = None
+        self._last_lead_id = None
+        self._chat_histories = {}
+        
+        # Create chat display and input components
+        self._create_chat_components()
+
     def create_left_guidelines_section(self, parent):
         """Create a compact guidelines section for the left panel."""
         # Cost tracking section (moved from old right panel)
@@ -440,23 +934,8 @@ class MainWindow(ctk.CTk):
         Args:
             is_expanded (bool): Whether the sidebar is expanded
         """
-        # Find the main frame to update its grid configuration
-        main_frame = None
-        for child in self.winfo_children():
-            if isinstance(child, ctk.CTkFrame) and child.grid_info().get('row') == 1:
-                main_frame = child
-                break
-                
-        if main_frame:
-            if is_expanded:
-                # Sidebar is expanded, give it more space
-                main_frame.grid_columnconfigure(2, weight=0, minsize=400)
-            else:
-                # Sidebar is collapsed, minimize its space
-                main_frame.grid_columnconfigure(2, weight=0, minsize=150)
-            
-            # Force layout update
-            main_frame.update_idletasks()
+        # Update panel sizes using the new layout system
+        self._update_panel_sizes()
 
     def create_button_section(self, parent):
         """Create the button section."""
@@ -643,6 +1122,20 @@ class MainWindow(ctk.CTk):
 
         # Disable the button during processing
         self.score_button.configure(state="disabled")
+        
+        # Disable model settings button during scoring
+        self.model_settings_button.configure(state="disabled")
+        
+        # Show right panel and configure for 3 panels
+        self._configure_panel_layout(show_right_panel=True)
+        self.right_panel.grid()
+        self.retrieved_chunks_frame.grid()
+        self.chat_panel.grid_remove()
+        self.right_panel_title.configure(text="Retrieved Chunks")
+        self.right_panel_show_btn.place_forget()
+        
+        # Disable all "Discuss Lead" buttons during scoring
+        self._set_discuss_buttons_state("disabled")
 
         # Use event handler to process the lead
         success, message = self.event_handler.handle_score_lead_clicked(lead_text)
@@ -650,7 +1143,20 @@ class MainWindow(ctk.CTk):
         if not success:
             # Re-enable button and show error
             self.score_button.configure(state="normal")
+            # Re-enable model settings button
+            self.model_settings_button.configure(state="normal")
+            # Re-enable discuss buttons
+            self._set_discuss_buttons_state("normal")
+            # Hide right panel if scoring failed
+            self._configure_panel_layout(show_right_panel=False)
+            self.right_panel.grid_remove()
+            self.right_panel_title.configure(text="Right Panel")
+            self.right_panel_show_btn.place(relx=1.0, rely=0.5, anchor="e")
             messagebox.showwarning("Input Required", message)
+        else:
+            # Scoring successful - re-enable discuss buttons and model settings
+            self._set_discuss_buttons_state("normal")
+            self.model_settings_button.configure(state="normal")
 
     def _clear_all_clicked(self):
         """Handle the Clear All button click."""
@@ -669,6 +1175,8 @@ class MainWindow(ctk.CTk):
             # Update the stored model selector
             self.model_selector = new_model_selector
             self._update_model_status_label()
+            # Chat model selection is now handled by the model selector
+            
             
     def _update_model_status_label(self):
         """Update the model status label to show current configuration."""
@@ -776,6 +1284,10 @@ class MainWindow(ctk.CTk):
                 text_color=COLORS["text_gray"],
             )
             no_results_label.grid(row=0, column=0, pady=20)
+            # If no scored leads, hide right panel and configure for 2 panels
+            self._configure_panel_layout(show_right_panel=False)
+            self.right_panel.grid_remove()
+            self.right_panel_show_btn.place(relx=1.0, rely=0.5, anchor="e")
             return
 
         for i, lead in enumerate(self.scored_leads):
@@ -850,6 +1362,366 @@ class MainWindow(ctk.CTk):
                         current_chat_log, lead_index, widget.lead["analysis"]
                     )
                     feedback_entry.set_replaced_analysis_text(current_analysis_text)
+
+    def _create_chat_components(self):
+        """Create the chat display and input components."""
+        import tkinter as tk
+        from tkinter import scrolledtext
+        
+        # Chat display using scrolledtext
+        self.chat_display = scrolledtext.ScrolledText(
+            self.chat_display_frame,
+            wrap=tk.WORD,
+            font=("Consolas", 11),
+            bg=COLORS["secondary_black"],
+            fg=COLORS["text_white"],
+            insertbackground=COLORS["text_white"],
+            selectbackground=COLORS["accent_orange"],
+            state=tk.DISABLED,
+            padx=15,
+            pady=15
+        )
+        self.chat_display.grid(row=0, column=0, sticky="nsew")
+        
+        # Configure text tags for different message types
+        self.chat_display.tag_configure("assistant", foreground=COLORS["accent_orange"], font=("Consolas", 11, "bold"))
+        self.chat_display.tag_configure("assistant_text", foreground=COLORS["text_white"], font=("Consolas", 11))
+        self.chat_display.tag_configure("user", foreground=COLORS["accent_orange_light"], font=("Consolas", 11, "bold"))
+        self.chat_display.tag_configure("user_text", foreground=COLORS["text_white"], font=("Consolas", 11))
+        self.chat_display.tag_configure("system", foreground=COLORS["accent_orange_light"], font=("Consolas", 11, "bold"))
+        self.chat_display.tag_configure("system_text", foreground=COLORS["text_gray"], font=("Consolas", 11))
+        
+        # Input text box
+        self.chat_input_text = ctk.CTkTextbox(
+            self.chat_input_frame,
+            height=80,
+            font=FONTS()["body"],
+            fg_color=COLORS["secondary_black"],
+            text_color=COLORS["text_white"],
+            border_color=COLORS["border_gray"],
+            border_width=1,
+            wrap="word"
+        )
+        self.chat_input_text.grid(row=0, column=0, sticky="ew", padx=(0, 10))
+        
+        # Send button
+        self.chat_send_button = ctk.CTkButton(
+            self.chat_input_frame,
+            text="Send",
+            width=80,
+            height=80,
+            fg_color=COLORS["accent_orange"],
+            hover_color=COLORS["accent_orange_hover"],
+            font=FONTS()["small_button"],
+            command=self.send_chat_message
+        )
+        self.chat_send_button.grid(row=0, column=1, sticky="ns")
+        
+        # Bind Enter key to send message
+        self.chat_input_text.bind("<Return>", lambda e: self.send_chat_message())
+        self.chat_input_text.bind("<Control-Return>", lambda e: self.send_chat_message())
+
+    def open_chat_for_lead(self, lead: dict):
+        """Open chat panel for the specified lead."""
+        # Ensure right panel is visible and configured for 3 panels
+        self._configure_panel_layout(show_right_panel=True)
+        self.right_panel.grid()
+        self.right_panel_title.configure(text="Chat Discussion")
+        self.right_panel_show_btn.place_forget()
+        
+        # Hide retrieved chunks panel and show chat panel
+        self.retrieved_chunks_frame.grid_remove()
+        self.chat_panel.grid()
+        
+        # Update chat title with lead information
+        lead_title = self._extract_lead_title(lead)
+        self.chat_title.configure(text=f"💬 Discuss: {lead_title}")
+        
+        # Initialize chat client for this lead
+        self._initialize_chat_for_lead(lead)
+        
+        # Load initial context
+        self._load_chat_initial_context(lead)
+        
+        # Update panel sizes to maintain equal sizing
+        self._update_panel_sizes()
+
+    def close_chat(self):
+        """Close the chat panel and show retrieved chunks panel."""
+        # Save current chat history
+        if self.current_lead_id:
+            self._save_chat_history()
+        
+        # Hide chat panel and show retrieved chunks panel
+        self.chat_panel.grid_remove()
+        self.retrieved_chunks_frame.grid()
+        
+        # Clear current lead
+        self.current_lead = None
+        self.current_lead_id = None
+        
+        # If no scored leads exist, hide the right panel entirely
+        if not self.scored_leads:
+            self._configure_panel_layout(show_right_panel=False)
+            self.right_panel.grid_remove()
+            self.right_panel_title.configure(text="Right Panel")
+            self.right_panel_show_btn.place(relx=1.0, rely=0.5, anchor="e")
+        else:
+            # Show retrieved chunks
+            self.retrieved_chunks_frame.grid()
+            self.right_panel_title.configure(text="Retrieved Chunks")
+            # Update panel sizes to maintain equal sizing
+            self._update_panel_sizes()
+
+    def _extract_lead_title(self, lead: dict) -> str:
+        """Extract a title from the lead for display."""
+        analysis_text = lead.get('_edited_analysis') or lead.get('analysis', '')
+        if analysis_text:
+            from scripts.clients.agents.scoring import extract_title_from_response
+            title = extract_title_from_response(analysis_text)
+            if title and title != "Title not available":
+                return title
+        
+        # Fallback to score-based title
+        score = lead.get('score', 'N/A')
+        return f"Lead (Score: {score}/100)"
+
+    def _initialize_chat_for_lead(self, lead: dict):
+        """Initialize chat client for the specified lead."""
+        try:
+            from scripts.clients.azure import AzureClient
+            from scripts.clients.agents import ChatDiscussionAgent
+            
+            # Get selected chat model from model selector
+            selected_model = self.model_selector.get_selected_chat_model()
+            
+            # Create Azure client with selected model
+            self.chat_client = AzureClient(selected_model)
+            
+            # Create chat discussion agent
+            self.chat_agent = ChatDiscussionAgent(self.chat_client)
+            
+            # Set current lead
+            self.current_lead = lead
+            self.current_lead_id = lead.get('id') or id(lead)
+            
+            # Always clear the visual chat display first
+            self.chat_display.configure(state=tk.NORMAL)
+            self.chat_display.delete("1.0", tk.END)
+            self.chat_display.configure(state=tk.DISABLED)
+            
+            # Check if this is a new lead - if so, clear chat history
+            if self._last_lead_id != self.current_lead_id:
+                # New lead - clear chat history
+                self.chat_agent.clear_history()
+                self._last_lead_id = self.current_lead_id
+                print(f"DEBUG: New lead detected ({self.current_lead_id}), clearing chat history")
+            else:
+                # Same lead - restore previous chat history if available
+                if self.current_lead_id in self._chat_histories:
+                    self.chat_client.message_history = self._chat_histories[self.current_lead_id].copy()
+                    print(f"DEBUG: Same lead ({self.current_lead_id}), restoring chat history")
+                else:
+                    print(f"DEBUG: Same lead ({self.current_lead_id}), but no previous history found")
+            
+            # Initialize the agent for this lead
+            self.chat_agent.initialize_for_lead(lead)
+            
+        except Exception as e:
+            print(f"ERROR: Failed to initialize chat client: {e}")
+
+    def _load_chat_initial_context(self, lead: dict):
+        """Load initial context for the chat."""
+        try:
+            # Load analysis and description
+            analysis_text = lead.get('_edited_analysis') or lead.get('analysis', 'No analysis available')
+            description_text = lead.get('description', 'No description available')
+            
+            # Only load initial context for new leads (not when restoring chat history)
+            if self._last_lead_id == self.current_lead_id and self.current_lead_id in self._chat_histories:
+                # Restoring chat history - don't add initial context
+                print(f"DEBUG: Restoring chat history for lead {self.current_lead_id}, skipping initial context")
+                # Display the restored chat history
+                self._display_restored_chat_history()
+            else:
+                # New lead - add initial context
+                print(f"DEBUG: New lead {self.current_lead_id}, loading initial context")
+                
+                # Add context to chat client (but don't display in chat)
+                from langchain_core.messages import AIMessage, HumanMessage
+                analysis_message = AIMessage(content=f"**AI Analysis:**\n{analysis_text}")
+                description_message = HumanMessage(content=f"**Original Lead Description:**\n{description_text}")
+                self.chat_client.add_message(analysis_message)
+                self.chat_client.add_message(description_message)
+                
+                # Display only welcome message in chat
+                self.add_message_to_chat_display("AI Assistant", "Hello! I'm here to help you discuss this lead. You can ask me questions about the analysis, request additional information, or explore related files. How can I assist you?")
+                
+                # Add a helpful tip
+                self.add_message_to_chat_display("System", "💡 Tip: You can view the full analysis and description in the main lead display area.")
+            
+        except Exception as e:
+            print(f"ERROR: Failed to load initial context: {e}")
+
+    def _display_restored_chat_history(self):
+        """Display the restored chat history in the chat display."""
+        # Clear the chat display
+        self.chat_display.configure(state=tk.NORMAL)
+        self.chat_display.delete("1.0", tk.END)
+        self.chat_display.configure(state=tk.DISABLED)
+        
+        # Display all messages from the restored history (skip system message)
+        for message in self.chat_client.message_history:
+            if hasattr(message, '__class__'):
+                if message.__class__.__name__ == 'AIMessage':
+                    self.add_message_to_chat_display("AI Assistant", message.content)
+                elif message.__class__.__name__ == 'HumanMessage':
+                    self.add_message_to_chat_display("User", message.content)
+                # Skip SystemMessage and ToolMessage for display
+
+    def send_chat_message(self):
+        """Send user message and get AI response."""
+        user_input = self.chat_input_text.get("1.0", tk.END).strip()
+        if not user_input:
+            return
+
+        # Clear input
+        self.chat_input_text.delete("1.0", tk.END)
+
+        # Add user message to display
+        self.add_message_to_chat_display("User", user_input)
+
+        try:
+            # Get AI response using the chat agent
+            self.chat_send_button.configure(text="Thinking...", state="disabled")
+            self.update()
+            
+            response = self.chat_agent.send_message(user_input)
+            self.add_message_to_chat_display("AI Assistant", response)
+            
+            # Save chat history for this lead
+            self._save_chat_history()
+            
+        except Exception as e:
+            error_msg = f"Error getting AI response: {str(e)}"
+            self.add_message_to_chat_display("System", error_msg)
+            print(f"Chat error: {error_msg}")
+        finally:
+            self.chat_send_button.configure(text="Send", state="normal")
+
+    def add_message_to_chat_display(self, sender: str, message: str):
+        """Add a message to the chat display."""
+        import tkinter as tk
+        self.chat_display.configure(state=tk.NORMAL)
+        
+        # Add sender and message
+        if sender == "AI Assistant":
+            self.chat_display.insert(tk.END, f"🤖 {sender}:\n", "assistant")
+            self.chat_display.insert(tk.END, f"{message}\n\n", "assistant_text")
+        elif sender == "User":
+            self.chat_display.insert(tk.END, f"👤 {sender}:\n", "user")
+            self.chat_display.insert(tk.END, f"{message}\n\n", "user_text")
+        else:
+            self.chat_display.insert(tk.END, f"⚠️ {sender}:\n", "system")
+            self.chat_display.insert(tk.END, f"{message}\n\n", "system_text")
+        
+        # Scroll to bottom
+        self.chat_display.see(tk.END)
+        self.chat_display.configure(state=tk.DISABLED)
+
+    def _save_chat_history(self):
+        """Save the current chat history for this lead."""
+        try:
+            # Save a copy of the current message history
+            self._chat_histories[self.current_lead_id] = self.chat_client.message_history.copy()
+            print(f"DEBUG: Saved chat history for lead {self.current_lead_id}")
+        except Exception as e:
+            print(f"DEBUG: Failed to save chat history: {e}")
+
+    def _log_panel_sizes(self):
+        """Log the current sizes of all panels for debugging."""
+        try:
+            # Find the main frame
+            main_frame = None
+            for child in self.winfo_children():
+                if isinstance(child, ctk.CTkFrame) and child.grid_info().get('row') == 1:
+                    main_frame = child
+                    break
+            
+            if main_frame:
+                print("=" * 50)
+                print("DEBUG: Current panel sizes:")
+                for i, child in enumerate(main_frame.winfo_children()):
+                    if hasattr(child, 'winfo_width'):
+                        panel_type = ["Left (Input)", "Middle (Results)", "Right (Chunks/Chat)"][i] if i < 3 else f"Panel {i}"
+                        print(f"  {panel_type}: width={child.winfo_width()}, height={child.winfo_height()}")
+                print("=" * 50)
+        except Exception as e:
+            print(f"DEBUG: Error logging panel sizes: {e}")
+
+    def _on_window_resize(self, event):
+        """Handle window resize to maintain equal panel sizing."""
+        # Only handle main window resize, not child widget resizes
+        if event.widget == self:
+            # Use after_idle to ensure the resize is complete before adjusting panels
+            self.after_idle(self._force_equal_panel_sizing)
+
+    def _force_equal_panel_sizing(self):
+        """Force all panels to have equal width."""
+        try:
+            # Find the main frame
+            main_frame = None
+            for child in self.winfo_children():
+                if isinstance(child, ctk.CTkFrame) and child.grid_info().get('row') == 1:
+                    main_frame = child
+                    break
+            
+            if main_frame:
+                # Get the available width for the main frame
+                main_width = main_frame.winfo_width()
+                if main_width > 100:  # Only adjust if we have a reasonable width
+                    # Calculate equal width for all panels (accounting for padding)
+                    padding = 20  # Total horizontal padding
+                    available_width = main_width - padding
+                    
+                    # Check if retrieved chunks is expanded or collapsed
+                    is_expanded = getattr(self.retrieved_chunks_frame, 'is_expanded', True)
+                    
+                    if is_expanded:
+                        # All panels get equal width
+                        panel_width = available_width // 3
+                        print(f"DEBUG: Forcing equal panel sizing - width={panel_width} (expanded)")
+                        
+                        # Set explicit widths for all panels
+                        for i, child in enumerate(main_frame.winfo_children()):
+                            if hasattr(child, 'configure') and i < 3:
+                                child.configure(width=panel_width)
+                                child.grid_propagate(False)  # Prevent content from affecting size
+                    else:
+                        # Right panel is collapsed, give more space to others
+                        right_width = 200  # Fixed collapsed width
+                        remaining_width = available_width - right_width
+                        left_width = remaining_width // 2
+                        middle_width = remaining_width - left_width
+                        
+                        print(f"DEBUG: Forcing panel sizing - left={left_width}, middle={middle_width}, right={right_width} (collapsed)")
+                        
+                        # Set explicit widths
+                        for i, child in enumerate(main_frame.winfo_children()):
+                            if hasattr(child, 'configure') and i < 3:
+                                if i == 0:  # Left panel
+                                    child.configure(width=left_width)
+                                elif i == 1:  # Middle panel
+                                    child.configure(width=middle_width)
+                                elif i == 2:  # Right panel
+                                    child.configure(width=right_width)
+                                child.grid_propagate(False)  # Prevent content from affecting size
+                    
+                    # Force layout update
+                    main_frame.update_idletasks()
+                    
+        except Exception as e:
+            print(f"DEBUG: Error in force equal panel sizing: {e}")
 
     def after(self, delay, callback):
         """Wrapper for tkinter's after method."""

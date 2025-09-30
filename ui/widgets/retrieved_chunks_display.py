@@ -21,8 +21,8 @@ class RetrievedChunksDisplayFrame(ctk.CTkFrame):
         
         self.parent_window = parent
         self.is_expanded = False
-        self.sidebar_width = 400  # Full width when expanded
-        self.collapsed_width = 150  # Minimal width when collapsed
+        self.sidebar_width = 400  # Full width when expanded (1/3 of space)
+        self.collapsed_width = 200  # Minimal width when collapsed
         self.width_change_handler = None
         self._setup_ui()
     
@@ -33,39 +33,24 @@ class RetrievedChunksDisplayFrame(ctk.CTkFrame):
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
         
-        # Set initial width for sidebar (start collapsed)
-        self.configure(width=self.collapsed_width)
+        # Panel will use grid weights for responsive sizing
+        print(f"DEBUG: Retrieved chunks panel created, will use grid weights for sizing")
         
-        # Header with toggle button
+        # Header with title and count
         self.header_frame = ctk.CTkFrame(self, **get_frame_style("transparent"))
         self.header_frame.grid(row=0, column=0, sticky="ew", padx=5, pady=(10, 5))
         self.header_frame.grid_columnconfigure(1, weight=1)
         
-        # Title and toggle button container
-        title_container = ctk.CTkFrame(self.header_frame, **get_frame_style("transparent"))
-        title_container.grid(row=0, column=0, sticky="w")
-        
-        self.toggle_button = ctk.CTkButton(
-            title_container,
-            text="▶",
-            font=FONTS()["button"],
-            width=25,
-            height=25,
-            command=self._toggle_expansion,
-            fg_color=COLORS["accent_orange"],
-            hover_color=COLORS["accent_orange_hover"],
-            text_color=COLORS["text_white"]
-        )
-        self.toggle_button.pack(side="left", padx=(0, 5))
-        
+        # Title
         self.chunks_title = ctk.CTkLabel(
-            title_container,
+            self.header_frame,
             text="📄 Retrieved Chunks",
             font=FONTS()["heading"],
             text_color=COLORS["accent_orange"]
         )
-        self.chunks_title.pack(side="left")
+        self.chunks_title.grid(row=0, column=0, sticky="w")
         
+        # Count
         self.chunks_count = ctk.CTkLabel(
             self.header_frame,
             text="",
@@ -77,7 +62,7 @@ class RetrievedChunksDisplayFrame(ctk.CTkFrame):
         # Set initial count
         self.chunks_count.configure(text="0 chunks")
         
-        # Scrollable chunks area (initially hidden)
+        # Scrollable chunks area (always visible)
         self.chunks_scrollable = ctk.CTkScrollableFrame(
             self,
             **get_frame_style("secondary"),
@@ -86,12 +71,6 @@ class RetrievedChunksDisplayFrame(ctk.CTkFrame):
         )
         self.chunks_scrollable.grid(row=1, column=0, sticky="nsew", padx=10, pady=(0, 10))
         self.chunks_scrollable.grid_columnconfigure(0, weight=1)
-        
-        # Start collapsed
-        self.chunks_scrollable.grid_remove()
-        self.is_expanded = False
-        self.toggle_button.configure(text="▶")  # Show expand arrow initially
-        self.grid_propagate(False)  # Start with minimal height
         
         # Initial empty state
         self._show_empty_state()
@@ -288,9 +267,10 @@ class RetrievedChunksDisplayFrame(ctk.CTkFrame):
             # Show chunks and update button
             self.chunks_scrollable.grid()
             self.toggle_button.configure(text="◀")
-            self.configure(width=self.sidebar_width)  # Expand width
+            # Width is now handled by grid weights
             # Allow the frame to expand to full height
             self.grid_propagate(True)  # Re-enable automatic height expansion
+            print(f"DEBUG: Retrieved chunks expanding, current width={self.winfo_width()}")
             # Notify parent of width change
             if self.width_change_handler:
                 self.width_change_handler(True)
@@ -298,9 +278,10 @@ class RetrievedChunksDisplayFrame(ctk.CTkFrame):
             # Hide chunks and update button
             self.chunks_scrollable.grid_remove()
             self.toggle_button.configure(text="▶")
-            self.configure(width=self.collapsed_width)  # Collapse width
+            # Width is now handled by grid weights
             # Force the frame to only take up the height it needs
             self.grid_propagate(False)  # Prevent automatic height expansion
+            print(f"DEBUG: Retrieved chunks collapsing, current width={self.winfo_width()}")
             # Notify parent of width change
             if self.width_change_handler:
                 self.width_change_handler(False)

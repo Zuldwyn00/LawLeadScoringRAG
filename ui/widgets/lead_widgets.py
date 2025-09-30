@@ -198,6 +198,34 @@ class LeadItem(ctk.CTkFrame):
         )
         timestamp_text_label.grid(row=0, column=1, sticky="nw", padx=(6, 0))
 
+        # Discuss Lead button - positioned below timestamp in metadata column
+        discuss_lead_item = ctk.CTkFrame(metadata_frame, fg_color="transparent")
+        discuss_lead_item.grid(row=2, column=0, sticky="new", pady=(8, 0))
+        discuss_lead_item.grid_columnconfigure(1, weight=1)
+
+        discuss_lead_icon = ctk.CTkLabel(
+            discuss_lead_item,
+            text="💬",
+            font=ctk.CTkFont(size=14),
+            text_color=COLORS["accent_orange"],
+            width=20,
+            anchor="center"
+        )
+        discuss_lead_icon.grid(row=0, column=0, sticky="w")
+
+        self.discuss_lead_btn = ctk.CTkButton(
+            discuss_lead_item,
+            text="Discuss Lead",
+            width=120,
+            height=25,
+            fg_color=COLORS["accent_orange"],
+            hover_color=COLORS["accent_orange_hover"],
+            font=ctk.CTkFont(size=10, weight="bold"),
+            command=self.discuss_lead,
+            corner_radius=12
+        )
+        self.discuss_lead_btn.grid(row=0, column=1, sticky="w", padx=(6, 0))
+
         # Content frame with improved padding - spans all rows
         content_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
         # Bring content closer to the score/metadata by removing extra left padding
@@ -1099,3 +1127,18 @@ class LeadItem(ctk.CTkFrame):
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to open chat history: {str(e)}")
+
+    def discuss_lead(self):
+        """Open the discuss lead chat panel for this lead."""
+        try:
+            # Get the main window instance
+            main_window = self.winfo_toplevel()
+            
+            # Check if main window has the open_chat_for_lead method
+            if hasattr(main_window, 'open_chat_for_lead'):
+                main_window.open_chat_for_lead(self.lead)
+            else:
+                messagebox.showerror("Error", "Chat functionality not available in this window.")
+            
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to open chat for lead: {str(e)}")

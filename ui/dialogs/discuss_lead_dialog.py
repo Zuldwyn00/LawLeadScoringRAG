@@ -6,6 +6,7 @@ using the gpt-5-chat model with access to file and vector context tools.
 """
 
 import customtkinter as ctk
+import re
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
 from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
@@ -150,6 +151,7 @@ class DiscussLeadDialog(ctk.CTkToplevel):
         # Configure text tags for different message types
         self.chat_display.tag_configure("assistant", foreground=COLORS["accent_orange"], font=("Consolas", 11, "bold"))
         self.chat_display.tag_configure("assistant_text", foreground=COLORS["text_white"], font=("Consolas", 11))
+        self.chat_display.tag_configure("assistant_highlight", foreground=COLORS["accent_orange"], font=("Consolas", 11, "bold"))
         self.chat_display.tag_configure("user", foreground=COLORS["accent_orange_light"], font=("Consolas", 11, "bold"))
         self.chat_display.tag_configure("user_text", foreground=COLORS["text_white"], font=("Consolas", 11))
         self.chat_display.tag_configure("system", foreground=COLORS["accent_orange_light"], font=("Consolas", 11, "bold"))
@@ -282,6 +284,25 @@ class DiscussLeadDialog(ctk.CTkToplevel):
             
             # Bind tools to the client
             self.chat_client.client = self.chat_client.client.bind_tools(self.tool_manager.tools)
+
+            # Add chat client's telemetry to main window cost tracking list
+            try:
+                parent = getattr(self, 'master', None)
+                handler = getattr(parent, 'event_handler', None) if parent else None
+                business = getattr(handler, 'business_logic', None) if handler else None
+                if business is not None and hasattr(self.chat_client, 'telemetry_manager'):
+                    # Label override for model breakdown clarity
+                    try:
+                        base_name = self.chat_client.client_config.get("deployment_name", "unknown")
+                        self.chat_client.telemetry_manager.label_override = f"(discussion) {base_name}"
+                    except Exception:
+                        pass
+                    managers = getattr(business, 'current_lead_telemetry_managers', [])
+                    if self.chat_client.telemetry_manager not in managers:
+                        managers.append(self.chat_client.telemetry_manager)
+                        business.current_lead_telemetry_managers = managers
+            except Exception:
+                pass
 
             # Register vector clients so query_vector_context works in dialog
             try:
@@ -437,6 +458,19 @@ class DiscussLeadDialog(ctk.CTkToplevel):
         finally:
             self.send_button.configure(text="Send", state="normal")
 
+        # Update cost tracking on the main window after each turn
+        try:
+            parent = getattr(self, 'master', None)
+            handler = getattr(parent, 'event_handler', None) if parent else None
+            business = getattr(handler, 'business_logic', None) if handler else None
+            if business is not None and hasattr(parent, 'cost_tracking_widget'):
+                current_cost = business.get_current_lead_cost()
+                parent.cost_tracking_widget.update_current_lead_cost(current_cost)
+                model_costs = business.get_current_lead_cost_by_model()
+                parent.cost_tracking_widget.set_model_costs(model_costs)
+        except Exception:
+            pass
+
     def add_message_to_display(self, sender: str, message: str):
         """Add a message to the chat display."""
         self.chat_display.configure(state=tk.NORMAL)
@@ -444,7 +478,14 @@ class DiscussLeadDialog(ctk.CTkToplevel):
         # Add sender and message
         if sender == "AI Assistant":
             self.chat_display.insert(tk.END, f"🤖 {sender}:\n", "assistant")
-            self.chat_display.insert(tk.END, f"{message}\n\n", "assistant_text")
+            # Render message with **highlighted** segments
+            parts = re.split(r"(\*\*[^*]+\*\*)", message)
+            for part in parts:
+                if part.startswith("**") and part.endswith("**") and len(part) >= 4:
+                    self.chat_display.insert(tk.END, part[2:-2], "assistant_highlight")
+                else:
+                    self.chat_display.insert(tk.END, part, "assistant_text")
+            self.chat_display.insert(tk.END, "\n\n", "assistant_text")
         elif sender == "User":
             self.chat_display.insert(tk.END, f"👤 {sender}:\n", "user")
             self.chat_display.insert(tk.END, f"{message}\n\n", "user_text")

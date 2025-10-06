@@ -1,13 +1,16 @@
 # ─── FILE CONTENT TOOL ──────────────────────────────────────────────────────────
 
 from typing import List, Callable
+import json
+from pathlib import Path
 from utils import count_tokens, setup_logger, load_config
-from scripts.file_management.filemanagement import get_text_from_file, resolve_relative_path
+from scripts.file_management.filemanagement import get_text_from_file, resolve_relative_path, get_case_id_filelist_path
 from .agents.utils.summarization_registry import get_summarization_client
 
 from langchain_core.tools import tool
 from langchain_core.messages import ToolMessage
 from scripts.vectordb import QdrantManager
+from scripts.file_management.excel_processor import ExcelProcessor
 
 config = load_config()
 logger = setup_logger(__name__, config)
@@ -249,3 +252,80 @@ def get_file_context(filepath: str) -> tuple:
         error_msg = f"Error: Unable to read file {filepath}"
         logger.error(f"Failed to read file '{filepath}': {type(e).__name__}: {str(e)}")
         return (error_msg, 0)
+
+@tool
+def list_all_files_for_caseid(case_id: int):
+    """
+    Purpose (for AI agents):
+        Produce a complete, model-ready dictionary of the entire file_list Excel for
+        the specified case. Use the returned JSON string verbatim as context.
+
+    Args:
+        case_id (int): Numeric case identifier. The Excel is located at
+            scripts/data/case_data/<case_id>/file_list/*.xlsx
+
+    Behavior:
+        - Locates the file_list .xlsx file for a given case_id.
+        - Loads the entire sheet (no row/column filtering).
+        - Converts all values to strings; empty cells become the literal 'none'.
+        - Builds a dict with this structure:
+            {
+              'case_id': <int>,
+              '<file_name>': { '<col>': '<value>', ... },
+              ...
+            }
+          The nested dict includes the remaining columns for that row (first column omitted to
+          avoid duplication).
+
+    Returns:
+        str: JSON-formatted string representing the dictionary described above.
+
+    Notes for agents:
+        - Row keys are derived from the first column values.
+        - Do not assume specific schema; consume all provided columns.
+        - Treat the string 'none' as an explicit empty value.
+    """
+    excel_processor = ExcelProcessor()
+    try:
+        filepath = get_case_id_filelist_path(case_id)
+    except FileNotFoundError:
+        logger.error("No '.xlsx' file found in 'file_list' for case '%i'", case_id)
+        return "**Case %i:** No file_list Excel found." % case_id
+    # Resolve relative path to absolute path for cross-platform compatibility
+    absolute_filepath = resolve_relative_path(filepath)
+    try:
+        dataframe = excel_processor.read(absolute_filepath)
+    except Exception as e:
+        logger.error("Failed to read Excel for case '%i': %s", case_id, str(e))
+        return "**Case %i:** Error reading Excel - %s" % (case_id, str(e))
+
+    # Normalize and coerce to strings
+    try:
+        df = dataframe.fillna("none").astype(str)
+    except Exception as e:
+        logger.error("Failed to normalize dataframe for case '%i': %s", case_id, str(e))
+        return "**Case %i:** Error normalizing data - %s" % (case_id, str(e))
+
+    if df.empty:
+        logger.warning("Empty Excel sheet for case '%i'", case_id)
+        return json.dumps({'case_id': case_id, 'message': 'No rows present in file_list sheet.'})
+
+    # Build dict output
+    columns = list(df.columns)
+    first_col = columns[0]
+    result_dict = {'case_id': case_id}
+
+    for _, row in df.iterrows():
+        row_key = str(row[first_col]).strip() if row[first_col] is not None else 'none'
+        row_data = {}
+        for col in columns[1:]:
+            value = row[col]
+            row_data[str(col)] = str(value).strip() if value is not None else 'none'
+        result_dict[row_key] = row_data
+
+    json_output = json.dumps(result_dict, ensure_ascii=False)
+    logger.info("Generated dict for case '%i' with '%i' rows and '%i' columns", case_id, len(df), len(df.columns))
+    logger.info("Output for case '%i': %s", case_id, json_output)
+    return json_output
+                
+

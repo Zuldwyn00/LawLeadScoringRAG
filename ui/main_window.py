@@ -6,6 +6,7 @@ and handles the overall application flow.
 """
 
 import customtkinter as ctk
+import re
 import tkinter as tk
 from tkinter import messagebox
 
@@ -1386,6 +1387,7 @@ class MainWindow(ctk.CTk):
         # Configure text tags for different message types
         self.chat_display.tag_configure("assistant", foreground=COLORS["accent_orange"], font=("Consolas", 11, "bold"))
         self.chat_display.tag_configure("assistant_text", foreground=COLORS["text_white"], font=("Consolas", 11))
+        self.chat_display.tag_configure("assistant_highlight", foreground=COLORS["accent_orange"], font=("Consolas", 11, "bold"))
         self.chat_display.tag_configure("user", foreground=COLORS["accent_orange_light"], font=("Consolas", 11, "bold"))
         self.chat_display.tag_configure("user_text", foreground=COLORS["text_white"], font=("Consolas", 11))
         self.chat_display.tag_configure("system", foreground=COLORS["accent_orange_light"], font=("Consolas", 11, "bold"))
@@ -1526,6 +1528,23 @@ class MainWindow(ctk.CTk):
             
             # Initialize the agent for this lead
             self.chat_agent.initialize_for_lead(lead)
+
+            # Tag chat telemetry for display and add to cost managers
+            try:
+                handler = getattr(self, 'event_handler', None)
+                business = getattr(handler, 'business_logic', None)
+                if business is not None and hasattr(self.chat_client, 'telemetry_manager'):
+                    try:
+                        base_name = self.chat_client.client_config.get("deployment_name", "unknown")
+                        self.chat_client.telemetry_manager.label_override = f"(discussion) {base_name}"
+                    except Exception:
+                        pass
+                    managers = getattr(business, 'current_lead_telemetry_managers', [])
+                    if self.chat_client.telemetry_manager not in managers:
+                        managers.append(self.chat_client.telemetry_manager)
+                        business.current_lead_telemetry_managers = managers
+            except Exception:
+                pass
             
         except Exception as e:
             print(f"ERROR: Failed to initialize chat client: {e}")
@@ -1611,6 +1630,19 @@ class MainWindow(ctk.CTk):
             # Save chat history for this lead
             self._save_chat_history()
             
+            # Update cost tracking UI after each chat turn
+            try:
+                handler = getattr(self, 'event_handler', None)
+                business = getattr(handler, 'business_logic', None)
+                if business is not None and hasattr(self, 'cost_tracking_widget'):
+                    current_cost = business.get_current_lead_cost()
+                    self.cost_tracking_widget.update_current_lead_cost(current_cost)
+                    # Update model breakdown as well
+                    model_costs = business.get_current_lead_cost_by_model()
+                    self.cost_tracking_widget.set_model_costs(model_costs)
+            except Exception:
+                pass
+            
         except Exception as e:
             error_msg = f"Error getting AI response: {str(e)}"
             self.add_message_to_chat_display("System", error_msg)
@@ -1626,7 +1658,14 @@ class MainWindow(ctk.CTk):
         # Add sender and message
         if sender == "AI Assistant":
             self.chat_display.insert(tk.END, f"🤖 {sender}:\n", "assistant")
-            self.chat_display.insert(tk.END, f"{message}\n\n", "assistant_text")
+            # Render message with **highlighted** segments
+            parts = re.split(r"(\*\*[^*]+\*\*)", message)
+            for part in parts:
+                if part.startswith("**") and part.endswith("**") and len(part) >= 4:
+                    self.chat_display.insert(tk.END, part[2:-2], "assistant_highlight")
+                else:
+                    self.chat_display.insert(tk.END, part, "assistant_text")
+            self.chat_display.insert(tk.END, "\n\n", "assistant_text")
         elif sender == "User":
             self.chat_display.insert(tk.END, f"👤 {sender}:\n", "user")
             self.chat_display.insert(tk.END, f"{message}\n\n", "user_text")

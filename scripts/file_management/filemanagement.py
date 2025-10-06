@@ -345,6 +345,35 @@ class FileManager:
         logger.debug(f"Split into {len(chunks)} chunks.")
         return chunks
 
+
+def get_case_id_filelist_path(case_id: int) -> str:
+    """
+    Locate the first .xlsx in the `file_list` folder for a given case.
+
+    Args:
+        case_id (int): The numeric case identifier.
+
+    Returns:
+        str: Path to the .xlsx file (relative to project root or as configured).
+
+    Raises:
+        FileNotFoundError: If the case folder, `file_list` folder, or .xlsx file is missing.
+    """
+    case_data_base = Path(config['directories']['case_data'])
+    file_list_dir = case_data_base / str(case_id) / "file_list"
+
+    if not file_list_dir.exists() or not file_list_dir.is_dir():
+        logger.error("Missing 'file_list' directory for case '%i' at '%s'", case_id, str(file_list_dir))
+        raise FileNotFoundError("Missing 'file_list' directory for case '%i'" % case_id)
+
+    xlsx_files = list(file_list_dir.glob("*.xlsx"))
+    if not xlsx_files:
+        logger.error("No .xlsx files found in 'file_list' for case '%i'", case_id)
+        raise FileNotFoundError("No .xlsx files found for case '%i'" % case_id)
+
+    logger.info("Using file list '%s' for case '%i'", xlsx_files[0].name, case_id)
+    return str(xlsx_files[0])
+
 @deprecated("Redundant and overcomplicated, use a list of dicts like in main.")
 class ChunkData:
     def __init__(self):

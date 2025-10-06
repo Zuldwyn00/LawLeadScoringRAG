@@ -84,6 +84,7 @@ from scripts.clients import (
     MetadataAgent,
     AzureClient,
 )
+from scripts.clients.tools import list_all_files_for_caseid
 
 from scripts.clients.agents.scoring import extract_case_ids_from_search_results
 from scripts.clients.agents.utils import CaseContextEnricher
@@ -458,7 +459,14 @@ def test_file_embedding_new(filepath: str, case_id: int):
 
 
 def main():
-    process_all_case_folders(r'C:\Users\Justin\Desktop\testdocsmain2')
+    # Test: render full file_list table for a specific case
+    try:
+        table_output = list_all_files_for_caseid(2500171)
+        print(table_output)
+    except Exception as e:
+        logger.error("Failed to run list_all_files_for_caseid test for case '%s': %s", '2500171', str(e))
+    
+
 
 if __name__ == "__main__":
     main()

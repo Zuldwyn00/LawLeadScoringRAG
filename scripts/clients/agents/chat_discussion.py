@@ -13,7 +13,7 @@ from ..base import BaseClient
 from ..azure import AzureClient
 from scripts.vectordb import QdrantManager
 from .utils.vector_registry import set_vector_clients
-from ..tools import ToolManager, get_file_context, query_vector_context
+from ..tools import ToolManager, get_file_context, query_vector_context, list_all_files_for_caseid
 from utils import load_prompt, setup_logger, load_config
 
 
@@ -49,7 +49,7 @@ class ChatDiscussionAgent:
         
         # Initialize tool manager with unlimited tool calls
         self.tool_manager = ToolManager(
-            tools=[get_file_context, query_vector_context], 
+            tools=[get_file_context, query_vector_context, list_all_files_for_caseid], 
             tool_call_limit=999999
         )
         

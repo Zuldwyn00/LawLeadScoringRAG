@@ -127,7 +127,8 @@ class LeadScoringHandler:
         model_costs = {}
         for manager in self.current_lead_telemetry_managers:
             # Extract model name from client config
-            model_name = manager.config.get("deployment_name", "unknown")
+            # Allow an override label (e.g., for discussion chat clients)
+            model_name = getattr(manager, "label_override", None) or manager.config.get("deployment_name", "unknown")
             if model_name not in model_costs:
                 model_costs[model_name] = 0.0
             model_costs[model_name] += manager.total_price

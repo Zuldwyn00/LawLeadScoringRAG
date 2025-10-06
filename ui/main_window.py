@@ -386,7 +386,7 @@ class MainWindow(ctk.CTk):
         # Chat title
         self.chat_title = ctk.CTkLabel(
             self.chat_header,
-            text="💬 Discuss Lead",
+            text="💬(WIP) Discuss Lead",
             font=FONTS()["heading"],
             text_color=COLORS["text_white"]
         )
@@ -1573,11 +1573,20 @@ class MainWindow(ctk.CTk):
         # Display all messages from the restored history (skip system message)
         for message in self.chat_client.message_history:
             if hasattr(message, '__class__'):
+                # Skip system/tool messages
+                if message.__class__.__name__ in ('SystemMessage', 'ToolMessage'):
+                    continue
+                # Skip initial context messages that were added for reference only
+                content = getattr(message, 'content', '') or ''
+                if isinstance(content, str) and (
+                    content.startswith("**AI Analysis:**") or
+                    content.startswith("**Original Lead Description:**")
+                ):
+                    continue
                 if message.__class__.__name__ == 'AIMessage':
-                    self.add_message_to_chat_display("AI Assistant", message.content)
+                    self.add_message_to_chat_display("AI Assistant", content)
                 elif message.__class__.__name__ == 'HumanMessage':
-                    self.add_message_to_chat_display("User", message.content)
-                # Skip SystemMessage and ToolMessage for display
+                    self.add_message_to_chat_display("User", content)
 
     def send_chat_message(self):
         """Send user message and get AI response."""

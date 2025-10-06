@@ -160,6 +160,8 @@ def query_vector_context(search_query: str):
         qdrant_manager, embedding_client = get_vector_clients()
         
         if not qdrant_manager or not embedding_client:
+            # Log explicit error so this condition surfaces in logs
+            logger.error("Vector clients not available. search_query='%s'", search_query)
             return "Error: Vector clients not available. Make sure vector clients are registered."
         
         logger.info("Searching vector database with query: '%s'", search_query)

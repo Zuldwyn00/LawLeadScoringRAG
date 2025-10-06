@@ -12,6 +12,8 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 from ..styles import COLORS, FONTS
 from scripts.clients.azure import AzureClient
 from scripts.clients.tools import ToolManager, get_file_context, query_vector_context
+from scripts.vectordb import QdrantManager
+from scripts.clients.agents.utils.vector_registry import set_vector_clients
 
 
 class DiscussLeadDialog(ctk.CTkToplevel):
@@ -280,6 +282,15 @@ class DiscussLeadDialog(ctk.CTkToplevel):
             
             # Bind tools to the client
             self.chat_client.client = self.chat_client.client.bind_tools(self.tool_manager.tools)
+
+            # Register vector clients so query_vector_context works in dialog
+            try:
+                qdrant_manager = QdrantManager()
+                embedding_client = AzureClient("text_embedding_3_large")
+                set_vector_clients(qdrant_manager, embedding_client)
+            except Exception as reg_err:
+                # Non-fatal: chat can still work without vector search
+                print(f"ERROR: Failed to register vector clients for dialog chat: {reg_err}")
             
             # Check if this is a new lead - if so, clear chat history
             if DiscussLeadDialog._last_lead_id != self.current_lead_id:
@@ -364,11 +375,20 @@ class DiscussLeadDialog(ctk.CTkToplevel):
         
         # Display all messages from the restored history (skip system message)
         for message in self.chat_client.message_history:
-            if isinstance(message, AIMessage):
-                self.add_message_to_display("AI Assistant", message.content)
-            elif isinstance(message, HumanMessage):
-                self.add_message_to_display("User", message.content)
             # Skip SystemMessage and ToolMessage for display
+            if isinstance(message, SystemMessage) or getattr(message, '__class__', None).__name__ == 'ToolMessage':
+                continue
+            # Skip initial context messages shown only as hidden context
+            content = getattr(message, 'content', '') or ''
+            if isinstance(content, str) and (
+                content.startswith("**AI Analysis:**") or
+                content.startswith("**Original Lead Description:**")
+            ):
+                continue
+            if isinstance(message, AIMessage):
+                self.add_message_to_display("AI Assistant", content)
+            elif isinstance(message, HumanMessage):
+                self.add_message_to_display("User", content)
 
     def send_message(self):
         """Send user message and get AI response."""

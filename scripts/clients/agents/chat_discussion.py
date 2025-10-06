@@ -10,6 +10,9 @@ from typing import Optional, Dict, Any
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 
 from ..base import BaseClient
+from ..azure import AzureClient
+from scripts.vectordb import QdrantManager
+from .utils.vector_registry import set_vector_clients
 from ..tools import ToolManager, get_file_context, query_vector_context
 from utils import load_prompt, setup_logger, load_config
 
@@ -53,6 +56,19 @@ class ChatDiscussionAgent:
         # Bind tools to the client
         self.client.client = self.client.client.bind_tools(self.tool_manager.tools)
         
+        # Register vector clients so tools work during chat
+        try:
+            qdrant_manager = QdrantManager()
+            embedding_client = AzureClient("text_embedding_3_large")
+            set_vector_clients(qdrant_manager, embedding_client)
+            self.logger.info(
+                "Registered vector clients for chat: qdrant='%s', embedding='%s'",
+                qdrant_manager.__class__.__name__,
+                embedding_client.client_config.get("deployment_name", "unknown"),
+            )
+        except Exception as e:
+            self.logger.error("Failed to register vector clients for chat: %s", e)
+
         self.logger.info(
             "Initialized %s with %s", self.__class__.__name__, client.__class__.__name__
         )
@@ -114,24 +130,58 @@ class ChatDiscussionAgent:
         Returns:
             str: The AI's response
         """
+        # Safeguard: prevent concurrent sends which can break tool-call protocol
+        if getattr(self, "_in_flight", False):
+            self.logger.info("Ignored send while previous request is in-flight")
+            return "Please wait for the current response to finish."
+
         try:
+            self._in_flight = True
             # Add user message to history
             user_message = HumanMessage(content=user_input)
             self.client.add_message(user_message)
-            
-            # Get AI response
-            response = self.client.invoke()
-            
-            # Add AI response to history
-            ai_message = AIMessage(content=response.content)
-            self.client.add_message(ai_message)
-            
-            return response.content
-            
+
+            # Invoke and handle potential tool calls until a final answer is produced
+            final_text: str = ""
+            safety_iterations = 0
+            max_iterations = 8  # hard stop to avoid infinite loops
+
+            while safety_iterations < max_iterations:
+                response = self.client.invoke()
+
+                # If the model requested tools, answer with tool messages immediately
+                if hasattr(response, "tool_calls") and response.tool_calls:
+                    try:
+                        tool_msgs = self.tool_manager.batch_tool_call(response.tool_calls)
+                        # Add tool messages to history to satisfy tool_call_id protocol
+                        self.client.add_message(tool_msgs)
+                        safety_iterations += 1
+                        continue  # Ask the model to continue with tool results in context
+                    except Exception as tool_err:
+                        self.logger.error("Tool processing failed: %s", tool_err)
+                        final_text = f"Tool error: {tool_err}"
+                        break
+                else:
+                    # Normal assistant content without further tool calls
+                    final_text = response.content or ""
+                    break
+
+            if safety_iterations >= max_iterations and not final_text:
+                final_text = "Stopping due to excessive tool-call iterations."
+
+            # Mirror assistant text into history for UI restoration convenience
+            if final_text:
+                ai_message = AIMessage(content=final_text)
+                self.client.add_message(ai_message)
+
+            return final_text
+
         except Exception as e:
             error_msg = f"Error during chat discussion: {e}"
             self.logger.error(error_msg)
             return error_msg
+        finally:
+            self._in_flight = False
 
     def get_chat_history(self) -> list:
         """

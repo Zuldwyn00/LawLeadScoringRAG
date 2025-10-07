@@ -275,21 +275,30 @@ class DiscussLeadDialog(ctk.CTkToplevel):
     def initialize_chat_client(self):
         """Initialize the Azure chat client with gpt-5-chat model and tools."""
         try:
+            from scripts.clients.agents import ChatDiscussionAgent
+            
             # Create Azure client with gpt-5-chat model
             self.chat_client = AzureClient("gpt-5-chat")
             
-            # Initialize tool manager with the same tools as scoring agent
-            # Set a very high tool call limit for unlimited tool usage in chat
-            self.tool_manager = ToolManager(tools=[get_file_context, query_vector_context], tool_call_limit=999999)
+            # Get pre-initialized clients from business logic for better performance
+            parent = getattr(self, 'master', None)
+            handler = getattr(parent, 'event_handler', None) if parent else None
+            business = getattr(handler, 'business_logic', None) if handler else None
+            qdrant_manager = getattr(business, 'qdrant_manager', None) if business else None
+            embedding_client = getattr(business, 'embedding_client', None) if business else None
             
-            # Bind tools to the client
-            self.chat_client.client = self.chat_client.client.bind_tools(self.tool_manager.tools)
+            # Create chat discussion agent to handle tools and tool limits centrally
+            self.chat_agent = ChatDiscussionAgent(
+                self.chat_client,
+                qdrant_manager=qdrant_manager,
+                embedding_client=embedding_client
+            )
+            
+            # Use the agent's tool manager instead of creating our own
+            self.tool_manager = self.chat_agent.tool_manager
 
             # Add chat client's telemetry to main window cost tracking list
             try:
-                parent = getattr(self, 'master', None)
-                handler = getattr(parent, 'event_handler', None) if parent else None
-                business = getattr(handler, 'business_logic', None) if handler else None
                 if business is not None and hasattr(self.chat_client, 'telemetry_manager'):
                     # Label override for model breakdown clarity
                     try:
@@ -303,20 +312,11 @@ class DiscussLeadDialog(ctk.CTkToplevel):
                         business.current_lead_telemetry_managers = managers
             except Exception:
                 pass
-
-            # Register vector clients so query_vector_context works in dialog
-            try:
-                qdrant_manager = QdrantManager()
-                embedding_client = AzureClient("text_embedding_3_large")
-                set_vector_clients(qdrant_manager, embedding_client)
-            except Exception as reg_err:
-                # Non-fatal: chat can still work without vector search
-                print(f"ERROR: Failed to register vector clients for dialog chat: {reg_err}")
             
             # Check if this is a new lead - if so, clear chat history
             if DiscussLeadDialog._last_lead_id != self.current_lead_id:
                 # New lead - clear chat history
-                self.chat_client.clear_history()
+                self.chat_agent.clear_history()
                 DiscussLeadDialog._last_lead_id = self.current_lead_id
                 print(f"DEBUG: New lead detected ({self.current_lead_id}), clearing chat history")
             else:
@@ -327,11 +327,8 @@ class DiscussLeadDialog(ctk.CTkToplevel):
                 else:
                     print(f"DEBUG: Same lead ({self.current_lead_id}), but no previous history found")
             
-            # Add system message using the lead_discussion prompt
-            from utils import load_prompt
-            lead_discussion_prompt = load_prompt("lead_discussion")
-            system_message = SystemMessage(content=lead_discussion_prompt)
-            self.chat_client.add_message(system_message)
+            # Initialize the agent for this lead
+            self.chat_agent.initialize_for_lead(self.lead)
             
         except Exception as e:
             messagebox.showerror("Error", f"Failed to initialize chat client: {str(e)}")
@@ -423,29 +420,13 @@ class DiscussLeadDialog(ctk.CTkToplevel):
         # Add user message to display
         self.add_message_to_display("User", user_input)
 
-        # Add user message to chat client
-        user_message = HumanMessage(content=user_input)
-        self.chat_client.add_message(user_message)
-
         try:
-            # Get AI response
+            # Get AI response using the chat agent (handles tool calls automatically)
             self.send_button.configure(text="Thinking...", state="disabled")
             self.update()
             
-            response = self.chat_client.invoke()
-            
-            # Handle tool calls if present
-            if hasattr(response, 'tool_calls') and response.tool_calls:
-                # Process tool calls
-                tool_responses = self.tool_manager.batch_tool_call(response.tool_calls)
-                self.chat_client.add_message(tool_responses)
-                
-                # Get final response after tool calls
-                final_response = self.chat_client.invoke()
-                self.add_message_to_display("AI Assistant", final_response.content)
-            else:
-                # Regular response without tool calls
-                self.add_message_to_display("AI Assistant", response.content)
+            response = self.chat_agent.send_message(user_input)
+            self.add_message_to_display("AI Assistant", response)
             
             # Save chat history for this lead
             self._save_chat_history()

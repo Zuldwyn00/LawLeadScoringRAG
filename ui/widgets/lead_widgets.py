@@ -215,7 +215,7 @@ class LeadItem(ctk.CTkFrame):
 
         self.discuss_lead_btn = ctk.CTkButton(
             discuss_lead_item,
-            text="Discuss Lead",
+            text="(WIP) Discuss Lead",
             width=120,
             height=25,
             fg_color=COLORS["accent_orange"],

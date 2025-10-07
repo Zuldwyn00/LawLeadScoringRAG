@@ -25,13 +25,16 @@ class ChatDiscussionAgent:
     with access to file context and vector search tools.
     """
 
-    def __init__(self, client: BaseClient):
+    def __init__(self, client: BaseClient, qdrant_manager=None, embedding_client=None, tool_call_limit=9999):
         """
         Initialize the ChatDiscussionAgent with a client.
 
         Args:
             client (BaseClient): A concrete implementation of BaseClient
                                 (e.g., AzureClient) for LLM communication.
+            qdrant_manager (QdrantManager, optional): Pre-initialized vector database manager.
+            embedding_client (BaseClient, optional): Pre-initialized embedding client.
+            tool_call_limit (int): Maximum number of tool calls allowed (default: 50).
 
         Raises:
             ValueError: If BaseClient is used directly instead of a concrete implementation.
@@ -47,27 +50,37 @@ class ChatDiscussionAgent:
         self.prompt = load_prompt("lead_discussion")
         self.logger = setup_logger(self.__class__.__name__, load_config())
         
-        # Initialize tool manager with unlimited tool calls
+        # Initialize tool manager with reasonable tool call limit
         self.tool_manager = ToolManager(
             tools=[get_file_context, query_vector_context, list_all_files_for_caseid], 
-            tool_call_limit=999999
+            tool_call_limit=tool_call_limit
         )
         
         # Bind tools to the client
         self.client.client = self.client.client.bind_tools(self.tool_manager.tools)
         
-        # Register vector clients so tools work during chat
-        try:
-            qdrant_manager = QdrantManager()
-            embedding_client = AzureClient("text_embedding_3_large")
+        # Use provided clients or create new ones only if necessary
+        if qdrant_manager and embedding_client:
+            # Use pre-initialized clients (preferred for performance)
             set_vector_clients(qdrant_manager, embedding_client)
             self.logger.info(
-                "Registered vector clients for chat: qdrant='%s', embedding='%s'",
+                "Using provided vector clients for chat: qdrant='%s', embedding='%s'",
                 qdrant_manager.__class__.__name__,
                 embedding_client.client_config.get("deployment_name", "unknown"),
             )
-        except Exception as e:
-            self.logger.error("Failed to register vector clients for chat: %s", e)
+        else:
+            # Fallback: create new clients (less efficient)
+            try:
+                qdrant_manager = QdrantManager()
+                embedding_client = AzureClient("text_embedding_3_large")
+                set_vector_clients(qdrant_manager, embedding_client)
+                self.logger.info(
+                    "Created new vector clients for chat: qdrant='%s', embedding='%s'",
+                    qdrant_manager.__class__.__name__,
+                    embedding_client.client_config.get("deployment_name", "unknown"),
+                )
+            except Exception as e:
+                self.logger.error("Failed to register vector clients for chat: %s", e)
 
         self.logger.info(
             "Initialized %s with %s", self.__class__.__name__, client.__class__.__name__
@@ -91,7 +104,28 @@ class ChatDiscussionAgent:
             # Load lead context
             self._load_lead_context(lead)
             
-            self.logger.info("Initialized chat discussion for lead: %s", lead.get('id', 'unknown'))
+            # Get a meaningful identifier for the lead using the same logic as the UI
+            try:
+                # Extract title from analysis text if available
+                analysis_text = lead.get('_edited_analysis') or lead.get('analysis', '')
+                if analysis_text:
+                    from .scoring import extract_title_from_response
+                    title = extract_title_from_response(analysis_text)
+                    if title and title != "Title not available":
+                        lead_title = title
+                    else:
+                        # Fallback to score-based title
+                        score = lead.get('score', 'N/A')
+                        lead_title = f"Lead (Score: {score}/100)"
+                else:
+                    # Fallback to score-based title
+                    score = lead.get('score', 'N/A')
+                    lead_title = f"Lead (Score: {score}/100)"
+            except Exception:
+                # Fallback if title extraction fails
+                lead_title = lead.get('id') or lead.get('timestamp') or 'unknown'
+            
+            self.logger.info("Initialized chat discussion for lead: %s", lead_title)
             
         except Exception as e:
             self.logger.error("Error initializing chat discussion: %s", e)
@@ -141,36 +175,37 @@ class ChatDiscussionAgent:
             user_message = HumanMessage(content=user_input)
             self.client.add_message(user_message)
 
-            # Invoke and handle potential tool calls until a final answer is produced
-            final_text: str = ""
-            safety_iterations = 0
-            max_iterations = 8  # hard stop to avoid infinite loops
+            # Get AI response
+            response = self.client.invoke()
 
-            while safety_iterations < max_iterations:
-                response = self.client.invoke()
-
-                # If the model requested tools, answer with tool messages immediately
-                if hasattr(response, "tool_calls") and response.tool_calls:
+            # Handle tool calls if present (single iteration only)
+            if hasattr(response, "tool_calls") and response.tool_calls:
+                # Check if we're approaching tool call limit
+                if self.tool_manager.tool_call_count >= self.tool_manager.tool_call_limit:
+                    self.logger.warning("Tool call limit reached, stopping tool usage")
+                    final_text = response.content or "I've reached the tool usage limit for this conversation."
+                else:
                     try:
+                        # Process tool calls
                         tool_msgs = self.tool_manager.batch_tool_call(response.tool_calls)
-                        # Add tool messages to history to satisfy tool_call_id protocol
+                        # Add tool messages to history
                         self.client.add_message(tool_msgs)
-                        safety_iterations += 1
-                        continue  # Ask the model to continue with tool results in context
+                        
+                        # Get final response after tool calls
+                        final_response = self.client.invoke()
+                        final_text = final_response.content or ""
+                        
+                        # Add final response to history
+                        ai_message = AIMessage(content=final_text)
+                        self.client.add_message(ai_message)
                     except Exception as tool_err:
                         self.logger.error("Tool processing failed: %s", tool_err)
                         final_text = f"Tool error: {tool_err}"
-                        break
-                else:
-                    # Normal assistant content without further tool calls
-                    final_text = response.content or ""
-                    break
-
-            if safety_iterations >= max_iterations and not final_text:
-                final_text = "Stopping due to excessive tool-call iterations."
-
-            # Mirror assistant text into history for UI restoration convenience
-            if final_text:
+            else:
+                # Normal response without tool calls
+                final_text = response.content or ""
+                
+                # Add response to history
                 ai_message = AIMessage(content=final_text)
                 self.client.add_message(ai_message)
 

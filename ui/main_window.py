@@ -1497,15 +1497,32 @@ class MainWindow(ctk.CTk):
             # Get selected chat model from model selector
             selected_model = self.model_selector.get_selected_chat_model()
             
-            # Create Azure client with selected model
-            self.chat_client = AzureClient(selected_model)
-            
-            # Create chat discussion agent
-            self.chat_agent = ChatDiscussionAgent(self.chat_client)
-            
             # Set current lead
             self.current_lead = lead
             self.current_lead_id = lead.get('id') or id(lead)
+            
+            # Check if we need to create a new chat agent (model change or first time)
+            if (not hasattr(self, 'chat_agent') or 
+                not hasattr(self, 'chat_client') or 
+                self.chat_client.client_config.get("deployment_name") != selected_model):
+                
+                # Create Azure client with selected model
+                self.chat_client = AzureClient(selected_model)
+                
+                # Get pre-initialized clients from business logic to avoid expensive re-initialization
+                handler = getattr(self, 'event_handler', None)
+                business = getattr(handler, 'business_logic', None)
+                qdrant_manager = getattr(business, 'qdrant_manager', None) if business else None
+                embedding_client = getattr(business, 'embedding_client', None) if business else None
+                
+                # Create chat discussion agent with pre-initialized clients for better performance
+                self.chat_agent = ChatDiscussionAgent(
+                    self.chat_client, 
+                    qdrant_manager=qdrant_manager,
+                    embedding_client=embedding_client
+                )
+                
+                print(f"DEBUG: Created new chat agent with model: {selected_model}")
             
             # Always clear the visual chat display first
             self.chat_display.configure(state=tk.NORMAL)

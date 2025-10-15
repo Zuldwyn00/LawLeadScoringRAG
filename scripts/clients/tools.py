@@ -4,7 +4,7 @@ from typing import List, Callable
 import json
 from pathlib import Path
 from utils import count_tokens, setup_logger, load_config
-from scripts.file_management.filemanagement import get_text_from_file, resolve_relative_path, get_case_id_filelist_path
+from scripts.file_management.filemanagement import get_text_from_file, resolve_relative_path, get_case_id_filelist_path, resolve_missing_extension
 from .agents.utils.summarization_registry import get_summarization_client
 
 from langchain_core.tools import tool
@@ -213,7 +213,10 @@ def get_file_context(filepath: str) -> tuple:
     """
     token_threshold: int = 1200
     try:
-        # Convert relative paths to absolute paths
+        # Resolve missing extension using shared filemanagement resolver
+        filepath = resolve_missing_extension(filepath)
+
+        # Convert relative paths to absolute paths (after potential adjustment above)
         absolute_filepath = resolve_relative_path(filepath)
         parsed = get_text_from_file(absolute_filepath)
         if not parsed or "content" not in parsed:
@@ -325,7 +328,7 @@ def list_all_files_for_caseid(case_id: int):
 
     json_output = json.dumps(result_dict, ensure_ascii=False)
     logger.info("Generated dict for case '%i' with '%i' rows and '%i' columns", case_id, len(df), len(df.columns))
-    logger.info("Output for case '%i': %s", case_id, json_output)
+    logger.info("Output for case '%i': %s", case_id, json_output[:50])
     return json_output
                 
 

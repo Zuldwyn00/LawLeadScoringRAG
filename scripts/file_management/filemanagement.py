@@ -603,3 +603,81 @@ def resolve_relative_path(relative_path: str) -> str:
         return str(case_data_fallback)
     
     raise FileNotFoundError("File not found: '%s'" % relative_path)
+
+
+def resolve_missing_extension(filepath: str) -> str:
+    """
+    Resolve a missing file extension by searching the parent directory for a file
+    whose stem matches the provided filepath's stem using a normalized comparison.
+
+    Normalization: case-insensitive, trims whitespace, and removes spaces, dashes,
+    and underscores to create a robust match for stems that differ only by
+    formatting.
+
+    If exactly one candidate is found, returns a project-relative path (preferring
+    a 'case_data/...' style path when applicable). If multiple candidates are
+    found, logs a warning and returns the first match deterministically. If no
+    candidates are found or a suffix is present already, returns the original
+    filepath unmodified.
+
+    Args:
+        filepath (str): The input filepath, possibly without an extension.
+
+    Returns:
+        str: The possibly adjusted filepath with the resolved extension, or the
+             original filepath if no resolution was performed.
+    """
+    def _normalize(name: str) -> str:
+        # Preserve spaces/dashes/underscores as they exist on disk; only compare case-insensitively
+        return name.lower().strip()
+
+    try:
+        file_path = Path(filepath)
+        # If an extension exists, do nothing
+        if file_path.suffix:
+            return filepath
+
+        project_root = Path.cwd()
+        case_data_base = Path(config.get('directories', {}).get('case_data', 'scripts/data/case_data'))
+
+        # Determine directory to search
+        if str(file_path).startswith('case_data'):
+            parent_rel = Path(*file_path.parts[1:-1])  # skip 'case_data', exclude filename
+            dir_to_search = project_root / case_data_base / parent_rel
+        elif file_path.is_absolute():
+            dir_to_search = file_path.parent
+        else:
+            dir_to_search = project_root / file_path.parent
+
+        if not dir_to_search.exists() or not dir_to_search.is_dir():
+            logger.warning("Parent directory '%s' not found when resolving missing extension for '%s'", str(dir_to_search), filepath)
+            return filepath
+
+        target_stem_norm = _normalize(file_path.stem)
+        candidates = []
+        for child in dir_to_search.iterdir():
+            if not child.is_file():
+                continue
+            if _normalize(child.stem) == target_stem_norm:
+                candidates.append(child)
+
+        if not candidates:
+            return filepath
+
+        if len(candidates) > 1:
+            candidates_sorted = sorted(candidates, key=lambda p: p.name.lower())
+            selected = candidates_sorted[0]
+            logger.warning("Multiple files matched stem '%s' in '%s'; selected '%s'", file_path.stem, str(dir_to_search), selected.name)
+        else:
+            selected = candidates[0]
+            logger.info("Resolved missing extension for '%s' to '%s'", filepath, selected.name)
+
+        # Prefer a project-relative path, ideally starting with 'case_data/...'
+        try:
+            rel_to_project = selected.relative_to(project_root)
+            return str(rel_to_project)
+        except ValueError:
+            return str(selected)
+    except Exception as e:
+        logger.error("Error resolving missing extension for '%s': %s", filepath, str(e))
+        return filepath

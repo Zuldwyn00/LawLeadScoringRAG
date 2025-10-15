@@ -178,36 +178,35 @@ class ChatDiscussionAgent:
             # Get AI response
             response = self.client.invoke()
 
-            # Handle tool calls if present (single iteration only)
-            if hasattr(response, "tool_calls") and response.tool_calls:
-                # Check if we're approaching tool call limit
+            # Handle tool calls iteratively until resolved or limit reached
+            final_text = ""
+            while hasattr(response, "tool_calls") and response.tool_calls:
                 if self.tool_manager.tool_call_count >= self.tool_manager.tool_call_limit:
                     self.logger.warning("Tool call limit reached, stopping tool usage")
                     final_text = response.content or "I've reached the tool usage limit for this conversation."
-                else:
-                    try:
-                        # Process tool calls
-                        tool_msgs = self.tool_manager.batch_tool_call(response.tool_calls)
-                        # Add tool messages to history
-                        self.client.add_message(tool_msgs)
-                        
-                        # Get final response after tool calls
-                        final_response = self.client.invoke()
-                        final_text = final_response.content or ""
-                        
-                        # Add final response to history
-                        ai_message = AIMessage(content=final_text)
-                        self.client.add_message(ai_message)
-                    except Exception as tool_err:
-                        self.logger.error("Tool processing failed: %s", tool_err)
-                        final_text = f"Tool error: {tool_err}"
-            else:
-                # Normal response without tool calls
+                    break
+
+                try:
+                    # Normalize tool calls to the dict format expected by ToolManager
+                    normalized_calls = self._normalize_tool_calls(response.tool_calls)
+                    # Execute tools and append tool messages to history to satisfy adjacency requirements
+                    tool_msgs = self.tool_manager.batch_tool_call(normalized_calls)
+                    self.client.add_message(tool_msgs)
+
+                    # Re-invoke model after tool results are appended
+                    response = self.client.invoke()
+                except Exception as tool_err:
+                    self.logger.error("Tool processing failed: %s", tool_err)
+                    final_text = f"Tool error: {tool_err}"
+                    break
+
+            # If no further tool calls, capture final content
+            if not final_text:
                 final_text = response.content or ""
-                
-                # Add response to history
-                ai_message = AIMessage(content=final_text)
-                self.client.add_message(ai_message)
+
+            # Record the final assistant message content
+            ai_message = AIMessage(content=final_text)
+            self.client.add_message(ai_message)
 
             return final_text
 
@@ -217,6 +216,61 @@ class ChatDiscussionAgent:
             return error_msg
         finally:
             self._in_flight = False
+
+    def _normalize_tool_calls(self, tool_calls: list) -> list:
+        """Normalize tool call objects into {'name','args','id'} dicts for ToolManager.
+
+        Handles both direct {'name','args','id'} and 'function' style with JSON string arguments.
+        """
+        normalized: list = []
+        for call in tool_calls:
+            try:
+                # Extract id
+                call_id = getattr(call, 'id', None) or (call.get('id') if isinstance(call, dict) else None) or 'unknown'
+
+                # Extract name
+                name = None
+                if isinstance(call, dict):
+                    name = call.get('name')
+                else:
+                    name = getattr(call, 'name', None)
+                if not name:
+                    function_obj = (call.get('function') if isinstance(call, dict) else getattr(call, 'function', None)) or {}
+                    name = function_obj.get('name') if isinstance(function_obj, dict) else getattr(function_obj, 'name', None)
+
+                # Extract args
+                args = None
+                if isinstance(call, dict):
+                    args = call.get('args')
+                else:
+                    args = getattr(call, 'args', None)
+                if not args:
+                    function_obj = (call.get('function') if isinstance(call, dict) else getattr(call, 'function', None)) or {}
+                    arguments = function_obj.get('arguments') if isinstance(function_obj, dict) else getattr(function_obj, 'arguments', None)
+                    if isinstance(arguments, str):
+                        try:
+                            import json as _json
+                            parsed = _json.loads(arguments)
+                            args = parsed if isinstance(parsed, dict) else {"input": parsed}
+                        except Exception:
+                            args = {"input": arguments}
+                    elif arguments is not None:
+                        args = arguments
+                if args is None:
+                    args = {}
+
+                if not name:
+                    self.logger.error("Tool call missing name; id='%s'", call_id)
+                    continue
+
+                normalized.append({
+                    'name': name,
+                    'args': args,
+                    'id': call_id,
+                })
+            except Exception as e:
+                self.logger.error("Failed to normalize tool call: %s", e)
+        return normalized
 
     def get_chat_history(self) -> list:
         """

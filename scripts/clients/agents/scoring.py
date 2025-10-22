@@ -72,27 +72,13 @@ class LeadScoringAgent:
             kwargs (dict): Keyword arguments passed to the constructor.
         """
         # Temperature for main client
-        if "temperature" in kwargs:
-            self.client.client.temperature = kwargs.pop("temperature")
-
+        self.client.client.temperature = kwargs.pop("temperature", None)
         # Confidence threshold with default
-        if "confidence_threshold" in kwargs:
-            self.confidence_threshold = kwargs.pop("confidence_threshold")
-        else:
-            self.confidence_threshold = 80
-
+        self.confidence_threshold = kwargs.pop("confidence_threshold", 80)
         # Final model configuration
-        if "final_model" in kwargs:
-            self.final_model: str = kwargs.pop("final_model")
-        else:
-            self.final_model = None
-
-        if "final_model_temperature" in kwargs:
-            self.final_model_temperature: Optional[float] = kwargs.pop(
-                "final_model_temperature"
-            )
-        else:
-            self.final_model_temperature = None
+        self.final_model = kwargs.pop("final_model", None)
+        #Final model temperature
+        self.final_model_temperature = kwargs.pop("final_model_temperature", None)
 
         # Initialize final client if final model is specified
         self.final_client: AzureClient | None = None

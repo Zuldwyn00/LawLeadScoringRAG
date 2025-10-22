@@ -25,6 +25,12 @@ class BaseClient(ABC):
         # rate_limiter: Optional[RateLimiter] = None,
         message_history: Optional[List[BaseMessage]] = None,
     ):
+        # Prevent using the abstract BaseClient class directly
+        if self.__class__ == BaseClient:
+            raise ValueError(
+                "Cannot use BaseClient directly. Please provide a concrete implementation "
+                "that inherits from BaseClient (e.g., AzureClient)."
+            )
 
         # if metrics is None:
         # metrics = MetricsCollector() #TODO: Define default MetricsCollector

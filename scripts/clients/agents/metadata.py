@@ -16,12 +16,6 @@ class MetadataAgent:
     """
 
     def __init__(self, client: BaseClient):
-
-        if client.__class__ == BaseClient:
-            raise ValueError(
-                "Cannot use BaseClient directly. Please provide a concrete implementation "
-                "that inherits from BaseClient (e.g., AzureClient)."
-            )
         self.client = client
         self.prompt = load_prompt("metadata_extraction")
         self.rate_limit_flag = False

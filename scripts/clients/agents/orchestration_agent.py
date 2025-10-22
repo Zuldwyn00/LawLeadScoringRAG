@@ -6,7 +6,7 @@ from utils import load_prompt, setup_logger, load_config
 
 
 
-class TooltipAgent:
+class OrchestrationAgent:
     """
     An agent for generating tooltips for scored leads using an LLM.
     
@@ -16,7 +16,7 @@ class TooltipAgent:
 
     def __init__(self, client: BaseClient):
         """
-        Initialize the TooltipAgent with a client.
+        Initialize the OrchestrationAgent with a client.
 
         Args:
             client (BaseClient): A concrete implementation of BaseClient

@@ -30,13 +30,6 @@ class SummarizationAgent:
         Raises:
             ValueError: If the client is the BaseClient class itself (abstract class)
         """
-        # Prevent using the abstract BaseClient class directly
-        if client.__class__ == BaseClient:
-            raise ValueError(
-                "Cannot use BaseClient directly. Please provide a concrete implementation "
-                "that inherits from BaseClient (e.g., AzureClient)."
-            )
-
         self.client = client
         self.prompt = load_prompt("summarize_text")
         self.logger = setup_logger(self.__class__.__name__, load_config())

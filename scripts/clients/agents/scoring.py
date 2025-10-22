@@ -33,13 +33,6 @@ class LeadScoringAgent:
                 final_model (str, optional): Model name for final scoring pass without tools (default: None).
                 final_model_temperature (float, optional): Temperature for final model (default: None).
         """
-        # Prevent using the abstract BaseClient class directly
-        if client.__class__ == BaseClient:
-            raise ValueError(
-                "Cannot use BaseClient directly. Please provide a concrete implementation "
-                "that inherits from BaseClient (e.g., AzureClient)."
-            )
-
         self.client = client
         self.prompt = load_prompt("lead_scoring")
         self.tool_manager = ToolManager(tools=[get_file_context, query_vector_context])
@@ -385,7 +378,6 @@ class LeadScoringAgent:
                             )
                         )
                     return None
-
             validation_msg = _validate_confidence_threshold_and_tool_limit()
 
             # If we've hit the confidence threshold or tool_call_limit, get the final lead.
@@ -411,10 +403,10 @@ class LeadScoringAgent:
             else:
                 # If no tools were requested but we haven't met the threshold, instruct the model to continue.
                 continue_message_text = (
-                    f"[SYSTEM INTRUCTION] Your confidence appears to be below the threshold, but you didn't use any tools as required by your instructions. "
+                    f"[SYSTEM INTRUCTION] Your confidence appears to be below the threshold, but you didn't use tools as required by your instructions. "
                     f"Tool usage count: {self.tool_manager.tool_call_count}/{self.tool_manager.tool_call_limit}. "
                     f"You MUST use tools to attain more information from the existing data or by searching for a new query. "
-                    f"Review the historical context and select files to examine or search a new query for more information."
+                    f"Review the context so far and continue to follow the lead scoring process by calling more tools."
                 )
                 # if no tool calls were found, inform the AI it needs to make more and give it the historical context again.
                 continue_message = SystemMessage(content=continue_message_text)

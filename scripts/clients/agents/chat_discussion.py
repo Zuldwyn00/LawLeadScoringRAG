@@ -39,13 +39,6 @@ class ChatDiscussionAgent:
         Raises:
             ValueError: If BaseClient is used directly instead of a concrete implementation.
         """
-        # Prevent using the abstract BaseClient class directly
-        if client.__class__ == BaseClient:
-            raise ValueError(
-                "Cannot use BaseClient directly. Please provide a concrete implementation "
-                "that inherits from BaseClient (e.g., AzureClient)."
-            )
-
         self.client = client
         self.prompt = load_prompt("lead_discussion")
         self.logger = setup_logger(self.__class__.__name__, load_config())

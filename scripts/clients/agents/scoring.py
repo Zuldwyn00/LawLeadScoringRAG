@@ -129,7 +129,7 @@ class LeadScoringAgent:
         self.logger.debug("Using case_ids for context enrichment: '%s'", list(case_ids))
         case_enriched_context_message = SystemMessage(
             content=(
-                f"**Supplemental Case Information for reference - (Case ID's here directly correlate to the case ID's from the historical case contexts above.):**\n"
+                f"[SYSTEM INTRUCTION] **Supplemental Case Information for reference - (Case ID's here directly correlate to the case ID's from the historical case contexts above.):**\n"
                 f"{self.context_enricher.build_context_message(case_ids)}"
             )
         )
@@ -144,14 +144,14 @@ class LeadScoringAgent:
 
         # Build an initial tool-usage system message so the model knows its starting budget
         initial_tool_usage_text = (
-            f"Your tool usage count is at '{self.tool_manager.tool_call_count} out of "
+            f"[SYSTEM INTRUCTION] Your tool usage count is at '{self.tool_manager.tool_call_count} out of "
             f"{self.tool_manager.tool_call_limit} maximum tool calls, you MUST use at least 1 tool call during your beginning score.'."
         )
         initial_tool_usage_message = SystemMessage(content=initial_tool_usage_text)
 
         # Create historical context as a separate system message
         historical_context_message = SystemMessage(
-            content=f"**Historical Case Contexts for Reference:**\n{historical_context}"
+            content=f"[SYSTEM INTRUCTION] **Historical Case Contexts for Reference:**\n{historical_context}"
         )
 
         # Create user message with only the new lead description
@@ -218,7 +218,7 @@ class LeadScoringAgent:
 
                 # Add jurisdiction modifier explanation and replace the final response
                 modifier_explanation = SystemMessage(
-                    content=f"JURISDICTION MODIFIER APPLIED: Original score {original_score} modified to {modified_score} "
+                    content=f"[SYSTEM INTRUCTION] JURISDICTION MODIFIER APPLIED: Original score {original_score} modified to {modified_score} "
                     f"using {jurisdiction} jurisdiction modifier of {modifier:.3f}x. "
                     f"Final adjusted score: {modified_score}/100"
                 )
@@ -382,7 +382,7 @@ class LeadScoringAgent:
                     >= self.tool_manager.tool_call_limit
                 ):
                     return SystemMessage(
-                        content="Tool call limit reached, provide your final lead score analysis."
+                        content="[SYSTEM INTRUCTION] Tool call limit reached, provide your final lead score analysis."
                     )
                 confidence_score = extract_confidence_from_response(
                     self.current_lead_score.content
@@ -394,7 +394,7 @@ class LeadScoringAgent:
                     if confidence_score >= self.confidence_threshold:
                         return SystemMessage(
                             content=(
-                                f"Confidence is {confidence_score} / {self.confidence_threshold} , "
+                                f"[SYSTEM INTRUCTION] Confidence is {confidence_score} / {self.confidence_threshold} , "
                                 "threshold for confidence reached, provide your final lead score analysis."
                             )
                         )
@@ -425,7 +425,7 @@ class LeadScoringAgent:
             else:
                 # If no tools were requested but we haven't met the threshold, instruct the model to continue.
                 continue_message_text = (
-                    f"Your confidence appears to be below the threshold, but you didn't use any tools as required by your instructions. "
+                    f"[SYSTEM INTRUCTION] Your confidence appears to be below the threshold, but you didn't use any tools as required by your instructions. "
                     f"Tool usage count: {self.tool_manager.tool_call_count}/{self.tool_manager.tool_call_limit}. "
                     f"You MUST use tools to attain more information from the existing data or by searching for a new query. "
                     f"Review the historical context and select files to examine or search a new query for more information."
@@ -483,7 +483,7 @@ class LeadScoringAgent:
         # Create a detailed tool usage summary message for the AI to reference in its final response
         tool_usage_details = self.tool_manager.get_tool_usage_summary()
         tool_usage_summary_msg = SystemMessage(
-            content=f"Tool Usage Summary: You made {self.tool_manager.tool_call_count} tool calls out of {self.tool_manager.tool_call_limit} maximum. "
+            content=f"[SYSTEM INTRUCTION] Tool Usage Summary: You made {self.tool_manager.tool_call_count} tool calls out of {self.tool_manager.tool_call_limit} maximum. "
             f"{tool_usage_details}. Please include this exact information in your Analysis Depth & Tool Usage:' section."
         )
 
@@ -514,7 +514,7 @@ class LeadScoringAgent:
                         tool_context_entries.append(f"Tool Result: {msg.content}")
 
             return SystemMessage(
-                content=f"**Previous Tool Calls and Results Context:**\n{chr(10).join(tool_context_entries)}"
+                content=f"[SYSTEM INTRUCTION] **Previous Tool Calls and Results Context:**\n{chr(10).join(tool_context_entries)}"
             ) if tool_context_entries else None
 
         # Build aggregated tool context using nested function
